@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # KAVACH Field Worker Execution Agent
 
 A modular FastAPI backend for field-worker task execution,
@@ -196,3 +197,6 @@ deployment security.
 Completion submission records a worker claim. Nothing in this service
 verifies photos or locations; the Verification Agent is responsible for
 independently assessing the reported work.
+=======
+# Kavach-epam
+>>>>>>> origin/Field-worker-agent
