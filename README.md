@@ -42,7 +42,7 @@ Citizen Complaint (text / voice transcript / photos / GPS pin)
 
 Every branch was created from the `Initial commit` and is independent of the others.
 
-| Branch | Agent | Stack | Storage | Maturity |
+| Branch | Agent | Stack | Storage | Maturity ||
 |---|---|---|---|---|---|
 | `incident-intelligence-agent` | 1. Incident Intelligence | FastAPI, Gemini, Pillow | memory or PostgreSQL (JSONB) | Most complete, v1.1.1 with audit fixes |
 | `duplicate-detection-agent` | 2. Duplicate Detection | Pure Python library, Pydantic, scikit-learn | in-memory + synthetic data | Core engine done, **no HTTP layer yet** |
