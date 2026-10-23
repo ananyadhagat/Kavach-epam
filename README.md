@@ -1,24 +1,24 @@
-# Kavach: AI-driven Multi-Agent Incident Management
+# Kavach: AI-Driven Multi-Agent Incident Management
 
-**Team Codyssey** · EPAM Learning Track project · *"AI-driven Intelligence for Smarter Incident Resolution"*
+**Team Codyssey** · *"AI-driven Intelligence for Smarter Incident Resolution"*
 
-Kavach takes a citizen complaint about sanitation or a public incident and carries it all the way to a **verified resolution**: structuring the complaint, detecting duplicates, prioritising it, getting approval, assigning a worker, tracking the field work, and checking the result with before/after photos and GPS.
+Kavach takes a citizen complaint about sanitation or a public incident and carries it all the way to a **verified resolution**: structuring the complaint, detecting duplicates, prioritising it, getting approval, assigning a worker, tracking the field work and checking the result with before/after photos and GPS.
 
-> **Project status (23 Oct 2026): all seven agents are built as standalone services, each on its own branch. They are not merged or wired together yet.**
-> `main` holds only this README. Section 5 shows what works today, section 6 shows what is still missing, and section 7 lists the next steps.
+> **Project Status (As of 23 Oct 2026): All 7 agents are built as standalone services, each on its own branch. They are not merged or wired together yet.**
+> `main` holds only this README. Section 5 shows what works today, section 6 shows what is still missing and section 7 lists the next steps.
 
 ---
 
-## 1. Problem and solution
+## 1. Problem and Solution
 
-Complaint handling for sanitation and public incidents is slow, workers are not accountable, and emergencies are poorly coordinated. There is no central view of problem-prone areas, repeat issues go unnoticed, and citizens cannot track their complaint.
+Complaint handling for sanitation and public incidents is slow, workers are not accountable and emergencies are poorly coordinated. There is no central view of problem-prone areas, repeat issues go unnoticed, and citizens cannot track their complaint.
 
-Kavach replaces that with a pipeline of cooperating AI agents. The design principle used across the code is that **the LLM suggests or describes, and deterministic Python rules decide**. Gemini never has the final say on priority, approval or pass/fail.
+Kavach replaces that with a pipeline of cooperating AI agents. The design principle used across the code is that **the LLM suggests or describes and deterministic Python rules decide**. Gemini never has the final say on priority, approval or pass/fail.
 
-## 2. Agent workflow
+## 2. Agent Workflow
 
 ```
-Citizen complaint (text / voice transcript / photos / GPS pin)
+Citizen Complaint (text / voice transcript / photos / GPS pin)
         │
   1. Incident Intelligence ──► structured incident record
         │
@@ -38,23 +38,23 @@ Citizen complaint (text / voice transcript / photos / GPS pin)
    Pass → incident closed        Fail → sent back to Supervisor / re-dispatch
 ```
 
-## 3. Repository map: one branch per agent
+## 3. Repository Map: one branch per agent
 
 Every branch was created from the `Initial commit` and is independent of the others.
 
-| Branch | Agent | Owner (GitHub) | Stack | Storage | Maturity |
+| Branch | Agent | Stack | Storage | Maturity |
 |---|---|---|---|---|---|
-| `incident-intelligence-agent` | 1. Incident Intelligence | Shreya Kaushik (`shreyakaushik878-cloud`) | FastAPI, Gemini, Pillow | memory or PostgreSQL (JSONB) | Most complete, v1.1.1 with audit fixes |
-| `duplicate-detection-agent` | 2. Duplicate Detection | Yash Dadlani | Pure Python library, Pydantic, scikit-learn | in-memory + synthetic data | Core engine done, **no HTTP layer yet** |
-| `supervisor-agent` | 3. Supervisor | Karanveer Singh Malhotra (`Karanveersm`) | FastAPI, Gemini (google-genai) | none | Stage 1, no tests |
-| `sanitation-work` | 4. Sanitation | Namrata Digarse (team lead) | FastAPI, **LangGraph**, Gemini | none | Plan and handoff working |
-| `dispatch-work` | 5. Dispatch | Ananya Dhagat (`ananyadhagat`) | FastAPI | in-memory demo workers | Stage 1, no tests |
-| `Field-worker-agent` | 6. Field Worker | Shweta Mishra (`shwetamishra1910`) | FastAPI, async SQLAlchemy, Alembic, Pillow | **PostgreSQL (required)** | Most thorough backend and test suite |
-| `verification-agent` | 7. Verification | `MrBadDrip` | FastAPI, OpenCV, Gemini vision | memory or SQLite audit log | Complete prototype with requirements-coverage doc |
+| `incident-intelligence-agent` | 1. Incident Intelligence | FastAPI, Gemini, Pillow | memory or PostgreSQL (JSONB) | Most complete, v1.1.1 with audit fixes |
+| `duplicate-detection-agent` | 2. Duplicate Detection | Pure Python library, Pydantic, scikit-learn | in-memory + synthetic data | Core engine done, **no HTTP layer yet** |
+| `supervisor-agent` | 3. Supervisor | FastAPI, Gemini (google-genai) | none | Stage 1, no tests |
+| `sanitation-work` | 4. Sanitation | FastAPI, **LangGraph**, Gemini | none | Plan and handoff working |
+| `dispatch-work` | 5. Dispatch | FastAPI | in-memory demo workers | Stage 1, no tests |
+| `Field-worker-agent` | 6. Field Worker | FastAPI, async SQLAlchemy, Alembic, Pillow | **PostgreSQL (required)** | Most thorough backend and test suite |
+| `verification-agent` | 7. Verification | FastAPI, OpenCV, Gemini vision | memory or SQLite audit log | Complete prototype with requirements-coverage doc |
 
 The design specifications for the agents (flowcharts and technical explanations, PDF) are stored on the `verification-agent` branch in `docs/specs/`.
 
-## 4. What each agent does
+## 4. What each Agent does
 
 ### 1. Incident Intelligence (`incident-intelligence-agent`)
 Turns a raw complaint into a validated `StructuredIncidentRecord`.
@@ -114,7 +114,7 @@ Decides whether the completed work really solved the problem.
 | `supervisor-agent` | no test suite | manual mock-mode check returned `APPROVED_TO_PROCEED` for a routine case |
 | `dispatch-work` | no test suite | app imports and lists its 4 demo workers |
 
-## 6. Plan vs. repository
+## 6. Plan vs. Repository
 
 | Planned in the project slides | In the repository today |
 |---|---|
@@ -130,13 +130,6 @@ Decides whether the completed work really solved the problem.
 | Predictive monitoring, crowd safety, women SOS, worker rewards | Future scope, not started |
 
 ## 7. Known issues and next steps
-
-**Quick fixes**
-- [ ] `Field-worker-agent/README.md` still contains unresolved merge-conflict markers (`<<<<<<<`, `=======`, `>>>>>>>`). Clean them up.
-- [ ] `dispatch-work`: `requirements.txt` is empty (needs `fastapi`, `uvicorn`) and the package file is named `app/_init_.py` (should be `__init__.py`).
-- [ ] `supervisor-agent`: the API key is read from an env variable literally named `key_needed`, and the default model ID `gemini-3.8-flash` should be confirmed against what your key can actually use.
-- [ ] `sanitation-work`: mock Gemini in the 6 network-dependent tests. The branch also pins Python 3.14, so agree one Python version for the team.
-- [ ] `verification-agent/docs/specs/`: one spec file is missing its `.pdf` extension, and `REQUIREMENTS_COVERAGE.md` refers to an `AUDIT.md` and a guide PDF that are not in the branch.
 
 **Integration work (in this order)**
 1. **Agree one shared contract**: incident ID format, category vocabulary and the field names passed between agents. The agents currently use different vocabularies, for example Intelligence `WASTE_OVERFLOW`, Sanitation `overflowing_dustbin`, and Duplicate's examples `ROAD_DAMAGE`. The Supervisor's input is documented as an assumption, and the Intelligence→Duplicate handoff is a draft.
@@ -175,6 +168,6 @@ Every service exposes interactive API docs at `/docs` (Swagger UI) when running.
 | Role | Members |
 |---|---|
 | Team lead | Namrata Digarse |
-| Members | Shreya Kaushik, Shweta Mishra, Shubhrit Tiwari, Kavyansh Gupta, Om Gupta, Karanveer Singh Malhotra, Ananya Dhagat, Divyansh Kackker, Yash Dadlani |
+| Members | Kavyansh Gupta, Shreya Kaushik, Shweta Mishra, Shubhrit Tiwari, Om Gupta, Karanveer Singh Malhotra, Ananya Dhagat, Divyansh Kackker, Yash Dadlani |
 
 *Thank you. Together we can enable cleaner and smarter public management.*
