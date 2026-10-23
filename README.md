@@ -1,6 +1,6 @@
 # Kavach: AI-Driven Multi-Agent Incident Management
 
-**Team Codyssey** · *"AI-driven Intelligence for Smarter Incident Resolution"*
+**Team Codyssey** · *"AI-Driven Intelligence for Smarter Incident Resolution"*
 
 Kavach takes a citizen complaint about sanitation or a public incident and carries it all the way to a **verified resolution**: structuring the complaint, detecting duplicates, prioritising it, getting approval, assigning a worker, tracking the field work and checking the result with before/after photos and GPS.
 
