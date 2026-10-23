@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GeoSatya · Location-verified civic reporting</title>
+<meta name="description" content="Report civic issues with photo and location evidence, and verify that the work was done at the right place.">
+<meta name="theme-color" content="#0A1630">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Sora:wght@500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="styles.css">
+<script src="config.js"></script>
+</head>
+<body>
+<button class="skip" type="button" onclick="document.getElementById('main').focus()">Skip to content</button>
+<div class="shell">
+  <aside class="sidebar">
+    <a class="brand" href="#/" aria-label="GeoSatya home">
+      <span class="logo" aria-hidden="true"></span>
+      <span><strong>GeoSatya</strong><small>Verified on the ground</small></span>
+    </a>
+    <nav id="nav" class="nav" aria-label="Main"></nav>
+  </aside>
+  <div class="content">
+    <header class="topbar">
+      <div id="role-switcher" class="role-switcher"></div>
+      <label id="sim-toggle" class="sim-toggle" hidden title="Uses made-up coordinates for testing. Always labelled SIMULATED.">
+        <input type="checkbox" id="sim-check"><span>Simulate GPS (demo)</span>
+      </label>
+    </header>
+    <main id="main" class="main" tabindex="-1"></main>
+  </div>
+</div>
+<div id="toasts" class="toasts" aria-live="polite"></div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
