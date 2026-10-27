@@ -108,32 +108,64 @@ class MockLLM:
         (r"\bfire\b|smoke", "PUBLIC_SAFETY", "FIRE_HAZARD"),
     )
 
+  
     def generate(self, prompt: PromptBundle) -> str:
-        m = re.search(r"<complaint>\n(.*?)\n</complaint>", prompt.user_text, re.DOTALL)
-        text = (m.group(1) if m else "").strip()
+        complaint_match = re.search(
+            r"<complaint>\n(.*?)\n</complaint>",
+            prompt.user_text,
+            re.DOTALL,
+        )
+        voice_match = re.search(
+            r"<voice_transcript>\n(.*?)\n</voice_transcript>",
+            prompt.user_text,
+            re.DOTALL,
+        )
+
+        complaint = (complaint_match.group(1) if complaint_match else "").strip()
+        transcript = (voice_match.group(1) if voice_match else "").strip()
+
+        # Use both sources for classification while retaining their provenance.
+        text = " ".join(part for part in (complaint, transcript) if part).strip()
         low = text.lower()
+
         category, itype = "OTHER", "UNKNOWN"
         for pattern, cat, typ in self._RULES:
             if re.search(pattern, low):
                 category, itype = cat, typ
                 break
+
         severity = "MEDIUM" if re.search(r"block|overflow|spill", low) else "UNKNOWN"
+
+        extracted_facts = []
+        if complaint:
+            extracted_facts.append({
+                "fact": complaint[:250],
+                "source": "COMPLAINT_TEXT",
+            })
+        if transcript:
+            extracted_facts.append({
+                "fact": transcript[:250],
+                "source": "VOICE_TRANSCRIPT",
+            })
+
         return json.dumps({
             "incident_summary": text[:200] or "No description",
             "category": category,
             "incident_type": itype,
             "severity_recommendation": severity,
             "severity_reason": "Mock keyword heuristic",
-            "extracted_facts": [{"fact": text[:250], "source": "COMPLAINT_TEXT"}] if text else [],
+            "extracted_facts": extracted_facts,
             "claimed_location_text": None,
             "claimed_time_text": None,
-            "image_observations": [f"{len(prompt.images)} image(s) attached (not analysed in mock mode)"]
-            if prompt.images else [],
+            "image_observations": [
+                f"{len(prompt.images)} image(s) attached (not analysed in mock mode)"
+            ] if prompt.images else [],
             "missing_information": [],
             "conflicting_information": [],
             "needs_clarification": False,
             "clarification_questions": [],
         })
+
 
 
 def create_llm(settings: Settings) -> IncidentLLM:

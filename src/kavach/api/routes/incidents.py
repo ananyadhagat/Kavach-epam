@@ -107,9 +107,10 @@ def _read_uploads(images: list[UploadFile], max_images: int, max_bytes: int) -> 
 # ------------------------------------------------------------------ routes
 @router.post("", response_model=StructuredIncidentRecord, status_code=201,
              dependencies=[Depends(enforce_rate_limit)])
+
 def submit_incident(
     request: Request,
-    complaint_text: str = Form(..., min_length=1, max_length=5000),
+    complaint_text: str | None = Form(None, max_length=5000),
     selected_latitude: str | None = Form(None),
     selected_longitude: str | None = Form(None),
     device_latitude: str | None = Form(None),
@@ -121,46 +122,100 @@ def submit_incident(
     x_request_id: str | None = Header(default=None),
 ) -> StructuredIncidentRecord:
     orch = _orchestrator(request)
+
     try:
-        s_lat, s_lon = _opt_float("selected_latitude", selected_latitude), _opt_float("selected_longitude", selected_longitude)
-        d_lat, d_lon = _opt_float("device_latitude", device_latitude), _opt_float("device_longitude", device_longitude)
+        s_lat = _opt_float("selected_latitude", selected_latitude)
+        s_lon = _opt_float("selected_longitude", selected_longitude)
+        d_lat = _opt_float("device_latitude", device_latitude)
+        d_lon = _opt_float("device_longitude", device_longitude)
         acc = _opt_float("device_accuracy_meters", device_accuracy_meters)
 
-        pin = Coordinates(latitude=s_lat, longitude=s_lon) if _pair(s_lat, s_lon, "selected") else None
+        complaint = (complaint_text or "").strip()
+        transcript = (voice_transcript or "").strip()
+
+        if not complaint and not transcript:
+            raise HTTPException(
+                status_code=422,
+                detail="Provide either complaint text or a voice transcript.",
+            )
+
+        pin = (
+            Coordinates(latitude=s_lat, longitude=s_lon)
+            if _pair(s_lat, s_lon, "selected")
+            else None
+        )
+
         device = None
         if _pair(d_lat, d_lon, "device"):
-            device = DeviceLocation(latitude=d_lat, longitude=d_lon, accuracy_meters=acc,
-                                    observed_at=device_observed_at or None)
+            device = DeviceLocation(
+                latitude=d_lat,
+                longitude=d_lon,
+                accuracy_meters=acc,
+                observed_at=device_observed_at or None,
+            )
+
         submission = IncidentSubmission(
-            request_id=(x_request_id or str(uuid.uuid4())),
-            complaint_text=complaint_text.strip(),
+            request_id=x_request_id or str(uuid.uuid4()),
+            complaint_text=complaint or None,
             selected_incident_location=pin,
             device_location=device,
-            voice_transcript=(voice_transcript or "").strip() or None,
+            voice_transcript=transcript or None,
         )
+
     except ValidationError as exc:
         raise HTTPException(422, detail=_errors(exc))
 
     uploads = _read_uploads(images, orch.max_images, orch.max_image_bytes)
+
     try:
         return orch.process(submission, uploads)
-    except LLMUnavailableError:
-        raise HTTPException(503, detail={"code": "LLM_UNAVAILABLE", "message": "Analysis temporarily unavailable; please retry."},
-                            headers={"Retry-After": "30"})
-    except LLMRequestRejectedError:
-        raise HTTPException(502, detail={"code": "LLM_REQUEST_REJECTED",
-                                         "message": "Analysis service rejected the request; operators have been alerted."})
-    except IncidentProcessingError:
-        raise HTTPException(502, detail={"code": "MODEL_OUTPUT_INVALID",
-                                         "message": "Could not produce a valid incident record; flagged for retry/review."})
-    except IdempotencyConflictError:
-        raise HTTPException(409, detail={"code": "REQUEST_ID_REUSED",
-                                         "message": "This X-Request-ID was already used for a different complaint."})
-    except RepositoryError:
-        raise HTTPException(503, detail={"code": "STORAGE_UNAVAILABLE",
-                                         "message": "Complaint could not be saved; please retry."},
-                            headers={"Retry-After": "30"})
 
+    except LLMUnavailableError:
+        raise HTTPException(
+            503,
+            detail={
+                "code": "LLM_UNAVAILABLE",
+                "message": "Analysis temporarily unavailable; please retry.",
+            },
+            headers={"Retry-After": "30"},
+        )
+
+    except LLMRequestRejectedError:
+        raise HTTPException(
+            502,
+            detail={
+                "code": "LLM_REQUEST_REJECTED",
+                "message": "Analysis service rejected the request; operators have been alerted.",
+            },
+        )
+
+    except IncidentProcessingError:
+        raise HTTPException(
+            502,
+            detail={
+                "code": "MODEL_OUTPUT_INVALID",
+                "message": "Could not produce a valid incident record; flagged for retry/review.",
+            },
+        )
+
+    except IdempotencyConflictError:
+        raise HTTPException(
+            409,
+            detail={
+                "code": "REQUEST_ID_REUSED",
+                "message": "This X-Request-ID was already used for a different complaint.",
+            },
+        )
+
+    except RepositoryError:
+        raise HTTPException(
+            503,
+            detail={
+                "code": "STORAGE_UNAVAILABLE",
+                "message": "Complaint could not be saved; please retry.",
+            },
+            headers={"Retry-After": "30"},
+        )
 
 def _get_or_404(request: Request, incident_id: str) -> StructuredIncidentRecord:
     try:

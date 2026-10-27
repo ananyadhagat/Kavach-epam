@@ -11,7 +11,8 @@ import logging
 import threading
 import uuid
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime
+from zoneinfo import ZoneInfo
 from typing import Callable
 
 from kavach.agents.incident_intelligence import IncidentIntelligenceAgent
@@ -76,7 +77,7 @@ class IncidentIntelligenceOrchestrator:
         location_service: LocationVerificationService | None = None,
         max_image_bytes: int = 8 * 1024 * 1024,
         max_images: int = 4,
-        clock: Callable[[], datetime] = lambda: datetime.now(timezone.utc),
+       clock: Callable[[], datetime] = lambda: datetime.now(ZoneInfo("Asia/Kolkata")),
         id_factory: Callable[[], str] = lambda: f"INC-{uuid.uuid4().hex[:10].upper()}",
         media_store: MediaStore | None = None,
         handoff_client: DuplicateDetectionClient | None = None,

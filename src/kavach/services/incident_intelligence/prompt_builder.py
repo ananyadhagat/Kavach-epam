@@ -76,16 +76,29 @@ def neutralize_tags(text: str) -> str:
     return _TAG.sub("[tag removed]", text)
 
 
+
 def build_prompt(inp: IncidentIntelligenceInput, images: list[ValidatedImage]) -> PromptBundle:
-    voice = (f"<voice_transcript>\n{neutralize_tags(inp.voice_transcript)}\n</voice_transcript>\n"
-             if inp.voice_transcript else "")
+    complaint = (
+        f"<complaint>\n{neutralize_tags(inp.complaint_text)}\n</complaint>\n"
+        if inp.complaint_text
+        else ""
+    )
+
+    voice = (
+        f"<voice_transcript>\n{neutralize_tags(inp.voice_transcript)}\n</voice_transcript>\n"
+        if inp.voice_transcript
+        else ""
+    )
+
     user = (
         f"TAXONOMY (version {inp.taxonomy_version}):\n{render_taxonomy_for_prompt()}\n\n"
         f"SEVERITY RUBRIC:\n{SEVERITY_RUBRIC}\n\n"
-        f"SYSTEM EVIDENCE SUMMARY (trusted, server-generated):\n{_evidence_summary(inp)}\n\n"
-        f"<complaint>\n{neutralize_tags(inp.complaint_text)}\n</complaint>\n{voice}\n"
+        f"SYSTEM EVIDENCE SUMMARY (trusted, server-generated):\n"
+        f"{_evidence_summary(inp)}\n\n"
+        f"{complaint}{voice}\n"
         f"Return JSON with exactly these fields:\n{RESPONSE_FIELDS}"
     )
+
     return PromptBundle(SYSTEM_INSTRUCTION, user, images)
 
 

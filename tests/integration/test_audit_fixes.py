@@ -271,7 +271,7 @@ def test_duplicate_detection_payload_matches_agent2_contract(make_image):
     assert p["category"] == "WASTE_OVERFLOW"
     assert p["location"] == {"facility_id": None, "location_id": None, "latitude": 23.25, "longitude": 77.4}
     assert p["image_hash"] == b["media"][0]["perceptual_hash"]
-    assert p["reported_at"].endswith("+00:00")  # timezone-aware
+    assert p["reported_at"].endswith("+05:30")  # timezone-aware
     assert p["kavach_agent1"]["contract_version"] == HANDOFF_CONTRACT_VERSION
 
 
@@ -306,3 +306,4 @@ def test_handoff_posts_payload_to_agent2():
     b = client.post(URL, data={**TEXT, **PIN}).json()
     srv.server_close()
     assert got["body"]["complaint_id"] == b["incident_id"]
+

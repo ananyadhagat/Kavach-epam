@@ -4,5 +4,6 @@ pydantic>=2.6
 python-multipart>=0.0.9
 Pillow>=10.1
 google-genai>=1.0
+tzdata
 # optional (KAVACH_REPOSITORY=postgres): psycopg[binary]>=3.1
 # dev: pytest>=8 httpx>=0.27

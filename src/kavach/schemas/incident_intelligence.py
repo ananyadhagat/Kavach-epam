@@ -68,15 +68,15 @@ class EvidenceSource(str, Enum):
 
 
 # ---------------------------------------------------------------- request side
+
 class IncidentSubmission(BaseModel):
     """What the API layer assembles from the citizen's request (before enrichment)."""
     request_id: str = Field(min_length=1, max_length=100)
-    complaint_text: str = Field(min_length=1, max_length=5000)
+    complaint_text: str | None = Field(default=None, max_length=5000)
     selected_incident_location: Coordinates | None = None
     device_location: DeviceLocation | None = None
-    voice_transcript: str | None = Field(default=None, max_length=5000)  # STT is a separate component
+    voice_transcript: str | None = Field(default=None, max_length=5000)
     facility_reference: Coordinates | None = None  # server-side lookup only; never client-trusted
-
 
 class MediaReference(BaseModel):
     media_id: str
@@ -90,9 +90,10 @@ class MediaReference(BaseModel):
     reject_reason: str | None = None
 
 
+
 class IncidentIntelligenceInput(BaseModel):
     request_id: str
-    complaint_text: str
+    complaint_text: str | None = None
     selected_incident_location: Coordinates | None = None
     device_location: DeviceLocation | None = None
     image_refs: list[MediaReference] = Field(default_factory=list)
@@ -101,6 +102,7 @@ class IncidentIntelligenceInput(BaseModel):
     location_check: LocationCheckSummary | None = None  # server-generated
     submitted_at: datetime  # server-generated
     taxonomy_version: str
+
 
 
 # ---------------------------------------------------------------- model proposal

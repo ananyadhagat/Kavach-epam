@@ -1,21 +1,325 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>KAVACH · Incident Lab</title>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>KAVACH · Incident Lab</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
 <style>
-:root{color-scheme:dark;--bg:#0b1020;--panel:#121a2d;--line:#26334e;--muted:#9eacc5;--text:#eef3ff;--lime:#b6f36b;--blue:#7ca8ff}*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 20% 0%,#172747 0,transparent 42%),var(--bg);color:var(--text);font:15px/1.5 Inter,Segoe UI,Arial,sans-serif}.wrap{max-width:1240px;margin:auto;padding:28px 20px 60px}.top{display:flex;align-items:center;justify-content:space-between;gap:15px;margin-bottom:24px}.brand{display:flex;gap:12px;align-items:center}.logo{background:var(--lime);color:#17220c;font-weight:900;border-radius:12px;padding:10px 12px}.eyebrow{font-size:11px;letter-spacing:.18em;color:var(--lime);font-weight:800}.sub{color:var(--muted);font-size:13px}.pill{border:1px solid var(--line);padding:7px 11px;border-radius:99px;color:var(--muted);font-size:12px}.layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(340px,.9fr);gap:18px}.panel{background:linear-gradient(150deg,#141e34,#101727);border:1px solid var(--line);border-radius:18px;padding:22px;min-width:0}.panel h2{font-size:17px;margin:0 0 5px}.hint{color:var(--muted);font-size:12px;margin:0 0 18px}label{display:block;font-size:12px;color:#c7d3e9;font-weight:700;margin:14px 0 7px}textarea,input[type=text],input[type=search]{width:100%;background:#0b1222;border:1px solid #2a3958;border-radius:10px;color:var(--text);padding:12px;font:inherit;outline:none}textarea:focus,input:focus{border-color:var(--blue)}textarea{min-height:110px;resize:vertical}.searchrow,.btnrow{display:flex;gap:8px}.searchrow input{flex:1;min-width:0}.btn{border:1px solid #334463;background:#1a2740;color:var(--text);padding:10px 13px;border-radius:10px;font-weight:700;cursor:pointer;white-space:nowrap}.btn:hover{filter:brightness(1.18)}.primary{background:var(--lime);color:#18220e;border-color:var(--lime)}.mapbox{border:1px solid #2a3958;border-radius:12px;overflow:hidden}#map{height:350px;background:#1b2940}.mapfoot{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:10px;background:#0c1425;font-size:12px;color:var(--muted)}.coords{color:var(--lime);font-variant-numeric:tabular-nums}.file{background:#0b1222;border:1px dashed #405173;padding:13px;border-radius:10px;width:100%;color:var(--muted)}.check{display:flex;gap:8px;align-items:flex-start;color:var(--muted);font-size:12px;margin-top:12px}.check input{margin-top:4px}.submit{width:100%;margin-top:17px;padding:14px}.status{margin-top:12px;padding:11px 13px;border:1px solid var(--line);border-radius:10px;color:var(--muted);font-size:13px;white-space:pre-wrap}.status.good{border-color:#416b38;color:#c5f3ad}.status.bad{border-color:#7b3c48;color:#ffb8c2}pre{margin:0;white-space:pre-wrap;overflow-wrap:anywhere;font:12px/1.55 ui-monospace,SFMono-Regular,Consolas,monospace;color:#d9e5ff}.output{max-height:800px;overflow:auto;background:#080e19;border:1px solid var(--line);padding:15px;border-radius:12px}.keygrid{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin:14px 0}.metric{background:#0b1222;border:1px solid var(--line);border-radius:10px;padding:12px}.metric small{display:block;color:var(--muted);font-size:11px}.metric strong{font-size:14px;overflow-wrap:anywhere}.footer{color:var(--muted);font-size:11px;margin-top:18px}.hidden{display:none}@media(max-width:850px){.layout{grid-template-columns:1fr}.wrap{padding:16px 12px 40px}.panel{padding:16px}.top{align-items:flex-start}.pill{display:none}#map{height:310px}}
-</style></head><body><main class="wrap"><header class="top"><div class="brand"><div class="logo">K</div><div><div class="eyebrow">KAVACH / INCIDENT LAB</div><div style="font-size:22px;font-weight:800">Complaint testing console</div><div class="sub">Agent 1 · sanitation-first incident intelligence</div></div></div><div class="pill">LOCAL TESTING · API :8000</div></header>
-<div class="layout"><section class="panel"><h2>01 / Report an incident</h2><p class="hint">Fill the complaint, optionally add evidence, then submit it to your running FastAPI backend.</p><form id="form"><label for="complaint">Complaint description *</label><textarea id="complaint" required maxlength="5000" placeholder="Example: Garbage has been piling up near the community dustbin for three days. It smells bad and is attracting flies."></textarea>
-<label for="voice">Voice transcript (optional)</label><textarea id="voice" maxlength="5000" style="min-height:65px" placeholder="Paste an already-transcribed voice report, if testing this field."></textarea>
-<label>02 / Select incident location on map</label><p class="hint">Search an address/landmark or click the map to drop a pin. Drag the pin to adjust it.</p><div class="searchrow"><input id="search" type="search" placeholder="Search address or landmark…"><button class="btn" type="button" id="searchBtn">Search</button></div><div class="btnrow" style="margin:9px 0 12px"><button class="btn" type="button" id="locateBtn">◎ Use my device GPS</button><button class="btn" type="button" id="clearPin">Clear incident pin</button></div><div class="mapbox"><div id="map"></div><div class="mapfoot"><span id="pinStatus">No incident pin selected</span><span class="coords" id="coords">Lat — · Lon —</span></div></div><div class="check"><input id="includeDevice" type="checkbox" checked><span>When device GPS is available, send it as a separate evidence source. It does not replace the incident pin.</span></div>
-<label for="images">03 / Upload evidence photos (optional)</label><input class="file" id="images" type="file" accept="image/*" multiple><p class="hint" style="margin-top:7px">Use original JPEG photos with EXIF GPS to test image location extraction. Image metadata may be absent from screenshots or messaging-app copies.</p>
-<button class="btn primary submit" id="submitBtn" type="submit">Run incident analysis →</button><div class="status" id="status">Waiting for a complaint. Backend: http://127.0.0.1:8000</div></form><div class="footer">Map tiles © OpenStreetMap contributors. Address search uses public Nominatim; use sparingly. Browser GPS requires permission and localhost/HTTPS.</div></section>
-<section class="panel"><h2>04 / Analysis output</h2><p class="hint">Response from POST /api/v1/incidents · raw JSON is shown for debugging.</p><div class="keygrid"><div class="metric"><small>Incident ID</small><strong id="incidentId">—</strong></div><div class="metric"><small>Severity</small><strong id="severity">—</strong></div><div class="metric"><small>Category / type</small><strong id="category">—</strong></div><div class="metric"><small>Location check</small><strong id="locationCheck">—</strong></div></div><label>Full API response</label><div class="output"><pre id="output">Submit a complaint to see the structured incident record here.</pre></div></section></div></main>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script><script>
-const $=id=>document.getElementById(id);let selected=null,device=null,marker=null,deviceMarker=null;const map=L.map('map').setView([23.2599,77.4126],12);L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap contributors'}).addTo(map);
-function setPin(latlng){selected={latitude:Number(latlng.lat.toFixed(7)),longitude:Number(latlng.lng.toFixed(7))};if(!marker){marker=L.marker(latlng,{draggable:true}).addTo(map);marker.on('dragend',()=>setPin(marker.getLatLng()))}else marker.setLatLng(latlng);$('pinStatus').textContent='Incident pin selected · drag to adjust';$('coords').textContent=`Lat ${selected.latitude} · Lon ${selected.longitude}`}
-map.on('click',e=>setPin(e.latlng));$('clearPin').onclick=()=>{selected=null;if(marker){map.removeLayer(marker);marker=null}$('pinStatus').textContent='No incident pin selected';$('coords').textContent='Lat — · Lon —'};
-async function searchPlace(){const q=$('search').value.trim();if(!q)return setStatus('Enter an address or landmark to search.','bad');setStatus('Searching address…');try{const r=await fetch('https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q='+encodeURIComponent(q),{headers:{'Accept':'application/json'}});if(!r.ok)throw Error('Address search unavailable');const a=await r.json();if(!a.length)throw Error('No result found. Try a more specific landmark.');const ll=L.latLng(+a[0].lat,+a[0].lon);map.setView(ll,17);setPin(ll);setStatus('Found: '+a[0].display_name,'good')}catch(e){setStatus(e.message,'bad')}}$('searchBtn').onclick=searchPlace;$('search').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();searchPlace()}});
-function setStatus(s,kind=''){const el=$('status');el.textContent=s;el.className='status '+kind}
-$('locateBtn').onclick=()=>{if(!navigator.geolocation)return setStatus('This browser does not support geolocation.','bad');setStatus('Waiting for browser GPS permission…');navigator.geolocation.getCurrentPosition(pos=>{device={latitude:pos.coords.latitude,longitude:pos.coords.longitude,accuracy:pos.coords.accuracy,observed_at:new Date(pos.timestamp).toISOString()};const ll=L.latLng(device.latitude,device.longitude);if(deviceMarker)map.removeLayer(deviceMarker);deviceMarker=L.circleMarker(ll,{radius:8,color:'#78a9ff',fillColor:'#78a9ff',fillOpacity:.75}).addTo(map).bindPopup('Device GPS (separate evidence)');map.setView(ll,16);$('includeDevice').checked=true;setStatus(`Device GPS captured (accuracy ±${Math.round(device.accuracy)} m). Incident pin remains separate.`, 'good')},e=>setStatus('GPS failed: '+({1:'Permission denied. Allow location access for localhost.',2:'Position unavailable.',3:'GPS request timed out.'}[e.code]||e.message),'bad'),{enableHighAccuracy:true,timeout:15000,maximumAge:0})};
-$('form').addEventListener('submit',async e=>{e.preventDefault();const complaint=$('complaint').value.trim();if(!complaint)return setStatus('Complaint text is required.','bad');const fd=new FormData();fd.append('complaint_text',complaint);const voice=$('voice').value.trim();if(voice)fd.append('voice_transcript',voice);if(selected){fd.append('selected_latitude',String(selected.latitude));fd.append('selected_longitude',String(selected.longitude))}if(device&&$('includeDevice').checked){fd.append('device_latitude',String(device.latitude));fd.append('device_longitude',String(device.longitude));fd.append('device_accuracy_meters',String(device.accuracy));fd.append('device_observed_at',device.observed_at)}for(const f of $('images').files)fd.append('images',f,f.name);$('submitBtn').disabled=true;$('submitBtn').textContent='Analyzing…';setStatus('Sending complaint to FastAPI. Large images may take a moment…');$('output').textContent='Waiting for API response…';try{const r=await fetch('/api/v1/incidents',{method:'POST',body:fd,headers:{'X-Request-ID':crypto.randomUUID()}});const body=await r.json();$('output').textContent=JSON.stringify(body,null,2);if(!r.ok){setStatus(`API error ${r.status}: `+(body.detail?.message||JSON.stringify(body.detail||body)),'bad');$('incidentId').textContent='—';$('severity').textContent='—';$('category').textContent='—';$('locationCheck').textContent='—';return}const loc=body.location_evidence_summary?.check||{};$('incidentId').textContent=body.incident_id||'—';$('severity').textContent=body.severity_recommendation||'—';$('category').textContent=`${body.category||'—'} / ${body.incident_type||'—'}`;$('locationCheck').textContent=loc.status||'—';setStatus(`Analysis complete · HTTP ${r.status}. Check the JSON for EXIF results, missing information and location comparisons.`,'good')}catch(err){setStatus('Could not reach API. Confirm backend is running and open this page through http://127.0.0.1:8000/tester/ (not as a file). Details: '+err.message,'bad');$('output').textContent=String(err)}finally{$('submitBtn').disabled=false;$('submitBtn').textContent='Run incident analysis →'}});
-</script></body></html>
+:root{color-scheme:dark;--bg:#0b1020;--panel:#121a2d;--line:#26334e;--muted:#9eacc5;--text:#eef3ff;--lime:#b6f36b;--blue:#7ca8ff}
+*{box-sizing:border-box}
+body{margin:0;background:radial-gradient(ellipse at 20% 0%,#172747 0,transparent 42%),var(--bg);color:var(--text);font:15px/1.5 Inter,Segoe UI,Arial,sans-serif}
+.wrap{max-width:1240px;margin:auto;padding:28px 20px 60px}
+.top{display:flex;align-items:center;justify-content:space-between;gap:15px;margin-bottom:24px}
+.brand{display:flex;gap:12px;align-items:center}
+.logo{background:var(--lime);color:#17220c;font-weight:900;border-radius:12px;padding:10px 12px}
+.eyebrow{font-size:11px;letter-spacing:.18em;color:var(--lime);font-weight:800}
+.sub{color:var(--muted);font-size:13px}
+.pill{border:1px solid var(--line);padding:7px 11px;border-radius:99px;color:var(--muted);font-size:12px}
+.layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(340px,.9fr);gap:18px}
+.panel{background:linear-gradient(150deg,#141e34,#101727);border:1px solid var(--line);border-radius:18px;padding:22px;min-width:0}
+.panel h2{font-size:17px;margin:0 0 5px}
+.hint{color:var(--muted);font-size:12px;margin:0 0 18px}
+label{display:block;font-size:12px;color:#c7d3e9;font-weight:700;margin:14px 0 7px}
+textarea,input[type=text],input[type=search]{width:100%;background:#0b1222;border:1px solid #2a3958;border-radius:10px;color:var(--text);padding:12px;font:inherit;outline:none}
+textarea:focus,input:focus,select:focus{border-color:var(--blue)}
+textarea{min-height:110px;resize:vertical}
+.searchrow,.btnrow{display:flex;gap:8px}
+.searchrow input{flex:1;min-width:0}
+.btn{border:1px solid #334463;background:#1a2740;color:var(--text);padding:10px 13px;border-radius:10px;font-weight:700;cursor:pointer;white-space:nowrap}
+.btn:hover{filter:brightness(1.18)}
+.btn:disabled{opacity:.55;cursor:not-allowed}
+.primary{background:var(--lime);color:#18220e;border-color:var(--lime)}
+.mapbox{border:1px solid #2a3958;border-radius:12px;overflow:hidden}
+#map{height:350px;background:#1b2940}
+.mapfoot{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:10px;background:#0c1425;font-size:12px;color:var(--muted)}
+.coords{color:var(--lime);font-variant-numeric:tabular-nums}
+.file{background:#0b1222;border:1px dashed #405173;padding:13px;border-radius:10px;width:100%;color:var(--muted)}
+.check{display:flex;gap:8px;align-items:flex-start;color:var(--muted);font-size:12px;margin-top:12px}
+.check input{margin-top:4px}
+.submit{width:100%;margin-top:17px;padding:14px}
+.status{margin-top:12px;padding:11px 13px;border:1px solid var(--line);border-radius:10px;color:var(--muted);font-size:13px;white-space:pre-wrap}
+.status.good{border-color:#416b38;color:#c5f3ad}
+.status.bad{border-color:#7b3c48;color:#ffb8c2}
+pre{margin:0;white-space:pre-wrap;overflow-wrap:anywhere;font:12px/1.55 ui-monospace,SFMono-Regular,Consolas,monospace;color:#d9e5ff}
+.output{max-height:800px;overflow:auto;background:#080e19;border:1px solid var(--line);padding:15px;border-radius:12px}
+.keygrid{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin:14px 0}
+.metric{background:#0b1222;border:1px solid var(--line);border-radius:10px;padding:12px}
+.metric small{display:block;color:var(--muted);font-size:11px}
+.metric strong{font-size:14px;overflow-wrap:anywhere}
+.footer{color:var(--muted);font-size:11px;margin-top:18px}
+.voice-controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:9px}
+.voice-language{background:#0b1222;color:#eef3ff;border:1px solid #334463;border-radius:10px;padding:10px}
+@media(max-width:850px){.layout{grid-template-columns:1fr}.wrap{padding:16px 12px 40px}.panel{padding:16px}.top{align-items:flex-start}.pill{display:none}#map{height:310px}}
+</style>
+</head>
+<body>
+<main class="wrap">
+<header class="top">
+  <div class="brand"><div class="logo">K</div><div>
+    <div class="eyebrow">KAVACH / INCIDENT LAB</div>
+    <div style="font-size:22px;font-weight:800">Complaint testing console</div>
+    <div class="sub">Agent 1 · sanitation-first incident intelligence</div>
+  </div></div>
+  <div class="pill">LOCAL TESTING · API :8000</div>
+</header>
+
+<div class="layout">
+<section class="panel">
+  <h2>01 / Report an incident</h2>
+  <p class="hint">Type a complaint or submit a voice transcript. You can also add location and photo evidence.</p>
+
+  <form id="form">
+    <label for="complaint">Complaint description (optional)</label>
+    <textarea id="complaint" maxlength="5000" placeholder="Type your complaint here, or leave blank to use a voice transcript."></textarea>
+
+    <label for="voice">Voice transcript (optional)</label>
+    <textarea id="voice" maxlength="5000" style="min-height:65px" placeholder="Your speech transcript will appear here. You can edit it before submitting."></textarea>
+
+    <div class="voice-controls">
+      <select id="voiceLanguage" class="voice-language" aria-label="Speech language">
+        <option value="en-IN">English (India)</option>
+        <option value="hi-IN">Hindi</option>
+      </select>
+      <button class="btn" type="button" id="startVoice">Start microphone</button>
+      <button class="btn" type="button" id="stopVoice" disabled>Stop</button>
+    </div>
+    <p class="hint" id="voiceStatus" aria-live="polite" style="margin-top:8px">Choose a language and start speaking. Review the transcript before submitting.</p>
+
+    <label>02 / Select incident location on map</label>
+    <p class="hint">Search an address/landmark or click the map to drop a pin. Drag the pin to adjust it.</p>
+    <div class="searchrow"><input id="search" type="search" placeholder="Search address or landmark…"><button class="btn" type="button" id="searchBtn">Search</button></div>
+    <div class="btnrow" style="margin:9px 0 12px">
+      <button class="btn" type="button" id="locateBtn">◎ Use my device GPS</button>
+      <button class="btn" type="button" id="clearPin">Clear incident pin</button>
+    </div>
+    <div class="mapbox"><div id="map"></div><div class="mapfoot"><span id="pinStatus">No incident pin selected</span><span class="coords" id="coords">Lat — · Lon —</span></div></div>
+    <div class="check"><input id="includeDevice" type="checkbox" checked><span>When device GPS is available, send it as a separate evidence source. It does not replace the incident pin.</span></div>
+
+    <label for="images">03 / Upload evidence photos (optional)</label>
+    <input class="file" id="images" type="file" accept="image/*" multiple>
+    <p class="hint" style="margin-top:7px">Use original JPEG photos with EXIF GPS to test image location extraction. Image metadata may be absent from screenshots or messaging-app copies.</p>
+
+    <button class="btn primary submit" id="submitBtn" type="submit">Run incident analysis →</button>
+    <div class="status" id="status">Waiting for a complaint or voice transcript. Backend: http://127.0.0.1:8000</div>
+  </form>
+  <div class="footer">Map tiles © OpenStreetMap contributors and CARTO. Provider availability and usage are subject to current terms. Address search uses public Nominatim; use sparingly and follow its usage policy. Browser GPS requires permission and localhost/HTTPS.</div>
+</section>
+
+<section class="panel">
+  <h2>04 / Analysis output</h2>
+  <p class="hint">Response from POST /api/v1/incidents · raw JSON is shown for debugging.</p>
+  <div class="keygrid">
+    <div class="metric"><small>Incident ID</small><strong id="incidentId">—</strong></div>
+    <div class="metric"><small>Severity</small><strong id="severity">—</strong></div>
+    <div class="metric"><small>Category / type</small><strong id="category">—</strong></div>
+    <div class="metric"><small>Location check</small><strong id="locationCheck">—</strong></div>
+  </div>
+  <label>Full API response</label>
+  <div class="output"><pre id="output">Submit a complaint to see the structured incident record here.</pre></div>
+</section>
+</div>
+</main>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<script>
+const $ = id => document.getElementById(id);
+let selected = null, device = null, marker = null, deviceMarker = null;
+
+const map = L.map('map').setView([23.2599, 77.4126], 12);
+L.tileLayer(
+  'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png?key=cb1_4njw_1_b82a07da4ae7f3bc9a1d51a4',
+  {maxZoom:20, attribution:'&copy; OpenStreetMap contributors &copy; CARTO'}
+).addTo(map);
+
+function setStatus(message, kind='') {
+  const el = $('status');
+  el.textContent = message;
+  el.className = 'status ' + kind;
+}
+
+function setPin(latlng) {
+  selected = {latitude:Number(latlng.lat.toFixed(7)), longitude:Number(latlng.lng.toFixed(7))};
+  if (!marker) {
+    marker = L.marker(latlng, {draggable:true}).addTo(map);
+    marker.on('dragend', () => setPin(marker.getLatLng()));
+  } else {
+    marker.setLatLng(latlng);
+  }
+  $('pinStatus').textContent = 'Incident pin selected · drag to adjust';
+  $('coords').textContent = `Lat ${selected.latitude} · Lon ${selected.longitude}`;
+}
+
+map.on('click', e => setPin(e.latlng));
+$('clearPin').onclick = () => {
+  selected = null;
+  if (marker) { map.removeLayer(marker); marker = null; }
+  $('pinStatus').textContent = 'No incident pin selected';
+  $('coords').textContent = 'Lat — · Lon —';
+};
+
+async function searchPlace() {
+  const q = $('search').value.trim();
+  if (!q) return setStatus('Enter an address or landmark to search.', 'bad');
+  setStatus('Searching address…');
+  try {
+    const r = await fetch('https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=' + encodeURIComponent(q), {headers:{'Accept':'application/json'}});
+    if (!r.ok) throw Error('Address search unavailable (HTTP ' + r.status + '). You can still click the map to select a location.');
+    const results = await r.json();
+    if (!results.length) throw Error('No result found. Try a more specific landmark, or click the map.');
+    const ll = L.latLng(+results[0].lat, +results[0].lon);
+    map.setView(ll, 17);
+    setPin(ll);
+    setStatus('Found: ' + results[0].display_name, 'good');
+  } catch (err) {
+    setStatus(err.message, 'bad');
+  }
+}
+$('searchBtn').onclick = searchPlace;
+$('search').addEventListener('keydown', e => {
+  if (e.key === 'Enter') { e.preventDefault(); searchPlace(); }
+});
+
+$('locateBtn').onclick = () => {
+  if (!navigator.geolocation) return setStatus('This browser does not support geolocation.', 'bad');
+  setStatus('Waiting for browser GPS permission…');
+  navigator.geolocation.getCurrentPosition(pos => {
+    device = {
+      latitude:pos.coords.latitude,
+      longitude:pos.coords.longitude,
+      accuracy:pos.coords.accuracy,
+      observed_at:new Date(pos.timestamp).toISOString()
+    };
+    const ll = L.latLng(device.latitude, device.longitude);
+    if (deviceMarker) map.removeLayer(deviceMarker);
+    deviceMarker = L.circleMarker(ll, {radius:8,color:'#78a9ff',fillColor:'#78a9ff',fillOpacity:.75})
+      .addTo(map).bindPopup('Device GPS (separate evidence)');
+    map.setView(ll, 16);
+    $('includeDevice').checked = true;
+    setStatus(`Device GPS captured (accuracy ±${Math.round(device.accuracy)} m). Incident pin remains separate.`, 'good');
+  }, err => setStatus('GPS failed: ' + ({1:'Permission denied. Allow location access for localhost.',2:'Position unavailable.',3:'GPS request timed out.'}[err.code] || err.message), 'bad'),
+  {enableHighAccuracy:true,timeout:15000,maximumAge:0});
+};
+
+// Browser speech recognition is supported mainly by Chromium-based browsers.
+// It may require network access. Manual transcript entry remains available as a fallback.
+let speechRecognition = null;
+let finalTranscript = '';
+let voiceBaseText = '';
+const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+if (!SpeechRecognitionAPI) {
+  $('startVoice').disabled = true;
+  $('voiceStatus').textContent = 'Speech recognition is not supported in this browser. You can type the transcript manually.';
+} else {
+  speechRecognition = new SpeechRecognitionAPI();
+  speechRecognition.continuous = true;
+  speechRecognition.interimResults = true;
+
+  speechRecognition.onstart = () => {
+    $('startVoice').disabled = true;
+    $('stopVoice').disabled = false;
+    $('voiceStatus').textContent = 'Listening… Speak clearly.';
+  };
+
+  speechRecognition.onresult = event => {
+    let interim = '';
+    for (let i = event.resultIndex; i < event.results.length; i++) {
+      const phrase = event.results[i][0].transcript;
+      if (event.results[i].isFinal) finalTranscript += phrase + ' ';
+      else interim += phrase;
+    }
+    $('voice').value = (voiceBaseText + finalTranscript + interim).trim().slice(0, 5000);
+  };
+
+  speechRecognition.onerror = event => {
+    $('voiceStatus').textContent = 'Microphone error: ' + event.error + '. You can type or edit the transcript instead.';
+  };
+
+  speechRecognition.onend = () => {
+    $('startVoice').disabled = false;
+    $('stopVoice').disabled = true;
+    $('voiceStatus').textContent = 'Recording stopped. Review or edit the transcript before submitting.';
+  };
+}
+
+$('startVoice').onclick = () => {
+  if (!speechRecognition) return;
+  voiceBaseText = $('voice').value.trim();
+  finalTranscript = voiceBaseText ? voiceBaseText + ' ' : '';
+  speechRecognition.lang = $('voiceLanguage').value;
+  try {
+    speechRecognition.start();
+  } catch (err) {
+    $('voiceStatus').textContent = 'Could not start microphone. If it is already starting, wait and try again.';
+  }
+};
+$('stopVoice').onclick = () => {
+  if (speechRecognition) speechRecognition.stop();
+};
+
+$('form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const complaint = $('complaint').value.trim();
+  const voice = $('voice').value.trim();
+
+  if (!complaint && !voice) {
+    return setStatus('Please enter a complaint or record/type a voice transcript.', 'bad');
+  }
+
+  const fd = new FormData();
+  if (complaint) fd.append('complaint_text', complaint);
+  if (voice) fd.append('voice_transcript', voice);
+
+  if (selected) {
+    fd.append('selected_latitude', String(selected.latitude));
+    fd.append('selected_longitude', String(selected.longitude));
+  }
+  if (device && $('includeDevice').checked) {
+    fd.append('device_latitude', String(device.latitude));
+    fd.append('device_longitude', String(device.longitude));
+    fd.append('device_accuracy_meters', String(device.accuracy));
+    fd.append('device_observed_at', device.observed_at);
+  }
+  for (const f of $('images').files) fd.append('images', f, f.name);
+
+  $('submitBtn').disabled = true;
+  $('submitBtn').textContent = 'Analyzing…';
+  setStatus('Sending complaint to FastAPI. Large images may take a moment…');
+  $('output').textContent = 'Waiting for API response…';
+
+  try {
+    const r = await fetch('/api/v1/incidents', {
+      method:'POST',
+      body:fd,
+      headers:{'X-Request-ID':crypto.randomUUID()}
+    });
+    const body = await r.json();
+    $('output').textContent = JSON.stringify(body, null, 2);
+
+    if (!r.ok) {
+      setStatus(`API error ${r.status}: ` + (body.detail?.message || JSON.stringify(body.detail || body)), 'bad');
+      $('incidentId').textContent = '—';
+      $('severity').textContent = '—';
+      $('category').textContent = '—';
+      $('locationCheck').textContent = '—';
+      return;
+    }
+
+    const loc = body.location_evidence_summary?.check || {};
+    $('incidentId').textContent = body.incident_id || '—';
+    $('severity').textContent = body.severity_recommendation || '—';
+    $('category').textContent = `${body.category || '—'} / ${body.incident_type || '—'}`;
+    $('locationCheck').textContent = loc.status || '—';
+    setStatus(`Analysis complete · HTTP ${r.status}. Check the JSON for evidence and location comparisons.`, 'good');
+  } catch (err) {
+    setStatus('Could not reach API. Confirm backend is running and open this page through http://127.0.0.1:8000/tester/ (not as a file). Details: ' + err.message, 'bad');
+    $('output').textContent = String(err);
+  } finally {
+    $('submitBtn').disabled = false;
+    $('submitBtn').textContent = 'Run incident analysis →';
+  }
+});
+</script>
+</body>
+</html>
