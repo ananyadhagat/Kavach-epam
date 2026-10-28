@@ -1,7 +1,7 @@
 [project]
 name = "sanitation-agent"
 version = "0.1.0"
-description = "KAVACH Sanitation Agent using FastAPI, Gemini, and LangGraph"
+description = "KAVACH Module 04 — Sanitation Planning Agent"
 readme = "README.md"
 authors = [
     { name = "Namrata Digarse", email = "namratadigarse1@gmail.com" }
@@ -9,8 +9,6 @@ authors = [
 requires-python = ">=3.14"
 dependencies = [
     "fastapi>=0.143.0",
-    "google-genai",
-    "langgraph",
     "pydantic>=2.14.1",
     "pydantic-settings>=2.15.0",
     "uvicorn[standard]>=0.54.0",
@@ -28,3 +26,10 @@ dev = [
     "httpx>=0.28.1",
     "pytest>=9.1.1",
 ]
+
+[tool.pytest.ini_options]
+filterwarnings = [
+    "ignore:.*Using .httpx. with .starlette.testclient. is deprecated.*",
+]
+
+

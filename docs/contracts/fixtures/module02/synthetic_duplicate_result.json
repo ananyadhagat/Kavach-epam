@@ -1,0 +1,11 @@
+{
+  "_comment": "SYNTHETIC LOCAL PROTOTYPE FIXTURE ONLY - NOT AN OWNER-APPROVED MODULE 02 FIXTURE",
+  "status": "PENDING_CONFIRMATION",
+  "processing_status": "COMPLETED",
+  "decision": "NEW",
+  "matched_incident_id": null,
+  "retrieval": {
+    "status": "COMPLETE"
+  },
+  "policy_version": "duplicate-policy-1"
+}

@@ -1,0 +1,50 @@
+{
+  "_comment": "SYNTHETIC LOCAL PROTOTYPE FIXTURE ONLY - NOT AN OWNER-APPROVED MODULE 03 FIXTURE",
+  "status": "PENDING_CONFIRMATION",
+  "decision_id": "SUP-DEC-2026-000123",
+  "evaluation_status": "COMPLETED",
+  "decision_status": "APPROVED_TO_PROCEED",
+  "department": "SANITATION",
+  "priority": "MEDIUM",
+  "duplicate_decision": "NEW",
+  "linked_incident_id": null,
+  "routing": {
+    "status": "RESOLVED",
+    "facility_id": "SITE-01",
+    "location_id": "MAIN_GATE",
+    "ward_id": null,
+    "queue_id": null
+  },
+  "sla": {
+    "status": "CALCULATED",
+    "policy_version": "sla-policy-1",
+    "rule_id": "SANITATION_MEDIUM",
+    "started_at": "2026-10-21T11:55:00+05:30",
+    "response_due_at": "2026-10-21T13:55:00+05:30",
+    "resolution_due_at": "2026-10-21T19:55:00+05:30"
+  },
+  "action_plan": {
+    "template_id": "BIN_OVERFLOW_RESPONSE",
+    "template_version": "1",
+    "objective": "Resolve the bin overflow issue",
+    "required_actions": [
+      "INSPECT_AREA",
+      "REMOVE_WASTE",
+      "CLEAN_AREA",
+      "CHECK_PATH_CLEAR"
+    ],
+    "constraints": [
+      "Escalate if a new safety hazard is found"
+    ]
+  },
+  "approval": {
+    "required": false,
+    "status": "NOT_REQUIRED"
+  },
+  "policy_versions": {
+    "department": "department-policy-1",
+    "priority": "priority-policy-1",
+    "approval": "approval-policy-1",
+    "action_plan": "action-plan-policy-1"
+  }
+}

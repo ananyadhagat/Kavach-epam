@@ -47,3 +47,13 @@ def test_dispatch_contract_keeps_human_review_enabled():
     contract = prepare_dispatch_contract(request)
 
     assert contract.requires_human_review is True
+
+
+def test_handoff_never_marks_plan_dispatch_eligible():
+    request = make_supervisor_request(ApprovalStatus.APPROVED)
+
+    contract = prepare_dispatch_contract(request)
+
+    assert contract.dispatch_eligible is False
+    assert contract.requires_human_review is True
+    assert contract.planning_status == "PROPOSED"

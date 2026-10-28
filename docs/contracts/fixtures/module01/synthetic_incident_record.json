@@ -1,0 +1,35 @@
+{
+  "_comment": "SYNTHETIC LOCAL PROTOTYPE FIXTURE ONLY - NOT AN OWNER-APPROVED MODULE 01 FIXTURE",
+  "status": "PENDING_CONFIRMATION",
+  "incident_id": "INC-2026-000123",
+  "complaint_id": "CMP-2026-000123",
+  "incident_summary": "Waste overflowing near the main gate",
+  "complaint_text": "Garbage is overflowing from a bin",
+  "category": "WASTE_OVERFLOW",
+  "incident_type": "BIN_OVERFLOW",
+  "reported_at": "2026-10-21T11:55:00+05:30",
+  "location": {
+    "latitude": 23.2599,
+    "longitude": 77.4126,
+    "facility_id": "SITE-01",
+    "location_id": "MAIN_GATE",
+    "source": "USER_SELECTED_PIN",
+    "accuracy_m": null
+  },
+  "media": [],
+  "location_evidence_summary": {
+    "status": "INCONCLUSIVE",
+    "reason_codes": [
+      "EXIF_GPS_MISSING"
+    ]
+  },
+  "quality": {
+    "missing_information": [],
+    "conflicting_information": [],
+    "needs_clarification": false
+  },
+  "estimated_waste_kg": 100.0,
+  "affected_area_sqm": 25.0,
+  "path_obstructed": null,
+  "hazard_detected": false
+}

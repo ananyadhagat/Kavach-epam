@@ -32,6 +32,7 @@ def test_approved_complaint_returns_dispatch_contract():
     assert body["approval_status"] == "approved"
     assert body["planning_status"] == "PROPOSED"
     assert body["requires_human_review"] is True
+    assert body["dispatch_eligible"] is False
     assert len(body["tasks"]) > 0
 
 

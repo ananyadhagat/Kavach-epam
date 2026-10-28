@@ -1,17 +1,16 @@
-﻿import logging
+import logging
+from fastapi import FastAPI
+from app.api.sanitation_routes import router as sanitation_router
 
 logging.basicConfig(
     level=logging.INFO,
-    format="%(levelname)s: %(name)s: %(message)s",
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
 )
-from fastapi import FastAPI
-
-from app.api.sanitation_routes import router as sanitation_router
 
 app = FastAPI(
-    title="KAVACH Sanitation Agent",
-    description="Connects the Supervisor Agent to the Dispatch Agent.",
-    version="0.1.0",
+    title="KAVACH Module 04 — Sanitation Planning Agent",
+    description="Deterministic, policy-driven sanitation planning connecting Supervisor to Dispatch.",
+    version="1.0.0",
 )
 
 app.include_router(sanitation_router)
@@ -19,8 +18,11 @@ app.include_router(sanitation_router)
 
 @app.get("/health")
 def health_check():
+    """Health check endpoint confirming service status and in-memory storage."""
     return {
         "status": "healthy",
         "agent": "sanitation-agent",
+        "module": "04-sanitation-planning",
+        "storage": "in-memory-only",
+        "zero_llm_mode": True,
     }
-
