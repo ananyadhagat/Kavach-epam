@@ -84,6 +84,20 @@ class CorrectionRequest(BaseModel):
     reason: str = Field(min_length=5, max_length=300)
 
 
+class AssignRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    worker_id: str = Field(min_length=1, max_length=64)
+    reason: str = Field(default="", max_length=300)
+
+
+class CheckInRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    available: bool
+    location: DeviceLocation | None = None
+
+
 class SettingsUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

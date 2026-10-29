@@ -64,6 +64,32 @@ class Settings(BaseSettings):
     google_maps_browser_key: str | None = None
     google_maps_map_id: str | None = None
 
+    # --- Incident Intelligence agent (separate service, incident-intelligence-agent branch).
+    # Empty = not configured: reports are still accepted and marked "analysis not configured".
+    intelligence_url: str = ""
+    intelligence_timeout_s: float = Field(default=8.0, gt=0, le=60)
+
+    # --- Dispatch (ranking reused from the dispatch-work branch).
+    dispatch_max_radius_km: float = Field(default=2.0, gt=0, le=50)
+    dispatch_location_max_age_s: int = Field(default=900, ge=60)  # dispatch-work's 15-minute freshness rule
+    # When no worker passes the dispatch rules only because nobody has shared a
+    # location: "workload" assigns the least-loaded qualified worker (labelled),
+    # "escalate" leaves the incident unassigned for a supervisor.
+    dispatch_fallback: Literal["workload", "escalate"] = "workload"
+
+    # --- Live tracking and ETA (approximate; no routing provider is configured).
+    tracking_min_interval_s: int = Field(default=10, ge=0)
+    tracking_stale_s: int = Field(default=120, ge=10)
+    tracking_history_keep: int = Field(default=20, ge=2, le=500)
+    arrival_radius_m: float = Field(default=50.0, ge=10, le=500)
+    eta_assumed_speed_kmh: float = Field(default=20.0, gt=1, le=120)
+    eta_route_factor: float = Field(default=1.4, ge=1.0, le=3.0)  # straight line -> typical road distance
+
+    # --- Resolution estimate (ETR) baseline, used until history exists.
+    etr_default_travel_min: int = Field(default=30, ge=1)
+    etr_review_buffer_min: int = Field(default=30, ge=0)
+    etr_history_min_samples: int = Field(default=3, ge=1)
+
     model_config = SettingsConfigDict(env_file=BASE_DIR / ".env", env_file_encoding="utf-8", extra="ignore")
 
     @property

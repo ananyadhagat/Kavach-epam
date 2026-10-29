@@ -1,5 +1,6 @@
 import { api, firstUser, session, switchUser } from "../api.js";
 import { categoryIcon } from "../components.js";
+import { availabilityCard } from "../live.js";
 import { button, card, chip, clear, demoTag, emptyState, fmtAgo, h, icon } from "../ui.js";
 
 const COPY = {
@@ -8,8 +9,10 @@ const COPY = {
   SUPERVISOR: { title: "Review what the checks couldn't settle.", text: "Evidence that passed is one click to approve. Anything uncertain shows the distance, accuracy and photos side by side.", cta: ["Verification queue", "#/queue", "queue"] },
 };
 
-export async function renderDashboard({ main }) {
+export async function renderDashboard(ctx) {
+  const { main } = ctx;
   const d = await api("/dashboard");
+  const availability = session.me.role === "WORKER" ? await availabilityCard(ctx) : null;
   const me = session.me, copy = COPY[me.role];
   const stat = (n, text, href) => h(href ? "a" : "div", { class: "card stat", href, style: { textDecoration: "none", color: "inherit" } }, h("span", { class: "n" }, String(n)), h("span", {}, text));
   clear(main,
@@ -20,6 +23,7 @@ export async function renderDashboard({ main }) {
       stat(d.open, me.role === "CITIZEN" ? "In progress" : "Open tasks", me.role === "CITIZEN" ? null : "#/tasks"),
       stat(d.awaiting, "Being verified", me.role === "SUPERVISOR" ? "#/queue" : null),
       stat(d.resolved, "Resolved")),
+    availability,
     card({}, h("div", { class: "row between wrap" }, h("h2", {}, "Recent"), me.role === "CITIZEN" ? null : h("span", { class: "muted" }, "Latest activity")),
       d.recent.length ? h("div", { class: "items" }, d.recent.map((i) => h("a", { class: "item", href: `#/incidents/${i.incident_id}` }, categoryIcon(i.category_icon),
         h("div", { class: "grow" }, h("strong", {}, i.title), h("span", { class: "muted mono" }, i.incident_id), " ", i.is_demo ? demoTag() : null, h("div", { class: "muted" }, `${i.category_label} · ${fmtAgo(i.updated_at)}`)),

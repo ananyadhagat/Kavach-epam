@@ -84,7 +84,7 @@ def make_policy(session: Session, settings: Settings) -> Policy:
 INCIDENT_NEXT = {
     "SUBMITTED": {"ASSIGNED"},
     "ASSIGNED": {"IN_PROGRESS"},
-    "IN_PROGRESS": {"AWAITING_VERIFICATION"},
+    "IN_PROGRESS": {"AWAITING_VERIFICATION", "ASSIGNED"},  # ASSIGNED = reassigned by a supervisor
     "AWAITING_VERIFICATION": {"RESOLVED", "ASSIGNED"},  # ASSIGNED = sent back for rework
     "RESOLVED": set(),
 }

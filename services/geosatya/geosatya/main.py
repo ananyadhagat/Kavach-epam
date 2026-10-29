@@ -9,6 +9,7 @@ from geosatya.api.routes import register_error_handlers, router
 from geosatya.categories import load_categories
 from geosatya.config import BASE_DIR, Settings, get_settings
 from geosatya.db import init_schema, make_engine, make_session_factory
+from geosatya.integrations.intelligence import IntelligenceClient
 from geosatya.media.storage import LocalImageStorage
 from geosatya.models import Base
 from geosatya.seed import ensure_users, seed_demo_data
@@ -69,11 +70,15 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.storage = storage
     app.state.categories = categories
     app.state.reset_demo = reset_demo
+    # Incident Intelligence is a separate service; without a URL, reports are
+    # still accepted and marked "analysis not configured".
+    app.state.intelligence = (IntelligenceClient(settings.intelligence_url, settings.intelligence_timeout_s)
+                              if settings.intelligence_url else None)
 
     if settings.cors_list():
         app.add_middleware(CORSMiddleware, allow_origins=settings.cors_list(), allow_credentials=False,
                            allow_methods=["GET", "POST", "PUT"],
-                           allow_headers=["Content-Type", "Authorization", "X-GeoSatya-Demo-User"])
+                           allow_headers=["Content-Type", "Authorization", "X-GeoSatya-Demo-User", "Idempotency-Key"])
     register_error_handlers(app)
     app.include_router(router, prefix=settings.api_prefix)
 

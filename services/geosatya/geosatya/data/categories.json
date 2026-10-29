@@ -2,56 +2,56 @@
   "_comment": "Civic incident categories. Add an entry to support a new category; no code change needed.",
   "categories": [
     {
-      "id": "road_damage", "label": "Pothole / Road Damage", "icon": "road",
+      "id": "road_damage", "dispatch": {"required_skills": ["road_repair"], "required_equipment": [], "work_minutes": 90}, "label": "Pothole / Road Damage", "icon": "road",
       "title_placeholder": "Large pothole near the main crossing",
       "description_placeholder": "A deep pothole on the left side of the road. Vehicles swerve to avoid it.",
       "asset_label": null, "asset_hint": null,
       "instructions": ["Go to the pin on the map.", "Repair or make the damaged section safe.", "Take a photo of the finished work from the same spot."]
     },
     {
-      "id": "garbage", "label": "Garbage / Cleanliness", "icon": "trash",
+      "id": "garbage", "dispatch": {"required_skills": ["waste_collection"], "required_equipment": [], "work_minutes": 45}, "label": "Garbage / Cleanliness", "icon": "trash",
       "title_placeholder": "Garbage not collected for 3 days",
       "description_placeholder": "Waste is piling up around the bin and spilling onto the road.",
       "asset_label": "Bin or collection point number", "asset_hint": "e.g. GCP-09",
       "instructions": ["Go to the pin on the map.", "Clear the waste.", "Take a photo of the cleaned area."]
     },
     {
-      "id": "water_leakage", "label": "Water Leakage", "icon": "droplet",
+      "id": "water_leakage", "dispatch": {"required_skills": ["plumbing"], "required_equipment": [], "work_minutes": 90}, "label": "Water Leakage", "icon": "droplet",
       "title_placeholder": "Water leaking from a pipeline at the corner",
       "description_placeholder": "Clean water has been leaking onto the road since morning.",
       "asset_label": "Pipeline or valve number", "asset_hint": "e.g. Valve V-14",
       "instructions": ["Go to the pin on the map.", "Stop or repair the leak, or note that it needs a specialist.", "Take a photo showing the result."]
     },
     {
-      "id": "drainage", "label": "Drainage / Waterlogging", "icon": "drain",
+      "id": "drainage", "dispatch": {"required_skills": ["drain_cleaning"], "required_equipment": [], "work_minutes": 60}, "label": "Drainage / Waterlogging", "icon": "drain",
       "title_placeholder": "Blocked drain causing waterlogging",
       "description_placeholder": "The roadside drain is blocked and water collects across the lane.",
       "asset_label": "Drain or manhole number", "asset_hint": "e.g. Drain D-31",
       "instructions": ["Go to the pin on the map.", "Clear the blockage.", "Take a photo showing water flowing."]
     },
     {
-      "id": "streetlight", "label": "Broken Streetlight", "icon": "bulb",
+      "id": "streetlight", "dispatch": {"required_skills": ["electrical"], "required_equipment": [], "work_minutes": 60}, "label": "Broken Streetlight", "icon": "bulb",
       "title_placeholder": "Streetlight not working on pole 147",
       "description_placeholder": "The streetlight has been off for a week and the lane is dark at night.",
       "asset_label": "Pole number", "asset_hint": "e.g. SL-0147 (painted on the pole)",
       "instructions": ["Go to the pin on the map and find the pole.", "Repair or replace the light.", "Take a photo showing the pole and the light."]
     },
     {
-      "id": "infrastructure", "label": "Damaged Public Infrastructure", "icon": "bench",
+      "id": "infrastructure", "dispatch": {"required_skills": ["general_maintenance"], "required_equipment": [], "work_minutes": 60}, "label": "Damaged Public Infrastructure", "icon": "bench",
       "title_placeholder": "Broken bench in the park",
       "description_placeholder": "The seat plank of the second bench from the gate is broken.",
       "asset_label": "Asset name or number", "asset_hint": "e.g. Bench 3",
       "instructions": ["Go to the pin on the map.", "Repair or secure the asset.", "Take a photo of the finished work."]
     },
     {
-      "id": "safety_hazard", "label": "Public Safety Hazard", "icon": "alert",
+      "id": "safety_hazard", "dispatch": {"required_skills": ["general_maintenance"], "required_equipment": [], "work_minutes": 45}, "label": "Public Safety Hazard", "icon": "alert",
       "title_placeholder": "Fallen branch blocking the footpath",
       "description_placeholder": "A large branch has fallen across the footpath; people are walking on the road.",
       "asset_label": null, "asset_hint": null,
       "instructions": ["Go to the pin on the map.", "Make the hazard safe or remove it.", "Take a photo showing the cleared area."]
     },
     {
-      "id": "other", "label": "Other Civic Issue", "icon": "dots",
+      "id": "other", "dispatch": {"required_skills": ["general_maintenance"], "required_equipment": [], "work_minutes": 60}, "label": "Other Civic Issue", "icon": "dots",
       "title_placeholder": "Short summary of the issue",
       "description_placeholder": "Describe the issue in your own words.",
       "asset_label": null, "asset_hint": null,

@@ -2,7 +2,12 @@
 
 GeoSatya is the geolocation module of **KAVACH**. It makes sure a civic incident is reported with photo and device-location evidence, and that a field worker's completion is accepted only when their reported position is inside a permitted radius of the place the incident was reported.
 
-It is a **standalone service** in `services/geosatya/`. It does not call, depend on or replace any other KAVACH agent (see [Integration with other KAVACH agents](#integration-with-other-kavach-agents)).
+It lives in `services/geosatya/` and is the integration point for three KAVACH pieces: it sends each saved report to the **Incident Intelligence** agent (a separate service) for classification and severity, it assigns workers with the **Dispatch** agent's ranking rules, and it adds **live worker tracking, ETA and ETR**. The full integration design, feature matrix and status mapping are in [docs/INTEGRATION.md](docs/INTEGRATION.md).
+
+```
+Citizen report → saved → Incident Intelligence (priority) → Dispatch (worker) → worker shares location
+→ ETA (arrival) + ETR (resolution) → completion photo → server geofence check → supervisor review → resolved
+```
 
 ---
 
@@ -25,7 +30,10 @@ Civic complaints are easy to file but hard to trust: a photo alone doesn't show 
 ## 3. Key features
 
 - **Citizen reporting** with category, description, photo and automatic device location.
-- **Automatic task creation** for the worker with the fewest open tasks.
+- **Incident Intelligence** (optional service): category/type suggestion, severity with safety-rule floor, summary and clarification questions, stored apart from the citizen's own words. If the agent is off or failing, the report is still saved and dispatched (priority NORMAL) and can be re-analysed later.
+- **Dispatch** using the Dispatch agent's rules (skills, availability, capacity, fresh location within the radius; 70% distance + 30% workload). If nobody qualified has shared a recent location, a labelled workload fallback (or escalation to a supervisor, configurable). Supervisors can assign or reassign.
+- **Live worker tracking** for an assigned task: the worker shares their location while travelling; the citizen and supervisor see the latest position, its age, and whether it is live or stale. Arrival is estimated from shared locations.
+- **ETA** (approximate arrival range) and **ETR** (estimated resolution time, recalculated only on events), plus the **actual resolution time** from recorded timestamps.
 - **Locked incident location** the worker cannot change; supervisors may correct it with an audited reason, keeping the original.
 - **Server-side geofence check** returning `PASS` / `FAIL` / `REVIEW_REQUIRED` / `NOT_CHECKED`.
 - **Configurable radius** (10–20 m, default 15 m) and GPS-accuracy limit (default ±25 m).
@@ -49,8 +57,9 @@ Civic complaints are easy to file but hard to trust: a photo alone doesn't show 
 
 ## 5. Worker task-completion workflow
 
-1. A new report becomes a task automatically, using the citizen's original location as the target.
-2. The worker opens the task and presses **Start work**.
+1. A new report is analysed (if the intelligence agent is configured) and dispatched to a worker, using the citizen's original location as the target.
+2. The worker may press **Share my location while travelling**; the citizen and supervisor then see an approximate ETA. Sharing stops when the worker stops it, leaves the page, or submits the completion.
+3. The worker opens the task and presses **Start work**.
 3. At the site, the worker takes a completion photo; the device location is read at the same time.
 4. On submit, the **server** computes the distance (Haversine) from the reported position to the **original** incident location and applies the geofence rule.
 5. `FAIL` and `NOT_CHECKED` attempts are recorded but **not accepted**: the task stays in progress and the worker can move and retry. `PASS` and `REVIEW_REQUIRED` attempts go to the supervisor.
@@ -99,7 +108,7 @@ Distance is **always recalculated on the server**; a distance sent by the client
 | Maps | Leaflet with OpenStreetMap tiles (default); Google Maps JavaScript API optional |
 | Tests | pytest |
 
-No AI or LLM service is used; the distance and geofence decisions are deterministic code.
+GeoSatya itself uses no AI. Classification and severity come from the separate Incident Intelligence agent (Gemini, or its explicit offline `mock` mode), called over HTTP with `httpx`. Distance, geofence, dispatch ranking, ETA and ETR are deterministic code.
 
 ## 10. Architecture and folder structure
 
@@ -117,14 +126,18 @@ services/geosatya/
 │   │   ├── coordinates.py         validation and Haversine distance
 │   │   └── exif_gps.py            GPS and capture time from photo metadata
 │   ├── media/                     image validation, hashing, private storage
-│   ├── services/                  reporting + assignment, worker submission, review, audit
+│   ├── dispatch/ranking.py        worker ranking reused from the dispatch-work branch
+│   ├── integrations/intelligence.py  HTTP client for the Incident Intelligence agent
+│   ├── services/                  reporting, intelligence, dispatch, tracking, estimates (ETA/ETR), tasks, review
 │   ├── api/                       routes, request contracts, access rules, response shapes
 │   ├── seed.py                    demo users + one labelled demo incident
 │   └── synthetic_images.py        generated test photos (labelled SYNTHETIC)
 ├── frontend/                      static web app
 │   ├── index.html, styles.css, config.js
-│   └── js/                        app shell, pages, camera + location capture, map adapter
-├── tests/                         pytest suite (110 tests)
+│   └── js/                        app shell, pages, camera + location capture, map adapter,
+│                                  live.js (progress, ETA/ETR, tracking, intelligence + dispatch panels)
+├── docs/                          integration design, handoff, JSON report, PDF report
+├── tests/                         pytest suite (139 tests)
 ├── scripts/make_demo_images.py    writes sample photos for manual upload
 ├── requirements.txt
 ├── pytest.ini
@@ -171,6 +184,20 @@ All optional; set them in `.env`, which must never be committed. See `.env.examp
 | `GOOGLE_MAPS_BROWSER_KEY` | empty | Optional. Google Maps when set, OpenStreetMap otherwise. A browser key is visible to users by design — restrict it in Google Cloud. |
 | `SEED_DEMO_DATA` | `true` | Creates demo users and one labelled demo incident on first start. |
 | `CORS_ORIGINS` | empty | Only needed if the frontend is hosted on another origin. |
+| `INTELLIGENCE_URL` | empty | Incident Intelligence agent base URL, e.g. `http://127.0.0.1:8001`. Empty = not configured (reports still accepted). |
+| `INTELLIGENCE_TIMEOUT_S` | `8` | Per-call timeout; a slow agent never blocks the report. |
+| `DISPATCH_MAX_RADIUS_KM` | `2` | Dispatch radius (the Dispatch agent's default). |
+| `DISPATCH_LOCATION_MAX_AGE_S` | `900` | A worker location older than this is stale for dispatch (Dispatch agent's 15 min rule). |
+| `DISPATCH_FALLBACK` | `workload` | `workload` = labelled least-loaded fallback when nobody qualified shared a location; `escalate` = leave it for a supervisor. |
+| `TRACKING_MIN_INTERVAL_S` | `10` | Location updates closer together are ignored (not stored). |
+| `TRACKING_STALE_S` | `120` | After this, the last location is shown as stale. |
+| `TRACKING_HISTORY_KEEP` | `20` | Recent points kept per task; all deleted when field work ends. |
+| `ARRIVAL_RADIUS_M` | `50` | Arrival is estimated inside this distance (not the geofence). |
+| `ETA_ASSUMED_SPEED_KMH` | `20` | Speed used when no approach speed can be observed. |
+| `ETA_ROUTE_FACTOR` | `1.4` | Straight line → road distance allowance (no routing service). |
+| `ETR_DEFAULT_TRAVEL_MIN` | `30` | Travel allowance when the worker's location is unknown. |
+| `ETR_REVIEW_BUFFER_MIN` | `30` | Allowance for supervisor review. |
+| `ETR_HISTORY_MIN_SAMPLES` | `3` | Resolved jobs per category needed before the historical median replaces the baseline. |
 
 ## 14. Running the backend and frontend
 
@@ -181,6 +208,23 @@ uvicorn geosatya.main:create_app --factory --reload
 ```
 
 Open **http://localhost:8000**. There is no sign-in screen; pick a demo role (citizen, field worker, supervisor) in the top bar.
+
+### Optional: run with the Incident Intelligence agent (two terminals)
+
+The agent is on the `incident-intelligence-agent` branch. Check it out into a separate folder (this does not touch your GeoSatya checkout), and run it on **port 8001** in its offline `mock` mode (no Gemini key needed):
+
+```powershell
+git -C <team-repo> worktree add ..\kavach-intelligence origin/incident-intelligence-agent
+cd ..\kavach-intelligence
+py -3.13 -m venv .venv
+.\.venv\Scripts\python -m pip install -r requirements.txt python-dotenv
+$env:KAVACH_LLM_MODE = "mock"
+.\.venv\Scripts\python -m uvicorn kavach.main:app --app-dir src --port 8001
+```
+
+(`python-dotenv` is imported by the agent but missing from its `requirements.txt`; `tzdata` is required on Windows and is listed.) Then start GeoSatya with `INTELLIGENCE_URL=http://127.0.0.1:8001` in `.env` (or `$env:INTELLIGENCE_URL=...`). Health checks: http://127.0.0.1:8001/health and http://localhost:8000/health. If port 8000 or 8001 is busy, pass another `--port` and update `INTELLIGENCE_URL`.
+
+With `KAVACH_LLM_MODE=mock` the agent's classifier is a keyword stub, labelled "development only" by its authors. Real classification needs `KAVACH_LLM_MODE=gemini` and a `GEMINI_API_KEY` in the agent's own `.env` (a paid Google API; none is configured here).
 
 - Swagger UI: http://localhost:8000/docs
 - Health check: http://localhost:8000/health
@@ -215,10 +259,25 @@ All under `/api/v1` except `/health`. Access is role-based: citizens see their o
 | GET | `/evidence-history` | supervisor | audit events (coordinates are never written here) |
 | GET | `/media/{media_id}` | permitted users only | a stored photo |
 | POST | `/demo/reset` | supervisor (demo only) | rebuild the demo database |
+| POST | `/incidents` + `Idempotency-Key` header | citizen | optional: a retried submission with the same key returns the first report |
+| POST | `/incidents/{id}/intelligence/retry` | supervisor | re-run Incident Intelligence (same request id; never duplicates) |
+| POST | `/incidents/{id}/dispatch/retry` | supervisor | re-run Dispatch for an unassigned incident (never creates a second task) |
+| POST | `/incidents/{id}/assign` | supervisor | assign an unassigned incident to a worker |
+| POST | `/tasks/{task_id}/reassign` | supervisor | move an active task to another worker (reason required) |
+| GET | `/incidents/{id}/tracking` | reporter / assigned worker / supervisor | latest worker location (citizen: only while live), ETA, ETR |
+| GET | `/tasks/{task_id}/tracking` | assigned worker, supervisor | same, by task (supervisor also gets recent history) |
+| POST | `/tasks/{task_id}/location` | assigned worker | share current location (active task only) |
+| POST | `/tasks/{task_id}/tracking/stop` | assigned worker | stop sharing |
+| GET | `/workers` | supervisor | workers' skills, load, availability, location freshness |
+| GET | `/workers/me` | worker | own availability and dispatch profile |
+| POST | `/workers/me/check-in` | worker | set availability; optionally share one location for dispatch |
+
+`GET /incidents/{id}` now also returns `progress` (milestone times and ETR) and `intelligence` (status and priority for everyone; full output for supervisors), and `dispatch` for supervisors.
 
 ## 16. Database and storage behavior
 
 - **Database:** SQLite by default, in `data/`. Tables are created automatically at start-up (SQLAlchemy `create_all`); there are no migrations. Any SQLAlchemy URL (e.g. PostgreSQL) can be set via `DATABASE_URL`.
+- **Integration schema change (additive only):** new tables `incident_intelligence`, `worker_profiles`, `dispatch_records`, `task_progress`, `location_pings`, `request_keys`. No existing table or column changed, so an existing `geosatya_v3.db` gains them on the next start and keeps its data. Tasks created before this change get a `task_progress` row on first use; existing workers get a profile with no skills (demo workers get demo skills).
 - **Photos:** stored under `STORAGE_DIR` (default `private_uploads/`) with random server-generated filenames, never as public files; a stored photo is returned only to a permitted user through `/media/{id}`.
 - **Location evidence:** each source (device GPS, photo EXIF, user-selected pin, supervisor correction) is its own record with provenance; sources never overwrite one another.
 - `data/`, `private_uploads/`, `demo_images/` and `.venv/` are git-ignored.
@@ -231,7 +290,9 @@ From `services/geosatya/` with the virtual environment active:
 pytest
 ```
 
-**Actual result on this copy:** `110 passed, 1 warning`. The warning is a deprecation notice from a dependency (Starlette's test client), not a failure. The suite covers the geofence rule (valid/invalid/NaN/infinite coordinates, inside/outside radius, poor/missing accuracy, boundary, denied/timed-out/unavailable location, EXIF conflicts, gallery and duplicate photos, simulated locations, configurable radius); EXIF and image validation (N/S/E/W references, missing/malformed/oversized/unsupported files, storage-key safety); and the full HTTP workflow (report → automatic task → worker inside/outside the radius → retries → missing evidence → supervisor approve/reject/request-more with reasons → the SUBMITTED → ASSIGNED → IN_PROGRESS → AWAITING_VERIFICATION → RESOLVED lifecycle → location correction with audit → role/access checks, token mode, and production refusing demo mode and simulation).
+**Actual result on this copy:** `139 passed, 1 warning` (110 original + 29 integration tests in `tests/test_integration.py`: intelligence success, unavailable/timeout/502/409/invalid-JSON, retry with the same request id; dispatch ranking rules, unavailable workers, workload fallback, escalation, manual assign, retry without duplicates, idempotent report submission; tracking authorization and privacy, invalid/NaN coordinates, throttling, ETA states and observed speed, stale locations, arrival vs. geofence, history limit and purge, reassignment; ETR on events, historical median, rework, actual resolution time; pre-existing tasks without progress rows).
+
+Before the integration: `110 passed, 1 warning`. The warning is a deprecation notice from a dependency (Starlette's test client), not a failure. The suite covers the geofence rule (valid/invalid/NaN/infinite coordinates, inside/outside radius, poor/missing accuracy, boundary, denied/timed-out/unavailable location, EXIF conflicts, gallery and duplicate photos, simulated locations, configurable radius); EXIF and image validation (N/S/E/W references, missing/malformed/oversized/unsupported files, storage-key safety); and the full HTTP workflow (report → automatic task → worker inside/outside the radius → retries → missing evidence → supervisor approve/reject/request-more with reasons → the SUBMITTED → ASSIGNED → IN_PROGRESS → AWAITING_VERIFICATION → RESOLVED lifecycle → location correction with audit → role/access checks, token mode, and production refusing demo mode and simulation).
 
 ## 18. Demo data and demonstration
 
@@ -243,6 +304,15 @@ pytest
 4. Choose *At the spot* → retake → **Submit** → *Verified on site*.
 5. **Supervisor:** *Verification Queue* → open the item → review the map, distance, accuracy and both photos → **Approve**.
 6. **Citizen:** *My Reports* now shows *Resolved*.
+
+**Integrated demo (live tracking, ETA, ETR).** Turn on *Simulate GPS (demo)*.
+1. **Field worker (Meena):** Dashboard → *Share my location once (simulated)* so Dispatch can use distance.
+2. **Citizen:** report an issue. On the report page, *Live progress* shows *Assigned* and an ETR.
+3. **Supervisor:** open the report: the *Incident Intelligence* card (if the agent runs) and the *Dispatch* card with the ranking.
+4. **Assigned worker:** open the task → *Share location (simulated travel)*. Every 10 s the simulated position moves ~100 m closer.
+5. **Citizen or supervisor:** the page refreshes every 15 s with the ETA range, the distance and the live/stale state; *Arrived* appears within 50 m.
+6. **Worker:** *Start work* → completion photo at the spot → submit. Sharing stops and its points are deleted.
+7. **Supervisor:** approve. The citizen sees *Resolved in …* with the actual durations.
 
 `scripts/make_demo_images.py` writes sample photos (some with EXIF GPS) to `demo_images/` for manual upload.
 
@@ -260,18 +330,24 @@ pytest
 - Browser GPS can be spoofed; EXIF and device clocks are client-reported. A `PASS` means consistency, not proof of presence.
 - GPS proximity does not identify a specific asset; the supervisor confirms the photo shows the right issue.
 - SQLite with auto-created tables and local photo storage: fine for a prototype, not production. A real deployment needs PostgreSQL, migrations and private object storage.
-- Assignment picks the worker with the fewest open tasks; there is no live worker-location data, so "nearest worker" is not claimed.
+- Dispatch uses distance only when workers have shared a location in the last 15 minutes; otherwise the labelled workload fallback is used and "nearest" is not claimed. Worker skills come from `worker_profiles` (demo workers are seeded; others need their skills set; there is no admin screen for it yet).
+- ETA is approximate: straight-line distance × 1.4 at an observed or assumed speed. No road-routing service is configured (a routing provider such as OSRM or Google Directions would be a new dependency; Google needs billing).
+- A web page cannot track in the background: sharing stops when the page is closed, the device sleeps, goes offline or permission is revoked. The UI shows this as stale. A native app would be needed for background tracking.
+- ETR uses category baselines in `categories.json` until 3 jobs per category are resolved; the baselines are placeholders, not measured data.
+- There is no "accept" step and no "cancelled" status; reassignment is supported. Ratings are not implemented (see docs/INTEGRATION.md for a proposal).
 - No notifications (status is shown in the app only); single-instance design with no locking for simultaneous decisions on one task.
 - Not tested on a real phone camera/GPS, or with Google Maps (no key); browser testing used simulated GPS and a test video stream.
 
 ## Integration with other KAVACH agents
 
-GeoSatya currently does not call or depend on any other KAVACH agent, and none call it. Overlaps and integration points, for the team to decide:
+**Integrated now** (details in [docs/INTEGRATION.md](docs/INTEGRATION.md)):
 
-- **Incident Intelligence** (`incident-intelligence-agent`) also takes citizen reports with a pin, device GPS and photo EXIF — one agreed incident-record format and one owner of the reporter's location would be needed.
+- **Incident Intelligence** (`incident-intelligence-agent`): called over HTTP after each report is saved; its output is stored in `incident_intelligence` and its severity becomes the dispatch priority.
+- **Dispatch** (`dispatch-work`): its ranking function is reused in `geosatya/dispatch/ranking.py` with GeoSatya's workers. The branch's own HTTP service is not called: its workers are hard-coded in memory near Ujjain and go stale 15 minutes after start-up, so it could never assign a GeoSatya incident.
+
+**Still separate**, for the team to decide:
 - **Field Worker** (`Field-worker-agent`) also stores worker evidence and GPS (PostgreSQL + Alembic); merging means one database and migrations.
 - **Verification** (`verification-agent`) has its own GPS/Haversine checks; its outcomes (`PASS`/`FAIL`/`INCONCLUSIVE`/`MANUAL_REVIEW`) differ from GeoSatya's and would need mapping.
-- **Dispatch** (`dispatch-work`) assigns by availability and distance; GeoSatya's assignment could become a call to it.
 - **Duplicate Detection** could take GeoSatya's reports as input; GeoSatya itself does not detect duplicates.
 
 A sensible first step is to agree a shared incident ID and category vocabulary, then decide which module owns the citizen report and which owns the worker verdict.

@@ -1,22 +1,30 @@
 import json
 from collections import Counter
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, Request, UploadFile
 from fastapi.responses import JSONResponse, Response
 from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from geosatya.api.deps import get_actor, get_session, load_incident, load_task, require_role, task_of
-from geosatya.api.schemas import CompletionCreate, CorrectionRequest, IncidentCreate, ReviewRequest, SettingsUpdate
-from geosatya.api.views import audit_view, completion_view, incident_detail, incident_summary, task_view
+from geosatya.api.schemas import (
+    AssignRequest, CheckInRequest, CompletionCreate, CorrectionRequest, DeviceLocation, IncidentCreate, ReviewRequest,
+    SettingsUpdate,
+)
+from geosatya.api.views import audit_view, completion_view, incident_detail, incident_summary, intelligence_view, task_view
 from geosatya.config import ACCURACY_MAX_M, ACCURACY_MIN_M, GEOFENCE_MAX_M, GEOFENCE_MIN_M
 from geosatya.media.image_checks import ImageValidationError
-from geosatya.models import AuditRow, CompletionRow, EvidenceRow, IncidentRow, MediaRow, TaskRow, UserRow
+from geosatya.models import (
+    AuditRow, CompletionRow, EvidenceRow, IncidentRow, MediaRow, RequestKeyRow, TaskRow, UserRow, WorkerProfileRow,
+)
+from geosatya.services import dispatch as dispatch_service
 from geosatya.services import incidents as incident_service
 from geosatya.services import tasks as task_service
+from geosatya.services import tracking as tracking_service
 from geosatya.services.common import Actor, ServiceError, audit, get_limits, set_limits
-from geosatya.timeutil import iso
+from geosatya.services.intelligence import run_intelligence
+from geosatya.timeutil import iso, utcnow
 
 router = APIRouter()
 supervisor_only = require_role("SUPERVISOR")
@@ -61,6 +69,11 @@ def app_config(request: Request, session: Session = Depends(get_session)):
         "location_freshness_s": s.location_freshness_s, "simulation_allowed": s.simulation_allowed,
         "simulated_may_pass": s.simulated_may_pass, "max_image_size_bytes": s.max_image_size_bytes,
         "min_completion_chars": s.min_completion_chars,
+        "integration": {"intelligence_configured": _app(request).intelligence is not None,
+                        "dispatch_fallback": s.dispatch_fallback, "dispatch_max_radius_km": s.dispatch_max_radius_km,
+                        "dispatch_location_max_age_s": s.dispatch_location_max_age_s},
+        "tracking": {"min_interval_s": s.tracking_min_interval_s, "stale_s": s.tracking_stale_s,
+                     "arrival_radius_m": s.arrival_radius_m, "eta_method": "APPROXIMATE_STRAIGHT_LINE"},
     }
 
 
@@ -113,8 +126,16 @@ def update_settings(body: SettingsUpdate, request: Request, actor: Actor = Depen
 # ---------------------------------------------------------- incidents
 @router.post("/incidents", tags=["Incidents"], status_code=201)
 def create_incident(request: Request, payload: str = Form(...), photos: list[UploadFile] = File(default=[]),
+                    idempotency_key: str | None = Header(default=None, max_length=80),
                     actor: Actor = Depends(require_role("CITIZEN")), session: Session = Depends(get_session)):
     app = _app(request)
+    if idempotency_key:
+        # A retried submission (e.g. after a dropped connection) returns the first report.
+        seen = session.get(RequestKeyRow, f"{actor.user_id}:{idempotency_key}")
+        if seen is not None:
+            incident = session.get(IncidentRow, seen.incident_id)
+            return JSONResponse(incident_detail(session, app.categories, incident, task_of(session, incident.incident_id), actor),
+                                status_code=200)
     body = parse_payload(IncidentCreate, payload)
     files = []
     for i, upload in enumerate([p for p in photos if p.filename]):
@@ -122,8 +143,59 @@ def create_incident(request: Request, payload: str = Form(...), photos: list[Upl
         files.append((read_upload(upload, app.settings.max_image_size_bytes), dump(meta) or {"capture_source": "GALLERY"}))
     data = body.model_dump(mode="python")
     incident = incident_service.create_incident(session, app.storage, app.settings, app.categories, actor, data, files)
+    if idempotency_key:
+        session.add(RequestKeyRow(key=f"{actor.user_id}:{idempotency_key}", user_id=actor.user_id,
+                                  incident_id=incident.incident_id, created_at=utcnow()))
+    session.commit()  # the report is safe before any other agent is called
+    incident_service.process_incident(session, app.storage, app.settings, app.categories, app.intelligence, incident)
     session.commit()
     return incident_detail(session, app.categories, incident, task_of(session, incident.incident_id), actor)
+
+
+@router.post("/incidents/{incident_id}/intelligence/retry", tags=["Integration"])
+def retry_intelligence(incident_id: str, request: Request, actor: Actor = Depends(supervisor_only),
+                       session: Session = Depends(get_session)):
+    app = _app(request)
+    incident = load_incident(session, incident_id, actor)
+    row = run_intelligence(session, app.storage, app.intelligence, incident)
+    session.commit()
+    return intelligence_view(row, full=True)
+
+
+@router.post("/incidents/{incident_id}/dispatch/retry", tags=["Integration"])
+def retry_dispatch(incident_id: str, request: Request, actor: Actor = Depends(supervisor_only),
+                   session: Session = Depends(get_session)):
+    """Run Dispatch again for an escalated incident. Never creates a second task."""
+    app = _app(request)
+    incident = load_incident(session, incident_id, actor)
+    task = dispatch_service.dispatch_incident(session, app.settings, app.categories, incident, actor=actor)
+    if task is not None:
+        incident_service.refresh_etr(session, app.settings, app.categories, task, incident, "ASSIGNED")
+    session.commit()
+    return incident_detail(session, app.categories, incident, task, actor)
+
+
+@router.post("/incidents/{incident_id}/assign", tags=["Integration"])
+def assign(incident_id: str, body: AssignRequest, request: Request, actor: Actor = Depends(supervisor_only),
+           session: Session = Depends(get_session)):
+    app = _app(request)
+    incident = load_incident(session, incident_id, actor)
+    task = dispatch_service.assign_manually(session, app.settings, app.categories, incident, body.worker_id, actor, body.reason)
+    incident_service.refresh_etr(session, app.settings, app.categories, task, incident, "ASSIGNED")
+    session.commit()
+    return incident_detail(session, app.categories, incident, task, actor)
+
+
+@router.get("/incidents/{incident_id}/tracking", tags=["Tracking"])
+def incident_tracking(incident_id: str, request: Request, actor: Actor = Depends(get_actor),
+                      session: Session = Depends(get_session)):
+    incident = load_incident(session, incident_id, actor)
+    task = task_of(session, incident_id)
+    if task is None:
+        raise ServiceError("No field task yet.", 404, "NO_TASK")
+    data = tracking_service.tracking_view(session, _app(request).settings, task, incident, actor)
+    session.commit()
+    return data
 
 
 @router.get("/incidents", tags=["Incidents"])
@@ -179,11 +251,86 @@ def get_task(task_id: str, request: Request, actor: Actor = Depends(require_role
 
 
 @router.post("/tasks/{task_id}/start", tags=["Tasks"])
-def start(task_id: str, actor: Actor = Depends(worker_only), session: Session = Depends(get_session)):
+def start(task_id: str, request: Request, actor: Actor = Depends(worker_only), session: Session = Depends(get_session)):
+    app = _app(request)
     task = load_task(session, task_id, actor)
-    task_service.start_task(session, task, session.get(IncidentRow, task.incident_id), actor)
+    task_service.start_task(session, task, session.get(IncidentRow, task.incident_id), actor,
+                            settings=app.settings, categories=app.categories)
     session.commit()
     return task_view(session, task)
+
+
+@router.post("/tasks/{task_id}/location", tags=["Tracking"])
+def share_location(task_id: str, body: DeviceLocation, request: Request, actor: Actor = Depends(worker_only),
+                   session: Session = Depends(get_session)):
+    """The assigned worker shares their position while travelling or working."""
+    app = _app(request)
+    task = load_task(session, task_id, actor)
+    result = tracking_service.record_ping(session, app.settings, app.categories, task,
+                                          session.get(IncidentRow, task.incident_id), actor, dump(body))
+    session.commit()
+    return result
+
+
+@router.post("/tasks/{task_id}/tracking/stop", tags=["Tracking"])
+def stop_sharing(task_id: str, actor: Actor = Depends(worker_only), session: Session = Depends(get_session)):
+    task = load_task(session, task_id, actor)
+    tracking_service.stop_tracking(session, task, "STOPPED_BY_WORKER")
+    audit(session, actor, "TRACKING_STOPPED", task.incident_id, task_id=task.task_id)
+    session.commit()
+    return {"stopped": True}
+
+
+@router.get("/tasks/{task_id}/tracking", tags=["Tracking"])
+def task_tracking(task_id: str, request: Request, actor: Actor = Depends(require_role("WORKER", "SUPERVISOR")),
+                  session: Session = Depends(get_session)):
+    task = load_task(session, task_id, actor)
+    data = tracking_service.tracking_view(session, _app(request).settings, task, session.get(IncidentRow, task.incident_id), actor)
+    session.commit()
+    return data
+
+
+@router.post("/tasks/{task_id}/reassign", tags=["Integration"])
+def reassign(task_id: str, body: AssignRequest, request: Request, actor: Actor = Depends(supervisor_only),
+             session: Session = Depends(get_session)):
+    app = _app(request)
+    task = load_task(session, task_id, actor)
+    incident = session.get(IncidentRow, task.incident_id)
+    dispatch_service.reassign(session, app.settings, app.categories, incident, task, body.worker_id, actor, body.reason)
+    incident_service.refresh_etr(session, app.settings, app.categories, task, incident, "REASSIGNED")
+    session.commit()
+    return incident_detail(session, app.categories, incident, task, actor)
+
+
+# ------------------------------------------------------------ workers
+@router.get("/workers", tags=["Workers"])
+def workers(request: Request, _: Actor = Depends(supervisor_only), session: Session = Depends(get_session)):
+    """Dispatch view of the workforce: skills, load, and how old their shared location is."""
+    settings, now = _app(request).settings, utcnow()
+    out = []
+    for w in dispatch_service.worker_pool(session):
+        updated = w.pop("location_updated_at")
+        age = int((now - updated).total_seconds()) if updated else None
+        out.append({**w, "location_age_s": age, "location_fresh": age is not None and age <= settings.dispatch_location_max_age_s})
+    return out
+
+
+@router.get("/workers/me", tags=["Workers"])
+def my_status(request: Request, actor: Actor = Depends(worker_only), session: Session = Depends(get_session)):
+    prof = session.get(WorkerProfileRow, actor.user_id)
+    if prof is None:
+        raise ServiceError("No worker profile exists for this user.", 404, "NO_PROFILE")
+    return {"available": prof.available, "skills": prof.skills, "max_active_tasks": prof.max_active_tasks,
+            "location_shared_at": iso(prof.last_received_at), "location_source": prof.last_source,
+            "location_mode": prof.last_mode, "dispatch_location_max_age_s": _app(request).settings.dispatch_location_max_age_s}
+
+
+@router.post("/workers/me/check-in", tags=["Workers"])
+def worker_check_in(body: CheckInRequest, request: Request, actor: Actor = Depends(worker_only),
+                    session: Session = Depends(get_session)):
+    tracking_service.check_in(session, _app(request).settings, actor, body.available, dump(body.location))
+    session.commit()
+    return my_status(request, actor, session)
 
 
 @router.post("/tasks/{task_id}/completion", tags=["Tasks"])
@@ -196,7 +343,8 @@ def completion(task_id: str, request: Request, payload: str = Form(...), photo: 
     data = read_upload(photo, app.settings.max_image_size_bytes) if photo is not None and photo.filename else None
     row = task_service.submit_completion(
         session, app.storage, app.settings, task, incident, actor, photo=data, meta=dump(body.photo_meta),
-        device=dump(body.device_location), device_error=body.device_location_error, description=body.description)
+        device=dump(body.device_location), device_error=body.device_location_error, description=body.description,
+        categories=app.categories)
     session.commit()
     return {"completion": completion_view(session, row, detail=False), "task": task_view(session, task),
             "incident_status": incident.status}
@@ -231,13 +379,15 @@ def get_completion(completion_id: str, request: Request, actor: Actor = Depends(
 
 
 @router.post("/completions/{completion_id}/review", tags=["Supervisor"])
-def review(completion_id: str, body: ReviewRequest, actor: Actor = Depends(supervisor_only),
+def review(completion_id: str, body: ReviewRequest, request: Request, actor: Actor = Depends(supervisor_only),
            session: Session = Depends(get_session)):
+    app = _app(request)
     c = session.get(CompletionRow, completion_id)
     if c is None:
         raise HTTPException(404, "Not found")
     task = session.get(TaskRow, c.task_id)
-    task_service.review(session, c, task, session.get(IncidentRow, c.incident_id), actor, body.decision, body.reason)
+    task_service.review(session, c, task, session.get(IncidentRow, c.incident_id), actor, body.decision, body.reason,
+                        settings=app.settings, categories=app.categories)
     session.commit()
     return completion_view(session, c, detail=False)
 

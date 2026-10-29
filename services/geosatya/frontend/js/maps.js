@@ -9,6 +9,7 @@ export const KINDS = {
   simulated: { color: "#7C3AED", label: "Simulated location" },
   exif: { color: "#0E7490", label: "Photo's own GPS" },
   pin: { color: "#EA580C", label: "User-selected location" },
+  worker: { color: "#16A34A", label: "Field worker (shared location)" },
 };
 let googlePromise = null;
 let fallbackReason = null;

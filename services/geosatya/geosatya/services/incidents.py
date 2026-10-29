@@ -1,19 +1,18 @@
-"""Citizen reports. A new report becomes a worker task automatically."""
+"""Citizen reports. A saved report goes to Incident Intelligence and then to
+Dispatch, which normally turns it into a worker task automatically."""
 
 from __future__ import annotations
 
-from sqlalchemy import func, select
-from sqlalchemy.orm import Session
-
 from geosatya.location.coordinates import CoordinateError, haversine_m, validate_coordinates
-from geosatya.models import EvidenceRow, IncidentRow, TaskRow, UserRow
+from geosatya.models import EvidenceRow, IncidentRow, TaskRow
+from geosatya.services import estimates
 from geosatya.services.common import (
-    Actor, ServiceError, audit, device_evidence, get_limits, incident_id, move_incident, new_id, set_task_status,
-    store_photo,
+    Actor, ServiceError, audit, device_evidence, get_limits, incident_id, new_id, store_photo,
 )
+from geosatya.services.dispatch import dispatch_incident
+from geosatya.services.intelligence import run_intelligence
+from geosatya.services.tracking import progress_of, recent_pings
 from geosatya.timeutil import utcnow
-
-OPEN_TASK_STATUSES = ("ASSIGNED", "IN_PROGRESS", "AWAITING_VERIFICATION")
 
 
 def create_incident(session, storage, settings, categories, actor: Actor, payload: dict, photos: list[tuple[bytes, dict]],
@@ -87,28 +86,25 @@ def create_incident(session, storage, settings, categories, actor: Actor, payloa
     incident.location_flags = list(dict.fromkeys(flags))
     audit(session, actor, "INCIDENT_REPORTED", incident.incident_id, category=category["id"], location_source=source,
           location_mode=mode, flags=incident.location_flags)
-    assign_task(session, incident, actor=Actor("system", "SYSTEM", "GeoSatya"))
+    session.flush()
     return incident
 
 
-def assign_task(session: Session, incident: IncidentRow, *, actor: Actor) -> TaskRow | None:
-    """Simple strategy: the worker with the fewest open tasks. There is no
-    live worker location or availability data, so nearest-worker is not claimed."""
-    workers = session.scalars(select(UserRow).where(UserRow.role == "WORKER").order_by(UserRow.user_id)).all()
-    if not workers:
-        audit(session, actor, "NO_WORKER_AVAILABLE", incident.incident_id)
-        return None
-    load = dict(session.execute(select(TaskRow.worker_id, func.count()).where(TaskRow.status.in_(OPEN_TASK_STATUSES))
-                                .group_by(TaskRow.worker_id)).all())
-    worker = min(workers, key=lambda w: (load.get(w.user_id, 0), w.user_id))
-    now = utcnow()
-    task = TaskRow(task_id=new_id("TSK", 3), incident_id=incident.incident_id, worker_id=worker.user_id,
-                   target_latitude=incident.latitude, target_longitude=incident.longitude, target_source="ORIGINAL",
-                   status="ASSIGNED", attempt=1, assigned_at=now, updated_at=now)
-    session.add(task)
-    move_incident(session, incident, "ASSIGNED", actor, f"Assigned to {worker.user_id} (fewest open tasks)")
-    session.flush()
+def process_incident(session, storage, settings, categories, intelligence_client, incident: IncidentRow) -> TaskRow | None:
+    """After the report is committed: Incident Intelligence, then Dispatch.
+    Intelligence failing never blocks dispatch; it only leaves the priority NORMAL."""
+    run_intelligence(session, storage, intelligence_client, incident)
+    task = dispatch_incident(session, settings, categories, incident)
+    if task is not None:
+        refresh_etr(session, settings, categories, task, incident, "ASSIGNED")
     return task
+
+
+def refresh_etr(session, settings, categories, task: TaskRow, incident: IncidentRow, event: str) -> None:
+    progress = progress_of(session, task)
+    info = estimates.eta(task, progress, recent_pings(session, task.task_id), settings)
+    estimates.recompute_etr(session, settings, categories, task, incident, progress, event, info)
+    session.flush()
 
 
 def correct_task_location(session, incident: IncidentRow, task: TaskRow, actor: Actor, lat: float, lon: float, reason: str) -> None:

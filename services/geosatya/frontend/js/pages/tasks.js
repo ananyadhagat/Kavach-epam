@@ -3,6 +3,7 @@
 import { api, session, upload } from "../api.js";
 import { SIM_PRESETS, capturePhoto, haversine, locate, permissionState, previewCheck, simulatedFix, simulationOn } from "../capture.js";
 import { categoryIcon, outcomeBanner, photo, reasonChips, timingLine } from "../components.js";
+import { locationSharer, progressCard } from "../live.js";
 import { createMap, legend, mapProviderName } from "../maps.js";
 import { banner, button, card, chip, clear, demoTag, emptyState, fmtM, fmtTime, h, icon, label, pageHead, toast } from "../ui.js";
 
@@ -153,6 +154,8 @@ export async function renderTask(ctx) {
       h("span", { class: "muted" }, "Go to the marked spot. You'll verify your position when you take the completion photo.")),
       button("Start work", { class: "btn primary", onclick: async () => { try { await api(`/tasks/${t.task_id}/start`, { method: "POST" }); rerender(); } catch (e) { toast(e.message, "fail"); } } }, "arrowRight"))) : null,
     t.rework_reason && ["ASSIGNED", "IN_PROGRESS"].includes(t.status) ? banner("review", h("strong", {}, "Sent back for rework: "), t.rework_reason) : null,
+    isWorker && ["ASSIGNED", "IN_PROGRESS"].includes(t.status) ? locationSharer(t, ctx) : null,
+    !isWorker ? progressCard(inc, ctx) : null,
     last && !editable ? card({}, h("h2", {}, t.status === "RESOLVED" ? "Resolved" : "Waiting for the supervisor"), outcomeOf(last)) : null,
     h("div", { class: "grid two" },
       h("div", { class: "stack", style: { gap: "22px" } },

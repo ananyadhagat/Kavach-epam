@@ -10,21 +10,33 @@ from geosatya.models import CompletionRow, IncidentRow, MediaRow, TaskRow
 from geosatya.services.common import (
     Actor, ServiceError, audit, device_evidence, make_policy, move_incident, new_id, set_task_status, store_photo,
 )
+from geosatya.services.incidents import refresh_etr
+from geosatya.services.tracking import progress_of, stop_tracking
 from geosatya.timeutil import utcnow
 
 
-def start_task(session, task: TaskRow, incident: IncidentRow, actor: Actor) -> None:
+def _milestone(session, settings, categories, task: TaskRow, incident: IncidentRow, event: str, **times) -> None:
+    """Record milestone times and refresh the resolution estimate (if configured)."""
+    progress = progress_of(session, task)
+    for name, value in times.items():
+        setattr(progress, name, value)
+    if settings is not None and categories is not None:
+        refresh_etr(session, settings, categories, task, incident, event)
+
+
+def start_task(session, task: TaskRow, incident: IncidentRow, actor: Actor, *, settings=None, categories=None) -> None:
     if task.status == "IN_PROGRESS":
         return
     if task.status != "ASSIGNED":
         raise ServiceError(f"The task cannot be started while it is {task.status}.", 409, "INVALID_TRANSITION")
     set_task_status(task, "IN_PROGRESS")
     move_incident(session, incident, "IN_PROGRESS", actor, "Worker started")
+    _milestone(session, settings, categories, task, incident, "WORK_STARTED", work_started_at=utcnow())
 
 
 def submit_completion(session, storage, settings, task: TaskRow, incident: IncidentRow, actor: Actor, *,
                       photo: bytes | None, meta: dict, device: dict | None, device_error: str | None,
-                      description: str) -> CompletionRow:
+                      description: str, categories=None) -> CompletionRow:
     """Verify the worker's location against the incident's *original* location.
 
     FAIL and NOT_CHECKED attempts are recorded but not accepted: the task stays
@@ -83,6 +95,10 @@ def submit_completion(session, storage, settings, task: TaskRow, incident: Incid
     if accepted:
         set_task_status(task, "AWAITING_VERIFICATION")
         move_incident(session, incident, "AWAITING_VERIFICATION", actor, f"Evidence submitted ({outcome})")
+        # Field work is over: tracking stops and its points are deleted.
+        stop_tracking(session, task, "COMPLETION_SUBMITTED", purge=True)
+        _milestone(session, settings, categories, task, incident, "COMPLETION_SUBMITTED",
+                   completion_submitted_at=completion.submitted_at)
     session.flush()
     return completion
 
@@ -96,7 +112,7 @@ def pending_completion(session, task: TaskRow) -> CompletionRow | None:
 
 
 def review(session, completion: CompletionRow, task: TaskRow, incident: IncidentRow, actor: Actor,
-           decision: str, reason: str) -> None:
+           decision: str, reason: str, *, settings=None, categories=None) -> None:
     reason = (reason or "").strip()
     if (completion.reviewed_at is not None or not completion.accepted or completion.attempt != task.attempt
             or task.status != "AWAITING_VERIFICATION"):
@@ -112,11 +128,13 @@ def review(session, completion: CompletionRow, task: TaskRow, incident: Incident
     if decision == "APPROVE":
         set_task_status(task, "RESOLVED")
         move_incident(session, incident, "RESOLVED", actor, reason or "Approved after review")
+        _milestone(session, settings, categories, task, incident, "RESOLVED", resolved_at=completion.reviewed_at)
     else:
         # REJECT and REQUEST_EVIDENCE both send the job back to the worker as a new attempt.
         task.attempt += 1
         task.rework_reason = reason
         set_task_status(task, "ASSIGNED")
         move_incident(session, incident, "ASSIGNED", actor, f"Sent back for rework: {reason}")
+        _milestone(session, settings, categories, task, incident, "REWORK")
     audit(session, actor, "SUPERVISOR_DECISION", incident.incident_id, decision=decision, reason=reason[:500],
           automated_outcome=completion.outcome, override=override, attempt=completion.attempt)

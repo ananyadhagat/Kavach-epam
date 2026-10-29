@@ -4,8 +4,13 @@ from __future__ import annotations
 
 from sqlalchemy import select
 
-from geosatya.models import AuditRow, CompletionRow, EvidenceRow, IncidentRow, MediaRow, TaskRow, UserRow
+from geosatya.models import (
+    AuditRow, CompletionRow, DispatchRow, EvidenceRow, IncidentRow, IntelligenceRow, MediaRow, TaskProgressRow, TaskRow,
+    UserRow,
+)
+from geosatya.services import estimates
 from geosatya.services.common import Actor
+from geosatya.services.intelligence import priority_of
 from geosatya.timeutil import iso
 
 STATUS_TEXT = {
@@ -84,6 +89,7 @@ def incident_summary(session, categories, i: IncidentRow, task: TaskRow | None) 
             "category_icon": cat.get("icon", "dots"), "title": i.title, "status": i.status,
             "status_text": STATUS_TEXT.get(i.status, i.status), "created_at": iso(i.created_at),
             "updated_at": iso(i.updated_at), "is_demo": i.is_demo, "task_id": task.task_id if task else None,
+            "priority": priority_of(session.get(IntelligenceRow, i.incident_id)),
             "rework": bool(task and task.rework_reason and task.status in ("ASSIGNED", "IN_PROGRESS"))}
 
 
@@ -105,10 +111,59 @@ def incident_detail(session, categories, i: IncidentRow, task: TaskRow | None, a
                                .order_by(CompletionRow.submitted_at)).all()
         data["completions"] = [completion_view(session, c, detail=actor.role == "SUPERVISOR") for c in rows]
         data["completion_photos"] = photos(session, i.incident_id, role="COMPLETION", detail=actor.role == "SUPERVISOR")
+    progress = session.get(TaskProgressRow, task.task_id) if task is not None else None
+    data["progress"] = progress_view(task, progress, i)
+    data["intelligence"] = intelligence_view(session.get(IntelligenceRow, i.incident_id), full=actor.role == "SUPERVISOR")
+    if actor.role == "SUPERVISOR":
+        data["dispatch"] = dispatch_view(session, list(session.scalars(
+            select(DispatchRow).where(DispatchRow.incident_id == i.incident_id).order_by(DispatchRow.created_at))))
     events = session.scalars(select(AuditRow).where(AuditRow.incident_id == i.incident_id).order_by(AuditRow.event_time)).all()
     shown = events if actor.role == "SUPERVISOR" else [e for e in events if e.action in ("INCIDENT_REPORTED", "STATUS_CHANGED")]
     data["timeline"] = [audit_view(session, e) for e in shown]
     return data
+
+
+def intelligence_view(row: IntelligenceRow | None, *, full: bool) -> dict:
+    """System-generated analysis, labelled as such. Citizens see only that it ran."""
+    if row is None:
+        return {"status": "NOT_RUN", "priority": "NORMAL"}
+    data = {"status": row.status, "priority": priority_of(row), "source": "Incident Intelligence agent (system generated)"}
+    if full:
+        data.update({"category": row.category, "incident_type": row.incident_type, "severity": row.severity,
+                     "severity_reason": row.severity_reason, "severity_rule_matches": row.severity_rule_matches,
+                     "summary": row.summary, "needs_clarification": row.needs_clarification,
+                     "clarification_questions": row.clarification_questions,
+                     "missing_information": row.missing_information, "location_check_status": row.location_check_status,
+                     "external_incident_id": row.external_incident_id, "request_id": row.request_id,
+                     "model_info": row.model_info, "attempts": row.attempts, "last_error": row.last_error,
+                     "requested_at": iso(row.requested_at), "completed_at": iso(row.completed_at)})
+    return data
+
+
+def dispatch_view(session, rows: list[DispatchRow]) -> dict | None:
+    if not rows:
+        return None
+    latest = rows[-1]
+    names = {w: name_of(session, w) for r in rows for w in [r.worker_id, *[c["worker_id"] for c in r.ranking],
+                                                           *[x["worker_id"] for x in r.rejected]] if w}
+    return {"status": latest.status, "method": latest.method, "worker_id": latest.worker_id,
+            "worker_name": names.get(latest.worker_id), "priority": latest.priority, "reason": latest.reason,
+            "required_skills": latest.required_skills, "required_equipment": latest.required_equipment,
+            "ranking": latest.ranking, "rejected": [{**x, "worker_name": names.get(x["worker_id"])} for x in latest.rejected],
+            "decided_at": iso(latest.created_at),
+            "history": [{"status": r.status, "method": r.method, "worker_name": names.get(r.worker_id), "reason": r.reason,
+                         "time": iso(r.created_at)} for r in rows]}
+
+
+def progress_view(task: TaskRow | None, progress: TaskProgressRow | None, i: IncidentRow) -> dict:
+    """Milestones (recorded times only) and the resolution estimate."""
+    p = progress
+    return {"reported_at": iso(i.created_at), "assigned_at": iso(task.assigned_at) if task else None,
+            "tracking_started_at": iso(p.tracking_started_at) if p else None, "arrived_at": iso(p.arrived_at) if p else None,
+            "work_started_at": iso(p.work_started_at) if p else None,
+            "completion_submitted_at": iso(p.completion_submitted_at) if p else None,
+            "resolved_at": iso(p.resolved_at) if p else None, "tracking_active": bool(p and p.tracking_active),
+            "etr": estimates.etr_view(task, p, i)}
 
 
 def audit_view(session, e: AuditRow) -> dict:

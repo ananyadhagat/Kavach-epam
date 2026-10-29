@@ -185,6 +185,146 @@ class CompletionRow(Base):
     )
 
 
+# ------------------------------------------------------------------------
+# Integration tables (Incident Intelligence, Dispatch, tracking, ETA/ETR).
+# They are new tables only: existing tables and columns are unchanged, so an
+# existing database gains them through create_all without losing data.
+# ------------------------------------------------------------------------
+INTELLIGENCE_STATUSES = ("NOT_CONFIGURED", "PENDING", "COMPLETED", "UNAVAILABLE", "FAILED", "CONFLICT")
+
+
+class IntelligenceRow(Base):
+    """Output of the Incident Intelligence agent for one incident. System
+    generated, kept apart from what the citizen wrote."""
+
+    __tablename__ = "incident_intelligence"
+
+    incident_id: Mapped[str] = mapped_column(String(32), ForeignKey("incidents.incident_id"), primary_key=True)
+    status: Mapped[str] = mapped_column(String(20))
+    request_id: Mapped[str] = mapped_column(String(100))  # X-Request-ID sent to the agent (stable per incident)
+    external_incident_id: Mapped[str | None] = mapped_column(String(64), nullable=True)  # the agent's INC-... id
+    category: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    incident_type: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    severity: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    severity_reason: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    severity_rule_matches: Mapped[list] = mapped_column(JSON, default=list)
+    summary: Mapped[str | None] = mapped_column(String(600), nullable=True)
+    needs_clarification: Mapped[bool] = mapped_column(Boolean, default=False)
+    clarification_questions: Mapped[list] = mapped_column(JSON, default=list)
+    missing_information: Mapped[list] = mapped_column(JSON, default=list)
+    location_check_status: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    model_info: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
+    last_error: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    requested_at: Mapped[datetime | None] = mapped_column(Timestamp, nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(Timestamp, nullable=True)
+
+    __table_args__ = (CheckConstraint(_in("status", INTELLIGENCE_STATUSES), name="ck_intel_status"),)
+
+
+class WorkerProfileRow(Base):
+    """What Dispatch needs to know about a worker. The location is the latest
+    one the worker shared (check-in or task tracking), never a guess."""
+
+    __tablename__ = "worker_profiles"
+
+    user_id: Mapped[str] = mapped_column(String(64), ForeignKey("users.user_id"), primary_key=True)
+    skills: Mapped[list] = mapped_column(JSON, default=list)
+    equipment: Mapped[list] = mapped_column(JSON, default=list)
+    available: Mapped[bool] = mapped_column(Boolean, default=True)
+    max_active_tasks: Mapped[int] = mapped_column(Integer, default=3)
+    last_latitude: Mapped[float | None] = mapped_column(Float, nullable=True)
+    last_longitude: Mapped[float | None] = mapped_column(Float, nullable=True)
+    last_accuracy_m: Mapped[float | None] = mapped_column(Float, nullable=True)
+    last_observed_at: Mapped[datetime | None] = mapped_column(Timestamp, nullable=True)
+    last_received_at: Mapped[datetime | None] = mapped_column(Timestamp, nullable=True)
+    last_mode: Mapped[str | None] = mapped_column(String(12), nullable=True)  # LIVE | SIMULATED
+    last_source: Mapped[str | None] = mapped_column(String(12), nullable=True)  # CHECK_IN | TRACKING
+
+    __table_args__ = (
+        CheckConstraint(LAT.format(c="last_latitude"), name="ck_worker_lat"),
+        CheckConstraint(LON.format(c="last_longitude"), name="ck_worker_lon"),
+    )
+
+
+class DispatchRow(Base):
+    """Every dispatch decision, including ones that found nobody."""
+
+    __tablename__ = "dispatch_records"
+
+    dispatch_id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    incident_id: Mapped[str] = mapped_column(String(32), ForeignKey("incidents.incident_id"))
+    status: Mapped[str] = mapped_column(String(12))  # ASSIGNED | UNASSIGNED
+    method: Mapped[str] = mapped_column(String(30))  # DISPATCH_RANKING | WORKLOAD_FALLBACK | SUPERVISOR_MANUAL | REASSIGNED
+    worker_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    priority: Mapped[str] = mapped_column(String(10))
+    required_skills: Mapped[list] = mapped_column(JSON, default=list)
+    required_equipment: Mapped[list] = mapped_column(JSON, default=list)
+    ranking: Mapped[list] = mapped_column(JSON, default=list)
+    rejected: Mapped[list] = mapped_column(JSON, default=list)
+    reason: Mapped[str] = mapped_column(String(300))
+    created_by: Mapped[str] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(Timestamp)
+
+    __table_args__ = (Index("ix_dispatch_incident", "incident_id"),)
+
+
+class TaskProgressRow(Base):
+    """Recorded milestone times of a task, and the current resolution estimate.
+    Actual durations are computed from these, never from the clock."""
+
+    __tablename__ = "task_progress"
+
+    task_id: Mapped[str] = mapped_column(String(32), ForeignKey("tasks.task_id"), primary_key=True)
+    tracking_active: Mapped[bool] = mapped_column(Boolean, default=False)
+    tracking_started_at: Mapped[datetime | None] = mapped_column(Timestamp, nullable=True)
+    tracking_stopped_at: Mapped[datetime | None] = mapped_column(Timestamp, nullable=True)
+    tracking_stop_reason: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    arrived_at: Mapped[datetime | None] = mapped_column(Timestamp, nullable=True)
+    work_started_at: Mapped[datetime | None] = mapped_column(Timestamp, nullable=True)
+    completion_submitted_at: Mapped[datetime | None] = mapped_column(Timestamp, nullable=True)
+    resolved_at: Mapped[datetime | None] = mapped_column(Timestamp, nullable=True)
+    etr_due_at: Mapped[datetime | None] = mapped_column(Timestamp, nullable=True)
+    etr_basis: Mapped[dict] = mapped_column(JSON, default=dict)
+    etr_event: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    etr_updated_at: Mapped[datetime | None] = mapped_column(Timestamp, nullable=True)
+
+
+class LocationPingRow(Base):
+    """Worker location shared during an active task. Only the most recent few
+    are kept, and they are deleted when the task leaves the field."""
+
+    __tablename__ = "location_pings"
+
+    ping_id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    task_id: Mapped[str] = mapped_column(String(32), ForeignKey("tasks.task_id"))
+    worker_id: Mapped[str] = mapped_column(String(64))
+    latitude: Mapped[float] = mapped_column(Float)
+    longitude: Mapped[float] = mapped_column(Float)
+    accuracy_m: Mapped[float | None] = mapped_column(Float, nullable=True)
+    observed_at: Mapped[datetime | None] = mapped_column(Timestamp, nullable=True)
+    received_at: Mapped[datetime] = mapped_column(Timestamp)
+    mode: Mapped[str] = mapped_column(String(12))
+    distance_to_target_m: Mapped[float] = mapped_column(Float)
+
+    __table_args__ = (
+        CheckConstraint(LAT.format(c="latitude"), name="ck_ping_lat"),
+        CheckConstraint(LON.format(c="longitude"), name="ck_ping_lon"),
+        Index("ix_ping_task", "task_id", "received_at"),
+    )
+
+
+class RequestKeyRow(Base):
+    """Idempotency key -> incident, so a retried report is not filed twice."""
+
+    __tablename__ = "request_keys"
+
+    key: Mapped[str] = mapped_column(String(80), primary_key=True)
+    user_id: Mapped[str] = mapped_column(String(64))
+    incident_id: Mapped[str] = mapped_column(String(32), ForeignKey("incidents.incident_id"))
+    created_at: Mapped[datetime] = mapped_column(Timestamp)
+
+
 class AuditRow(Base):
     __tablename__ = "audit_events"
 

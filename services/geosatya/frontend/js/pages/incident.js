@@ -2,6 +2,7 @@
 
 import { api, session } from "../api.js";
 import { categoryIcon, dots, flagChips, lifecycle, locationSource, photo } from "../components.js";
+import { dispatchCard, intelligenceCard, progressCard } from "../live.js";
 import { createMap, legend, mapProviderName } from "../maps.js";
 import { banner, button, card, chip, clear, demoTag, emptyState, fmtAgo, fmtCoord, fmtTime, h, icon, kv, label, pageHead, toast } from "../ui.js";
 
@@ -36,6 +37,8 @@ export async function renderIncident(ctx) {
       right: [chip(inc.status, inc.status_text), ...actions] }),
     card({}, lifecycle(inc.status), task?.rework_reason && ["ASSIGNED", "IN_PROGRESS"].includes(inc.status)
       ? banner("review", h("strong", {}, "Sent back for rework: "), task.rework_reason) : null),
+    progressCard(inc, ctx),
+    role === "SUPERVISOR" ? h("div", { class: "grid halves" }, intelligenceCard(inc, ctx), dispatchCard(inc, ctx)) : null,
     h("div", { class: "grid two" },
       h("div", { class: "stack", style: { gap: "22px" } },
         card({ class: "card flush" }, h("div", { class: "pad row between wrap" }, h("h2", {}, "Reported location"), h("span", { class: "muted" }, mapProviderName())),
