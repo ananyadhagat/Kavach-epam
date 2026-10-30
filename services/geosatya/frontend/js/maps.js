@@ -42,7 +42,7 @@ export async function createMap(el, { center, zoom = 18, onClick } = {}) {
     note.className = "map-fallback";
     note.textContent = "The map can't load offline. Coordinates are shown beside it.";
     el.replaceChildren(note);
-    return { marker() {}, circle() {}, remove() {}, fit() {}, setView() {}, destroy() {} };
+    return { marker() {}, circle() {}, html() {}, line() {}, ids: () => [], remove() {}, fit() {}, setView() {}, destroy() {} };
   }
   return leafletMap(el, center, zoom, onClick);
 }
@@ -68,14 +68,28 @@ function leafletMap(el, center, zoom, onClick) {
       layers.set(id, L.circle(ll, { radius, color: KINDS[kind].color, weight: 2, dashArray: kind === "target" ? "6 5" : null,
         fillOpacity: kind === "target" ? 0.1 : 0.12 }).addTo(map));
     },
+    /* A custom marker. `html` must be built from escaped text (see esc()). */
+    html(id, ll, html, label, onClick, size = 34) {
+      drop(id);
+      const layer = L.marker(ll, { title: label, icon: L.divIcon({ className: "", html, iconSize: [size, size], iconAnchor: [size / 2, size / 2] }) });
+      layer.bindTooltip(label);
+      if (onClick) layer.on("click", onClick);
+      layers.set(id, layer.addTo(map));
+    },
+    line(id, points, color, dashed = false, weight = null) {
+      drop(id);
+      layers.set(id, L.polyline(points, { color, weight: weight || (dashed ? 2 : 5), opacity: dashed ? 0.7 : 0.85, dashArray: dashed ? "6 8" : null }).addTo(map));
+    },
+    ids: () => [...layers.keys()],
     remove: drop,
     fit(points) {
       const pts = points.filter(Boolean);
-      if (pts.length === 1) map.setView(pts[0], 18);
-      else if (pts.length > 1) map.fitBounds(L.latLngBounds(pts), { padding: [40, 40], maxZoom: 19 });
+      // No animation: a page that re-renders mid-zoom would otherwise destroy the map under a running animation.
+      if (pts.length === 1) map.setView(pts[0], 18, { animate: false });
+      else if (pts.length > 1) map.fitBounds(L.latLngBounds(pts), { padding: [40, 40], maxZoom: 19, animate: false });
     },
-    setView(ll, z) { map.setView(ll, z || map.getZoom()); },
-    destroy() { map.remove(); },
+    setView(ll, z) { map.setView(ll, z || map.getZoom(), { animate: false }); },
+    destroy() { map.stop(); map.remove(); },
   };
 }
 
@@ -99,6 +113,17 @@ function googleMap(maps, el, center, zoom, onClick) {
       items.set(id, new maps.Circle({ map, center: pos(ll), radius, strokeColor: KINDS[kind].color, strokeWeight: 2,
         fillColor: KINDS[kind].color, fillOpacity: kind === "target" ? 0.1 : 0.12, clickable: false }));
     },
+    html(id, ll, _html, label, onClick) {  // Google fallback: plain labelled marker
+      drop(id);
+      const m = new maps.Marker({ map, position: pos(ll), title: label });
+      if (onClick) m.addListener("click", onClick);
+      items.set(id, m);
+    },
+    line(id, points, color, dashed = false, weight = null) {
+      drop(id);
+      items.set(id, new maps.Polyline({ map, path: points.map(pos), strokeColor: color, strokeOpacity: dashed ? 0.6 : 0.85, strokeWeight: weight || (dashed ? 2 : 5) }));
+    },
+    ids: () => [...items.keys()],
     remove: drop,
     fit(points) {
       const pts = points.filter(Boolean);
@@ -109,6 +134,9 @@ function googleMap(maps, el, center, zoom, onClick) {
     destroy() { items.forEach((i) => i.setMap(null)); items.clear(); },
   };
 }
+
+/* Escape text for the few places that build marker HTML. */
+export const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
 export function legend(kinds) {
   const wrap = document.createElement("div");

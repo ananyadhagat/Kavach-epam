@@ -90,11 +90,12 @@ def create_incident(session, storage, settings, categories, actor: Actor, payloa
     return incident
 
 
-def process_incident(session, storage, settings, categories, intelligence_client, incident: IncidentRow) -> TaskRow | None:
+def process_incident(session, storage, settings, categories, intelligence_client, incident: IncidentRow,
+                     *, router=None) -> TaskRow | None:
     """After the report is committed: Incident Intelligence, then Dispatch.
     Intelligence failing never blocks dispatch; it only leaves the priority NORMAL."""
     run_intelligence(session, storage, intelligence_client, incident)
-    task = dispatch_incident(session, settings, categories, incident)
+    task = dispatch_incident(session, settings, categories, incident, router=router)
     if task is not None:
         refresh_etr(session, settings, categories, task, incident, "ASSIGNED")
     return task

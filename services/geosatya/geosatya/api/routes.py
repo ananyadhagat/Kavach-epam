@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 from collections import Counter
 
 from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, Request, UploadFile
@@ -9,8 +10,8 @@ from sqlalchemy.orm import Session
 
 from geosatya.api.deps import get_actor, get_session, load_incident, load_task, require_role, task_of
 from geosatya.api.schemas import (
-    AssignRequest, CheckInRequest, CompletionCreate, CorrectionRequest, DeviceLocation, IncidentCreate, ReviewRequest,
-    SettingsUpdate,
+    ArrivalRequest, AssignRequest, CheckInRequest, CompletionCreate, CorrectionRequest, DeclineRequest, DeviceLocation,
+    IncidentCreate, ProgressUpdateRequest, ReleaseRequest, ReviewRequest, SettingsUpdate,
 )
 from geosatya.api.views import audit_view, completion_view, incident_detail, incident_summary, intelligence_view, task_view
 from geosatya.config import ACCURACY_MAX_M, ACCURACY_MIN_M, GEOFENCE_MAX_M, GEOFENCE_MIN_M
@@ -18,6 +19,7 @@ from geosatya.media.image_checks import ImageValidationError
 from geosatya.models import (
     AuditRow, CompletionRow, EvidenceRow, IncidentRow, MediaRow, RequestKeyRow, TaskRow, UserRow, WorkerProfileRow,
 )
+from geosatya.services import board as board_service
 from geosatya.services import dispatch as dispatch_service
 from geosatya.services import incidents as incident_service
 from geosatya.services import tasks as task_service
@@ -73,7 +75,10 @@ def app_config(request: Request, session: Session = Depends(get_session)):
                         "dispatch_fallback": s.dispatch_fallback, "dispatch_max_radius_km": s.dispatch_max_radius_km,
                         "dispatch_location_max_age_s": s.dispatch_location_max_age_s},
         "tracking": {"min_interval_s": s.tracking_min_interval_s, "stale_s": s.tracking_stale_s,
-                     "arrival_radius_m": s.arrival_radius_m, "eta_method": "APPROXIMATE_STRAIGHT_LINE"},
+                     "arrival_radius_m": s.arrival_radius_m, "arrival_confirm_readings": s.arrival_confirm_readings,
+                     "acceptance_timeout_min": s.acceptance_timeout_min,
+                     "eta_method": "ROAD_ROUTE" if _app(request).router is not None else "APPROXIMATE_STRAIGHT_LINE",
+                     "routing_provider": s.routing_provider if _app(request).router is not None else None},
     }
 
 
@@ -129,6 +134,8 @@ def create_incident(request: Request, payload: str = Form(...), photos: list[Upl
                     idempotency_key: str | None = Header(default=None, max_length=80),
                     actor: Actor = Depends(require_role("CITIZEN")), session: Session = Depends(get_session)):
     app = _app(request)
+    if not app.report_limiter.allow(actor.user_id):
+        raise ServiceError("Too many reports in a minute. Please wait a moment and try again.", 429, "RATE_LIMITED")
     if idempotency_key:
         # A retried submission (e.g. after a dropped connection) returns the first report.
         seen = session.get(RequestKeyRow, f"{actor.user_id}:{idempotency_key}")
@@ -147,8 +154,13 @@ def create_incident(request: Request, payload: str = Form(...), photos: list[Upl
         session.add(RequestKeyRow(key=f"{actor.user_id}:{idempotency_key}", user_id=actor.user_id,
                                   incident_id=incident.incident_id, created_at=utcnow()))
     session.commit()  # the report is safe before any other agent is called
-    incident_service.process_incident(session, app.storage, app.settings, app.categories, app.intelligence, incident)
+    run_intelligence(session, app.storage, app.intelligence, incident)  # outside the lock: it can be slow
     session.commit()
+    with dispatch_service.DISPATCH_LOCK:
+        task = dispatch_service.dispatch_incident(session, app.settings, app.categories, incident, router=app.router)
+        if task is not None:
+            incident_service.refresh_etr(session, app.settings, app.categories, task, incident, "ASSIGNED")
+        session.commit()
     return incident_detail(session, app.categories, incident, task_of(session, incident.incident_id), actor)
 
 
@@ -168,10 +180,11 @@ def retry_dispatch(incident_id: str, request: Request, actor: Actor = Depends(su
     """Run Dispatch again for an escalated incident. Never creates a second task."""
     app = _app(request)
     incident = load_incident(session, incident_id, actor)
-    task = dispatch_service.dispatch_incident(session, app.settings, app.categories, incident, actor=actor)
-    if task is not None:
-        incident_service.refresh_etr(session, app.settings, app.categories, task, incident, "ASSIGNED")
-    session.commit()
+    with dispatch_service.DISPATCH_LOCK:
+        task = dispatch_service.dispatch_incident(session, app.settings, app.categories, incident, actor=actor, router=app.router)
+        if task is not None:
+            incident_service.refresh_etr(session, app.settings, app.categories, task, incident, "ASSIGNED")
+        session.commit()
     return incident_detail(session, app.categories, incident, task, actor)
 
 
@@ -180,9 +193,11 @@ def assign(incident_id: str, body: AssignRequest, request: Request, actor: Actor
            session: Session = Depends(get_session)):
     app = _app(request)
     incident = load_incident(session, incident_id, actor)
-    task = dispatch_service.assign_manually(session, app.settings, app.categories, incident, body.worker_id, actor, body.reason)
-    incident_service.refresh_etr(session, app.settings, app.categories, task, incident, "ASSIGNED")
-    session.commit()
+    with dispatch_service.DISPATCH_LOCK:
+        task = dispatch_service.assign_manually(session, app.settings, app.categories, incident, body.worker_id, actor,
+                                                body.reason, override=body.override)
+        incident_service.refresh_etr(session, app.settings, app.categories, task, incident, "ASSIGNED")
+        session.commit()
     return incident_detail(session, app.categories, incident, task, actor)
 
 
@@ -193,7 +208,7 @@ def incident_tracking(incident_id: str, request: Request, actor: Actor = Depends
     task = task_of(session, incident_id)
     if task is None:
         raise ServiceError("No field task yet.", 404, "NO_TASK")
-    data = tracking_service.tracking_view(session, _app(request).settings, task, incident, actor)
+    data = tracking_service.tracking_view(session, _app(request).settings, task, incident, actor, router=_app(request).router)
     session.commit()
     return data
 
@@ -260,6 +275,52 @@ def start(task_id: str, request: Request, actor: Actor = Depends(worker_only), s
     return task_view(session, task)
 
 
+@router.post("/tasks/{task_id}/accept", tags=["Tasks"])
+def accept_task(task_id: str, actor: Actor = Depends(worker_only), session: Session = Depends(get_session)):
+    task = load_task(session, task_id, actor)
+    dispatch_service.accept(session, task, session.get(IncidentRow, task.incident_id), actor)
+    session.commit()
+    return {**task_view(session, task), "accepted": True}
+
+
+@router.post("/tasks/{task_id}/decline", tags=["Tasks"])
+def decline_task(task_id: str, body: DeclineRequest, request: Request, actor: Actor = Depends(worker_only),
+                 session: Session = Depends(get_session)):
+    """The assigned worker declines before accepting; Dispatch runs again without them."""
+    app = _app(request)
+    task = load_task(session, task_id, actor)
+    incident = session.get(IncidentRow, task.incident_id)
+    with dispatch_service.DISPATCH_LOCK:
+        new_task = dispatch_service.release(session, app.settings, app.categories, incident, task, actor, "DECLINED", body.reason,
+                                            router=app.router)
+        if new_task is not None:
+            incident_service.refresh_etr(session, app.settings, app.categories, new_task, incident, "ASSIGNED")
+        session.commit()
+    return {"declined": True, "incident_id": incident.incident_id}
+
+
+@router.post("/tasks/{task_id}/release", tags=["Integration"])
+def release_task(task_id: str, body: ReleaseRequest, request: Request, actor: Actor = Depends(supervisor_only),
+                 session: Session = Depends(get_session)):
+    """Supervisor: cancel the assignment, or re-dispatch one not accepted in time."""
+    app = _app(request)
+    task = load_task(session, task_id, actor)
+    incident = session.get(IncidentRow, task.incident_id)
+    with dispatch_service.DISPATCH_LOCK:
+        new_task = dispatch_service.release(session, app.settings, app.categories, incident, task, actor, body.kind, body.reason,
+                                            router=app.router)
+        if new_task is not None:
+            incident_service.refresh_etr(session, app.settings, app.categories, new_task, incident, "ASSIGNED")
+        session.commit()
+    return incident_detail(session, app.categories, incident, new_task, actor)
+
+
+@router.get("/dispatch/board", tags=["Integration"])
+def dispatch_board(request: Request, _: Actor = Depends(supervisor_only), session: Session = Depends(get_session)):
+    app = _app(request)
+    return board_service.board(session, app.settings, app.categories)
+
+
 @router.post("/tasks/{task_id}/location", tags=["Tracking"])
 def share_location(task_id: str, body: DeviceLocation, request: Request, actor: Actor = Depends(worker_only),
                    session: Session = Depends(get_session)):
@@ -267,9 +328,41 @@ def share_location(task_id: str, body: DeviceLocation, request: Request, actor: 
     app = _app(request)
     task = load_task(session, task_id, actor)
     result = tracking_service.record_ping(session, app.settings, app.categories, task,
-                                          session.get(IncidentRow, task.incident_id), actor, dump(body))
+                                          session.get(IncidentRow, task.incident_id), actor, dump(body), router=app.router)
     session.commit()
     return result
+
+
+@router.post("/tasks/{task_id}/arrive", tags=["Tracking"])
+def confirm_arrival(task_id: str, body: ArrivalRequest, request: Request, actor: Actor = Depends(worker_only),
+                    session: Session = Depends(get_session)):
+    """The worker confirms arrival; accepted only if the location sent with it is inside the arrival radius."""
+    app = _app(request)
+    task = load_task(session, task_id, actor)
+    result = tracking_service.confirm_arrival(session, app.settings, app.categories, task, session.get(IncidentRow, task.incident_id),
+                                              actor, dump(body.location), router=app.router)
+    session.commit()
+    return result
+
+
+@router.post("/tasks/{task_id}/progress", tags=["Tasks"])
+def progress_update(task_id: str, body: ProgressUpdateRequest, request: Request, actor: Actor = Depends(worker_only),
+                    session: Session = Depends(get_session), idempotency_key: str | None = Header(default=None, max_length=80)):
+    task = load_task(session, task_id, actor)
+    if _replayed(session, actor, "progress", idempotency_key) is None:
+        row = tracking_service.add_progress_update(session, _app(request).settings, task, session.get(IncidentRow, task.incident_id),
+                                                   actor, body.note, body.estimate_minutes)
+        _remember_key(session, actor, "progress", idempotency_key, task.incident_id, row.update_id)
+    session.commit()
+    return {"saved": True, "progress": incident_detail(session, _app(request).categories, session.get(IncidentRow, task.incident_id),
+                                                       task, actor)["progress"]}
+
+
+@router.get("/dashboard/live", tags=["Integration"])
+def live_dashboard(request: Request, _: Actor = Depends(supervisor_only), session: Session = Depends(get_session)):
+    """Supervisor live map: KPIs, open incidents and workers (positions only while recent)."""
+    app = _app(request)
+    return board_service.live_overview(session, app.settings, app.categories)
 
 
 @router.post("/tasks/{task_id}/tracking/stop", tags=["Tracking"])
@@ -285,7 +378,8 @@ def stop_sharing(task_id: str, actor: Actor = Depends(worker_only), session: Ses
 def task_tracking(task_id: str, request: Request, actor: Actor = Depends(require_role("WORKER", "SUPERVISOR")),
                   session: Session = Depends(get_session)):
     task = load_task(session, task_id, actor)
-    data = tracking_service.tracking_view(session, _app(request).settings, task, session.get(IncidentRow, task.incident_id), actor)
+    data = tracking_service.tracking_view(session, _app(request).settings, task, session.get(IncidentRow, task.incident_id), actor,
+                                          router=_app(request).router)
     session.commit()
     return data
 
@@ -296,9 +390,11 @@ def reassign(task_id: str, body: AssignRequest, request: Request, actor: Actor =
     app = _app(request)
     task = load_task(session, task_id, actor)
     incident = session.get(IncidentRow, task.incident_id)
-    dispatch_service.reassign(session, app.settings, app.categories, incident, task, body.worker_id, actor, body.reason)
-    incident_service.refresh_etr(session, app.settings, app.categories, task, incident, "REASSIGNED")
-    session.commit()
+    with dispatch_service.DISPATCH_LOCK:
+        dispatch_service.reassign(session, app.settings, app.categories, incident, task, body.worker_id, actor, body.reason,
+                                  override=body.override)
+        incident_service.refresh_etr(session, app.settings, app.categories, task, incident, "REASSIGNED")
+        session.commit()
     return incident_detail(session, app.categories, incident, task, actor)
 
 
@@ -335,19 +431,37 @@ def worker_check_in(body: CheckInRequest, request: Request, actor: Actor = Depen
 
 @router.post("/tasks/{task_id}/completion", tags=["Tasks"])
 def completion(task_id: str, request: Request, payload: str = Form(...), photo: UploadFile | None = File(default=None),
+               idempotency_key: str | None = Header(default=None, max_length=80),
                actor: Actor = Depends(worker_only), session: Session = Depends(get_session)):
     app = _app(request)
     task = load_task(session, task_id, actor)
     incident = session.get(IncidentRow, task.incident_id)
+    seen = _replayed(session, actor, "completion", idempotency_key)
+    if seen is not None:
+        # The worker app re-sent a submission whose response it never received: return the first result.
+        row = session.get(CompletionRow, seen.ref_id)
+        return {"completion": completion_view(session, row, detail=False), "task": task_view(session, task),
+                "incident_status": incident.status, "replayed": True}
     body = parse_payload(CompletionCreate, payload)
     data = read_upload(photo, app.settings.max_image_size_bytes) if photo is not None and photo.filename else None
     row = task_service.submit_completion(
         session, app.storage, app.settings, task, incident, actor, photo=data, meta=dump(body.photo_meta),
         device=dump(body.device_location), device_error=body.device_location_error, description=body.description,
         categories=app.categories)
+    _remember_key(session, actor, "completion", idempotency_key, incident.incident_id, row.completion_id)
     session.commit()
     return {"completion": completion_view(session, row, detail=False), "task": task_view(session, task),
             "incident_status": incident.status}
+
+
+def _replayed(session, actor: Actor, kind: str, key: str | None) -> RequestKeyRow | None:
+    return session.get(RequestKeyRow, f"{actor.user_id}:{kind}:{key}") if key else None
+
+
+def _remember_key(session, actor: Actor, kind: str, key: str | None, incident_id: str, ref_id: str) -> None:
+    if key:
+        session.add(RequestKeyRow(key=f"{actor.user_id}:{kind}:{key}", user_id=actor.user_id, incident_id=incident_id,
+                                  created_at=utcnow(), kind=kind, ref_id=ref_id))
 
 
 # ------------------------------------------------------- supervisor
@@ -419,12 +533,13 @@ def get_media(media_id: str, request: Request, actor: Actor = Depends(get_actor)
 
 
 @router.post("/demo/reset", tags=["Demo"])
-def demo_reset(request: Request, _: Actor = Depends(supervisor_only)):
+def demo_reset(request: Request, actor: Actor = Depends(supervisor_only)):
     state = _app(request)
     if state.settings.auth_mode != "demo" or state.settings.app_env == "production":
         raise HTTPException(404, "Not available")
-    state.reset_demo()
-    return {"reset": True}
+    client = request.headers.get("cf-connecting-ip") or (request.client.host if request.client else "unknown")
+    backup = state.reset_demo(by=f"{actor.user_id}@{client}")
+    return {"reset": True, "backup": Path(backup).name if backup else None}
 
 
 def register_error_handlers(app) -> None:

@@ -309,7 +309,10 @@ def test_arrival_is_detected_but_the_geofence_still_decides(fast_client):
     ping(c, tid, me, offset(SPOT, north_m=400))
     # Poor accuracy near the spot does not count as arrival.
     assert ping(c, tid, me, offset(SPOT, north_m=30), accuracy=300)["arrived"] is False
-    assert ping(c, tid, me, offset(SPOT, north_m=30), accuracy=10)["arrived"] is True
+    # One good reading is not enough (ARRIVAL_CONFIRM_READINGS = 2) ...
+    assert ping(c, tid, me, offset(SPOT, north_m=30), accuracy=10)["arrived"] is False
+    # ... a second consecutive good one confirms it.
+    assert ping(c, tid, me, offset(SPOT, north_m=25), accuracy=10)["arrived"] is True
     t = tracking(c, inc["incident_id"], CITIZEN)
     assert t["eta"]["state"] == "ARRIVED" and t["arrived_at"]
     start(c, tid, me)

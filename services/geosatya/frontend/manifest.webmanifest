@@ -1,0 +1,20 @@
+{
+  "name": "GeoSatya Field",
+  "short_name": "GeoSatya",
+  "description": "Civic field work: accept jobs, head to the spot, and submit location-verified completion photos, even with a weak signal.",
+  "id": "/",
+  "start_url": "/#/tasks",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F2F5FB",
+  "theme_color": "#0A1630",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "My tasks", "url": "/#/tasks", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] }
+  ]
+}

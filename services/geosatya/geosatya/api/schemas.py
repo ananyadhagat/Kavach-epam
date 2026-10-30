@@ -89,6 +89,34 @@ class AssignRequest(BaseModel):
 
     worker_id: str = Field(min_length=1, max_length=64)
     reason: str = Field(default="", max_length=300)
+    # Assign even though the worker is unavailable or at capacity (needs a reason; audited).
+    override: bool = False
+
+
+class ArrivalRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    location: DeviceLocation | None = None
+
+
+class ProgressUpdateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    note: str = Field(min_length=3, max_length=500)
+    estimate_minutes: int | None = Field(default=None, ge=1, le=1440)
+
+
+class ReleaseRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    kind: Literal["ACCEPTANCE_TIMEOUT", "CANCELLED"]
+    reason: str = Field(default="", max_length=300)
+
+
+class DeclineRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    reason: str = Field(default="", max_length=300)
 
 
 class CheckInRequest(BaseModel):

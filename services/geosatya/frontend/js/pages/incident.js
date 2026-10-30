@@ -1,7 +1,7 @@
 /* My Reports (list) and the incident page (citizen, worker and supervisor views). */
 
 import { api, session } from "../api.js";
-import { categoryIcon, dots, flagChips, lifecycle, locationSource, photo } from "../components.js";
+import { categoryIcon, dots, flagChips, locationSource, photo } from "../components.js";
 import { dispatchCard, intelligenceCard, progressCard } from "../live.js";
 import { createMap, legend, mapProviderName } from "../maps.js";
 import { banner, button, card, chip, clear, demoTag, emptyState, fmtAgo, fmtCoord, fmtTime, h, icon, kv, label, pageHead, toast } from "../ui.js";
@@ -31,38 +31,43 @@ export async function renderIncident(ctx) {
   const pending = (inc.completions || []).filter((c) => c.accepted && !c.review_decision).slice(-1)[0];
   if (role === "SUPERVISOR" && pending) actions.push(h("a", { class: "btn primary", href: `#/review/${pending.completion_id}` }, "Review evidence"));
 
-  clear(main,
-    pageHead({ crumbs: [["Home", "#/"], [role === "CITIZEN" ? "My reports" : "Reports", role === "CITIZEN" ? "#/reports" : "#/queue"]],
-      title: inc.title, subtitle: h("span", { class: "row wrap" }, inc.category_label, h("span", { class: "mono muted" }, inc.incident_id), inc.is_demo ? demoTag() : null),
-      right: [chip(inc.status, inc.status_text), ...actions] }),
-    card({}, lifecycle(inc.status), task?.rework_reason && ["ASSIGNED", "IN_PROGRESS"].includes(inc.status)
-      ? banner("review", h("strong", {}, "Sent back for rework: "), task.rework_reason) : null),
-    progressCard(inc, ctx),
-    role === "SUPERVISOR" ? h("div", { class: "grid halves" }, intelligenceCard(inc, ctx), dispatchCard(inc, ctx)) : null,
-    h("div", { class: "grid two" },
-      h("div", { class: "stack", style: { gap: "22px" } },
-        card({ class: "card flush" }, h("div", { class: "pad row between wrap" }, h("h2", {}, "Reported location"), h("span", { class: "muted" }, mapProviderName())),
-          mapEl,
-          h("div", { class: "pad stack" }, locationSource(loc), flagChips(loc.flags),
-            h("div", { class: "mono muted" }, fmtCoord(loc.latitude, loc.longitude)),
-            loc.observed_at ? h("span", { class: "muted" }, `Location read ${fmtTime(loc.observed_at, true)}`) : null,
-            legend(["target"]))),
-        card({}, h("h2", {}, "Photos"), inc.photos.length
-          ? h("div", { class: "photos" }, inc.photos.map((p) => h("figure", { class: "photo" }, photo(p.url, "Reported photo"),
-            h("figcaption", {}, p.capture_source === "CAMERA_LIVE" ? "Taken in the app" : p.capture_source === "CAMERA_INPUT" ? "Taken with the phone camera" : "Uploaded from files"))))
-          : h("p", { class: "muted" }, "No photos."),
-          role === "SUPERVISOR" ? evidenceDetails(inc.photos) : null)),
-      h("div", { class: "stack", style: { gap: "22px" } },
-        card({}, h("h2", {}, "About this report"), h("p", {}, inc.description),
-          kv([inc.asset_identifier && [inc.asset_label || "Asset", inc.asset_identifier], inc.reporter_name && ["Reported by", inc.reporter_name],
-            ["Reported", fmtTime(inc.created_at)], task && role !== "CITIZEN" && ["Assigned to", task.worker_name]]),
-          inc.instructions?.length && role !== "CITIZEN" ? h("div", { class: "stack tight" }, h("span", { class: "lbl" }, "Task steps"),
-            h("ol", { style: { margin: 0, paddingLeft: "20px" } }, inc.instructions.map((s) => h("li", {}, s)))) : null),
-        role === "SUPERVISOR" && task ? correctionCard(inc, ctx) : null,
-        (inc.completions || []).length ? attempts(inc) : null,
-        card({}, h("h2", {}, "Progress"), h("div", { class: "timeline" }, inc.timeline.filter((e) => e.action === "STATUS_CHANGED" || e.action === "INCIDENT_REPORTED" || role === "SUPERVISOR")
-          .map((e) => h("div", {}, h("span", { class: "muted" }, fmtTime(e.time)), h("span", {}, h("strong", {}, e.details?.to_status ? label(e.details.to_status) : label(e.action)),
-            e.actor ? ` · ${e.actor}` : "", e.details?.reason ? h("div", { class: "muted" }, e.details.reason) : null))))))));
+  const head = pageHead({ crumbs: [["Home", "#/"], [role === "CITIZEN" ? "My reports" : "Reports", role === "CITIZEN" ? "#/reports" : "#/board"]],
+    title: inc.title, subtitle: h("span", { class: "row wrap" }, inc.category_label, h("span", { class: "mono muted" }, inc.incident_id), inc.is_demo ? demoTag() : null),
+    right: [chip(inc.status, inc.status_text), ...actions] });
+
+  // The report itself: where, what, and the photos. Coordinates and evidence flags are for staff.
+  const locationCard = card({ class: "card flush" }, h("div", { class: "pad row between wrap" }, h("h2", {}, role === "CITIZEN" ? "Where" : "Reported location"),
+    role === "CITIZEN" ? null : h("span", { class: "muted" }, mapProviderName())), mapEl,
+    h("div", { class: "pad stack tight" }, locationSource(loc), role === "CITIZEN" ? null : flagChips(loc.flags),
+      role === "CITIZEN" ? null : h("div", { class: "mono muted" }, fmtCoord(loc.latitude, loc.longitude))));
+  const aboutCard = card({}, h("h2", {}, role === "CITIZEN" ? "Your report" : "About this report"), h("p", {}, inc.description),
+    inc.photos.length ? h("div", { class: "photos" }, inc.photos.map((p) => h("figure", { class: "photo" }, photo(p.url, "Reported photo"),
+      role === "CITIZEN" ? null : h("figcaption", {}, p.capture_source === "CAMERA_LIVE" ? "Taken in the app" : p.capture_source === "CAMERA_INPUT" ? "Taken with the phone camera" : "Uploaded from files"))))
+      : null,
+    kv([inc.asset_identifier && [inc.asset_label || "Asset", inc.asset_identifier], inc.reporter_name && role !== "CITIZEN" && ["Reported by", inc.reporter_name],
+      ["Reported", fmtTime(inc.created_at)]]),
+    inc.instructions?.length && role !== "CITIZEN" ? h("details", {}, h("summary", {}, "Task steps"),
+      h("ol", { style: { margin: "8px 0 0", paddingLeft: "20px" } }, inc.instructions.map((s) => h("li", {}, s)))) : null);
+  // A citizen with a worker assigned already sees the spot on the tracking map; one map is enough.
+  const overview = role === "CITIZEN" && task
+    ? [progressCard(inc, ctx), aboutCard]
+    : [progressCard(inc, ctx), h("div", { class: "grid two" }, locationCard, aboutCard)];
+
+  if (role !== "SUPERVISOR") {
+    clear(main, head, ...overview);
+  } else {
+    clear(main, head, tabs(inc.incident_id, [
+      ["Overview", () => overview],
+      ["Evidence", () => [
+        card({}, h("h2", {}, "Report photos: capture details"), evidenceDetails(inc.photos, true) || h("p", { class: "muted" }, "No photo metadata.")),
+        (inc.completions || []).length ? attempts(inc) : card({}, h("h2", {}, "Completion attempts"), h("p", { class: "muted" }, "None yet.")),
+        task ? correctionCard(inc, ctx) : null]],
+      ["Dispatch & AI", () => [h("div", { class: "grid halves" }, intelligenceCard(inc, ctx), dispatchCard(inc, ctx))]],
+      ["History", () => [card({}, h("h2", {}, "Audit trail"), h("div", { class: "timeline" }, inc.timeline.map((e) => h("div", {},
+        h("span", { class: "muted" }, fmtTime(e.time)), h("span", {}, h("strong", {}, e.details?.to_status ? label(e.details.to_status) : label(e.action)),
+          e.actor ? ` · ${e.actor}` : "", e.details?.reason ? h("div", { class: "muted" }, e.details.reason) : null)))))]],
+    ]));
+  }
 
   setTimeout(async () => {
     const here = [loc.latitude, loc.longitude];
@@ -75,6 +80,23 @@ export async function renderIncident(ctx) {
   });
 }
 
+/* Simple tabs. Panels are built once and only hidden, so maps and live polling keep working;
+   the chosen tab is remembered per incident for this browser session. */
+const lastTab = {};
+function tabs(key, items) {
+  const bar = h("div", { class: "tabs", role: "tablist" });
+  const panels = items.map(([name, build], i) => h("div", { class: "stack tabpanel", style: { gap: "22px" }, role: "tabpanel", hidden: i !== (lastTab[key] || 0) }, build()));
+  const buttons = items.map(([name], i) => h("button", { class: "tab", type: "button", role: "tab", "aria-selected": String(i === (lastTab[key] || 0)),
+    onclick: () => {
+      lastTab[key] = i;
+      buttons.forEach((b, j) => b.setAttribute("aria-selected", String(i === j)));
+      panels.forEach((p, j) => { p.hidden = i !== j; });
+      window.dispatchEvent(new Event("resize"));  // lets a map in a newly shown panel re-measure itself
+    } }, name));
+  bar.append(...buttons);
+  return h("div", { class: "stack", style: { gap: "18px" } }, bar, ...panels);
+}
+
 function attempts(inc) {
   return card({}, h("h2", {}, "Completion attempts"), (inc.completions).map((c) => h("div", { class: "row between wrap", style: { padding: "8px 0", borderBottom: "1px solid var(--line)" } },
     h("div", { class: "stack tight" }, h("span", {}, `Attempt ${c.attempt} · ${fmtTime(c.submitted_at)}`), h("span", { class: "muted" }, c.message || "")),
@@ -82,9 +104,9 @@ function attempts(inc) {
       session.me.role === "SUPERVISOR" && c.accepted ? h("a", { class: "btn small", href: `#/review/${c.completion_id}` }, "Open") : null))));
 }
 
-function evidenceDetails(photos) {
+function evidenceDetails(photos, open = false) {
   if (!photos.some((p) => p.times)) return null;
-  return h("details", {}, h("summary", {}, "Evidence details"), photos.map((p) => kv([
+  return h("details", { open }, h("summary", {}, "Evidence details"), photos.map((p) => kv([
     ["Photo source", label(p.capture_source)], ["Image captured (device clock)", p.times.image_captured_at ? fmtTime(p.times.image_captured_at, true) : "Unknown (not taken in the app)"],
     ["Time claimed by the file", p.times.exif_claimed_time || "None"], ["Uploaded (device clock)", fmtTime(p.times.uploaded_at, true)],
     ["Server received", fmtTime(p.times.server_received_at, true)], ["Photo's own GPS", p.exif_gps ? fmtCoord(p.exif_gps.latitude, p.exif_gps.longitude) : label(p.exif_status)]])));

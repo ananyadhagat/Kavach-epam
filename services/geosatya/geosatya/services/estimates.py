@@ -23,7 +23,11 @@ from datetime import datetime, timedelta
 from sqlalchemy import select
 
 from geosatya.models import IncidentRow, LocationPingRow, TaskProgressRow, TaskRow
-from geosatya.timeutil import as_utc, iso, utcnow
+from geosatya.timeutil import as_utc, iso, seen_time, utcnow
+
+
+def _seen(p: LocationPingRow) -> datetime:
+    return seen_time(p.received_at, p.observed_at)
 
 ACTIVE = ("ASSIGNED", "IN_PROGRESS")
 
@@ -35,9 +39,9 @@ def observed_speed_mps(pings: list[LocationPingRow]) -> float | None:
     if len(pings) < 2:
         return None
     latest = pings[-1]
-    t1 = as_utc(latest.received_at)
+    t1 = _seen(latest)
     for older in reversed(pings[:-1]):
-        dt = (t1 - as_utc(older.received_at)).total_seconds()
+        dt = (t1 - _seen(older)).total_seconds()
         if 60 <= dt <= 600:
             speed = (older.distance_to_target_m - latest.distance_to_target_m) / dt
             return min(speed, 20.0) if speed >= 0.5 else None
@@ -45,11 +49,12 @@ def observed_speed_mps(pings: list[LocationPingRow]) -> float | None:
 
 
 def eta(task: TaskRow, progress: TaskProgressRow | None, pings: list[LocationPingRow], settings,
-        now: datetime | None = None) -> dict:
+        now: datetime | None = None, route=None) -> dict:
     now = now or utcnow()
     base = {"method": "APPROXIMATE_STRAIGHT_LINE", "route_factor": settings.eta_route_factor,
             "computed_at": iso(now), "minutes_low": None, "minutes_high": None, "eta_at_low": None,
-            "eta_at_high": None, "distance_m": None, "location_age_s": None, "speed_source": None, "uncertain": True}
+            "eta_at_high": None, "distance_m": None, "location_age_s": None, "speed_source": None, "uncertain": True,
+            "stationary": False}
     if task.status not in ACTIVE:
         return {**base, "state": "NOT_APPLICABLE", "message": "The worker is no longer travelling to this task."}
     if progress is not None and progress.arrived_at is not None:
@@ -62,28 +67,54 @@ def eta(task: TaskRow, progress: TaskProgressRow | None, pings: list[LocationPin
                 "message": "Waiting for the worker to share their location. ETA unavailable."}
 
     latest = pings[-1]
-    age = (now - as_utc(latest.received_at)).total_seconds()
+    age = (now - _seen(latest)).total_seconds()
     distance = latest.distance_to_target_m
-    speed = observed_speed_mps(pings)
-    source = "OBSERVED_APPROACH" if speed else "ASSUMED"
-    speed = speed or settings.eta_assumed_speed_kmh / 3.6
-    minutes = distance * settings.eta_route_factor / speed / 60
-    low = max(1, round(minutes * 0.8))
-    high = max(low + 1, math.ceil(minutes * 1.3))
+    if route is not None:
+        # Road route from the routing provider: real road distance, travel time without live traffic.
+        minutes, source = route.duration_s / 60, "ROAD_ROUTE"
+        low = max(1, round(minutes * 0.9))
+        high = max(low + 1, math.ceil(minutes * 1.4))
+    else:
+        speed = observed_speed_mps(pings)
+        source = "OBSERVED_APPROACH" if speed else "ASSUMED"
+        speed = speed or settings.eta_assumed_speed_kmh / 3.6
+        minutes = distance * settings.eta_route_factor / speed / 60
+        low = max(1, round(minutes * 0.8))
+        high = max(low + 1, math.ceil(minutes * 1.3))
     stale = age > settings.tracking_stale_s
     poor = (latest.accuracy_m or 0) > 100
-    data = {**base, "distance_m": round(distance), "location_age_s": int(age), "speed_source": source,
+    stationary = is_stationary(pings, settings.stationary_after_s)
+    data = {**base, "distance_m": round(distance), "straight_distance_m": round(distance),
+            "road_distance_m": round(route.distance_m) if route else None, "location_age_s": int(age), "speed_source": source,
+            "method": f"ROAD_ROUTE_{route.provider}" if route else base["method"],
             "minutes_low": low, "minutes_high": high,
-            "eta_at_low": iso(as_utc(latest.received_at) + timedelta(minutes=low)),
-            "eta_at_high": iso(as_utc(latest.received_at) + timedelta(minutes=high)),
-            "uncertain": stale or poor or source == "ASSUMED"}
+            "eta_at_low": iso(_seen(latest) + timedelta(minutes=low)),
+            "eta_at_high": iso(_seen(latest) + timedelta(minutes=high)),
+            "uncertain": stale or poor or stationary or source == "ASSUMED", "stationary": stationary}
     if stale:
+        # No countdown from an old position: the range is kept only as "last estimate".
         return {**data, "state": "STALE",
                 "message": "Location update is stale; this estimate is based on the last known position and may be wrong."}
-    msg = "Approximate: straight-line distance with a road allowance, not turn-by-turn routing. Arrival estimate may change."
+    msg = ("Road route travel time without live traffic; arrival may change." if route else
+           "Approximate: straight-line distance with a road allowance, not turn-by-turn routing. Arrival estimate may change.")
+    if stationary:
+        msg = "The worker hasn't moved closer for a few minutes (stopped or delayed), so arrival is uncertain. " + msg
     if poor:
         msg = "GPS accuracy is poor, so the distance is uncertain. " + msg
     return {**data, "state": "AVAILABLE", "message": msg}
+
+
+def is_stationary(pings: list[LocationPingRow], after_s: int) -> bool:
+    """No progress toward the target (< 20 m closer) across shared locations spanning at least `after_s`."""
+    if len(pings) < 2:
+        return False
+    latest = pings[-1]
+    t1 = _seen(latest)
+    window = [p for p in pings if (t1 - _seen(p)).total_seconds() <= after_s + 60]
+    oldest = window[0]
+    if (t1 - _seen(oldest)).total_seconds() < after_s:
+        return False
+    return oldest.distance_to_target_m - latest.distance_to_target_m < 20
 
 
 # ------------------------------------------------------------------ ETR

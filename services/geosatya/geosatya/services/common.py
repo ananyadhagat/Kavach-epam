@@ -83,8 +83,9 @@ def make_policy(session: Session, settings: Settings) -> Policy:
 # ---------------------------------------------------------- lifecycle
 INCIDENT_NEXT = {
     "SUBMITTED": {"ASSIGNED"},
-    "ASSIGNED": {"IN_PROGRESS"},
-    "IN_PROGRESS": {"AWAITING_VERIFICATION", "ASSIGNED"},  # ASSIGNED = reassigned by a supervisor
+    # SUBMITTED = assignment released (declined, acceptance timed out, cancelled) and no one else was found
+    "ASSIGNED": {"IN_PROGRESS", "SUBMITTED"},
+    "IN_PROGRESS": {"AWAITING_VERIFICATION", "ASSIGNED", "SUBMITTED"},  # ASSIGNED = reassigned by a supervisor
     "AWAITING_VERIFICATION": {"RESOLVED", "ASSIGNED"},  # ASSIGNED = sent back for rework
     "RESOLVED": set(),
 }

@@ -6,6 +6,11 @@
 <title>GeoSatya · Location-verified civic reporting</title>
 <meta name="description" content="Report civic issues with photo and location evidence, and verify that the work was done at the right place.">
 <meta name="theme-color" content="#0A1630">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="GeoSatya">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Sora:wght@500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
@@ -25,6 +30,7 @@
   <div class="content">
     <header class="topbar">
       <div id="role-switcher" class="role-switcher"></div>
+      <div id="net-status" class="net-status" role="status" aria-live="polite" hidden></div>
       <label id="sim-toggle" class="sim-toggle" hidden title="Uses made-up coordinates for testing. Always labelled SIMULATED.">
         <input type="checkbox" id="sim-check"><span>Simulate GPS (demo)</span>
       </label>

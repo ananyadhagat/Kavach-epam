@@ -276,6 +276,7 @@ class TaskProgressRow(Base):
     __tablename__ = "task_progress"
 
     task_id: Mapped[str] = mapped_column(String(32), ForeignKey("tasks.task_id"), primary_key=True)
+    accepted_at: Mapped[datetime | None] = mapped_column(Timestamp, nullable=True)
     tracking_active: Mapped[bool] = mapped_column(Boolean, default=False)
     tracking_started_at: Mapped[datetime | None] = mapped_column(Timestamp, nullable=True)
     tracking_stopped_at: Mapped[datetime | None] = mapped_column(Timestamp, nullable=True)
@@ -314,6 +315,22 @@ class LocationPingRow(Base):
     )
 
 
+class ProgressUpdateRow(Base):
+    """A worker's note while working, optionally with their estimate of the time left."""
+
+    __tablename__ = "progress_updates"
+
+    update_id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    task_id: Mapped[str] = mapped_column(String(32), ForeignKey("tasks.task_id"))
+    attempt: Mapped[int] = mapped_column(Integer)
+    worker_id: Mapped[str] = mapped_column(String(64))
+    note: Mapped[str] = mapped_column(String(500))
+    estimate_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(Timestamp)
+
+    __table_args__ = (Index("ix_progress_task", "task_id"),)
+
+
 class RequestKeyRow(Base):
     """Idempotency key -> incident, so a retried report is not filed twice."""
 
@@ -323,6 +340,9 @@ class RequestKeyRow(Base):
     user_id: Mapped[str] = mapped_column(String(64))
     incident_id: Mapped[str] = mapped_column(String(32), ForeignKey("incidents.incident_id"))
     created_at: Mapped[datetime] = mapped_column(Timestamp)
+    # What the key protected: None/"report" (an incident), "completion" or "progress" (offline replays from the worker app).
+    kind: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    ref_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
 
 
 class AuditRow(Base):

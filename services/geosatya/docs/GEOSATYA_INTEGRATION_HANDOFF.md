@@ -1,40 +1,39 @@
 # GeoSatya integration: handoff
 
-**Working copy:** `D:\Desktop\Kavach-epam-team`, branch `geosatya-location-verification` (based on `e4e3e91`).
-**Git state:** all changes are uncommitted and inside `services/geosatya/`. Nothing has been committed or pushed.
-**Design:** [INTEGRATION.md](INTEGRATION.md) · **Machine-readable report:** [geosatya_integration_report.json](geosatya_integration_report.json)
+**Working copy:** `D:\Desktop\Kavach-epam-team`, branch `geosatya-location-verification`.
+**Committed:** `9053d0c` (first integration: Incident Intelligence, Dispatch ranking, tracking, ETA, ETR).
+**Uncommitted (this phase):** acceptance/decline/timeout/cancel, confirmed arrival, stationary flag, dispatch board, citizen timeline, column migration. All changes are under `services/geosatya/`.
+**Design:** [INTEGRATION.md](INTEGRATION.md) · **Report:** [GeoSatya_Smart_Dispatch_Report.json](GeoSatya_Smart_Dispatch_Report.json) · [GeoSatya_Smart_Dispatch_Handoff.pdf](GeoSatya_Smart_Dispatch_Handoff.pdf)
 
 ## Checkpoints
 
-| # | Checkpoint | Status | What changed | Tests |
-|---|---|---|---|---|
-| 1 | Existing GeoSatya preserved and reviewed | Completed | Nothing removed; geofence rule untouched | 110 original tests pass |
-| 2 | Incident Intelligence integration | Completed | `integrations/intelligence.py`, `services/intelligence.py`, `incident_intelligence` table, retry endpoint, supervisor card | 9 tests + live run against the real agent (mock mode) |
-| 3 | Dispatch integration | Completed | `dispatch/ranking.py` (reused), `services/dispatch.py`, `worker_profiles`, `dispatch_records`, assign/reassign/retry, workers endpoints | 8 tests + live run |
-| 4 | ETA and live tracking | Completed | `services/tracking.py`, ETA in `services/estimates.py`, `location_pings`, `task_progress`, worker sharing UI | 8 tests + browser check (simulated travel) |
-| 5 | ETR and resolution monitoring | Completed | ETR/actual durations in `services/estimates.py`, milestone hooks in `services/tasks.py` | 4 tests + live run |
-| 6 | Frontend integration | Completed | `frontend/js/live.js`; incident, task and dashboard pages; styles | Browser: desktop + 375 px, no console errors |
-| 7 | Backend and database integration | Completed | Additive tables only; config; `.env.example` | Full suite |
-| 8 | Tests and bug fixes | Completed | `tests/test_integration.py` (29 tests) | **139 passed** |
-| 9 | Localhost verification | Completed | GeoSatya :8000 + agent :8001 | `/health` OK on both; end-to-end flow passed |
-| 10 | Documentation and remaining work | Partly done | README, INTEGRATION.md, this file, JSON, PDF | Not done: ratings, routing provider, real-phone test, commit/push |
+| # | Checkpoint | Status | Where |
+|---|---|---|---|
+| 1–2 | Inspect and compare branches | Completed | Partner branches unchanged (`e2ff0e9`, `6ef3bf9`); ZIPs identical |
+| 3 | Reporting → Incident Intelligence | Completed | `9053d0c` |
+| 4–5 | Dispatch and worker selection | Completed | `9053d0c`; released-worker exclusion added now |
+| 6 | Acceptance and journey | Completed | `services/dispatch.py` (`accept`, `release`), routes, task page |
+| 7 | Authorised live tracking | Completed | `services/tracking.py` |
+| 8 | ETA and arrival | Completed | confirmed arrival, stationary flag |
+| 9 | Work start and ETR | Completed | `9053d0c` |
+| 10 | Completion verification | Completed | geofence rule unchanged |
+| 11 | Citizen timeline and supervisor board | Completed | `api/views.py` (`timeline_events`), `services/board.py`, `pages/board.js` |
+| 12 | Tests and fixes | Completed | **156 passed** (110 + 29 + 17) |
+| 13 | Localhost | Completed | :8000 and :8001 healthy; live run and browser checks done |
+| 14 | Documentation and handoff | Completed | commit and push left to you |
 
-## How to resume
+## Resume
 
 ```powershell
 cd D:\Desktop\Kavach-epam-team
-git status                         # expect the files listed in the JSON report
+git status
 cd services\geosatya
-python -m pytest                   # expect 139 passed
+python -m pytest            # expect 156 passed
 uvicorn geosatya.main:create_app --factory --reload
 ```
 
-Optional agent: see README §14 "Optional: run with the Incident Intelligence agent".
+## Open items
 
-## Pending work and known issues
-
-- Commit and push to `origin geosatya-location-verification` after review. Use explicit paths, not `git add .`.
-- Team decisions: the `DISPATCH_FALLBACK` default (`workload` vs `escalate`); the rating proposal (INTEGRATION.md §8); whether the agent's classification may replace the citizen's category.
-- There is no admin screen for worker skills (set in `worker_profiles`; demo workers are seeded).
-- Partner-branch issues are listed in INTEGRATION.md §9; they were reported, not changed.
-- Not tested: a real phone's GPS and camera, Gemini mode, Google Maps.
+- Commit and push (use explicit paths, e.g. `git add services/geosatya`).
+- Team decisions: whether acceptance timeouts should auto-reassign (needs a scheduler), the `DISPATCH_FALLBACK` default, and ratings.
+- Not tested: real phone GPS and camera, Gemini mode, Google Maps.

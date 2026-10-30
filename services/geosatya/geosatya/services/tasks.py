@@ -10,6 +10,7 @@ from geosatya.models import CompletionRow, IncidentRow, MediaRow, TaskRow
 from geosatya.services.common import (
     Actor, ServiceError, audit, device_evidence, make_policy, move_incident, new_id, set_task_status, store_photo,
 )
+from geosatya.services.dispatch import accept
 from geosatya.services.incidents import refresh_etr
 from geosatya.services.tracking import progress_of, stop_tracking
 from geosatya.timeutil import utcnow
@@ -29,6 +30,7 @@ def start_task(session, task: TaskRow, incident: IncidentRow, actor: Actor, *, s
         return
     if task.status != "ASSIGNED":
         raise ServiceError(f"The task cannot be started while it is {task.status}.", 409, "INVALID_TRANSITION")
+    accept(session, task, incident, actor, how="STARTED_WORK")  # starting work is accepting it
     set_task_status(task, "IN_PROGRESS")
     move_incident(session, incident, "IN_PROGRESS", actor, "Worker started")
     _milestone(session, settings, categories, task, incident, "WORK_STARTED", work_started_at=utcnow())

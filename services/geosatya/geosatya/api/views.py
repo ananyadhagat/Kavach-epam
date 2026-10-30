@@ -5,13 +5,14 @@ from __future__ import annotations
 from sqlalchemy import select
 
 from geosatya.models import (
-    AuditRow, CompletionRow, DispatchRow, EvidenceRow, IncidentRow, IntelligenceRow, MediaRow, TaskProgressRow, TaskRow,
-    UserRow,
+    AuditRow, CompletionRow, DispatchRow, EvidenceRow, IncidentRow, IntelligenceRow, MediaRow, ProgressUpdateRow,
+    TaskProgressRow, TaskRow, UserRow,
 )
 from geosatya.services import estimates
 from geosatya.services.common import Actor
 from geosatya.services.intelligence import priority_of
-from geosatya.timeutil import iso
+from geosatya.services.tracking import PHASE_TEXT, phase_of
+from geosatya.timeutil import as_utc, iso
 
 STATUS_TEXT = {
     "SUBMITTED": "Received", "ASSIGNED": "Assigned to a field team", "IN_PROGRESS": "Work in progress",
@@ -112,7 +113,7 @@ def incident_detail(session, categories, i: IncidentRow, task: TaskRow | None, a
         data["completions"] = [completion_view(session, c, detail=actor.role == "SUPERVISOR") for c in rows]
         data["completion_photos"] = photos(session, i.incident_id, role="COMPLETION", detail=actor.role == "SUPERVISOR")
     progress = session.get(TaskProgressRow, task.task_id) if task is not None else None
-    data["progress"] = progress_view(task, progress, i)
+    data["progress"] = progress_view(session, task, progress, i)
     data["intelligence"] = intelligence_view(session.get(IntelligenceRow, i.incident_id), full=actor.role == "SUPERVISOR")
     if actor.role == "SUPERVISOR":
         data["dispatch"] = dispatch_view(session, list(session.scalars(
@@ -155,18 +156,66 @@ def dispatch_view(session, rows: list[DispatchRow]) -> dict | None:
                          "time": iso(r.created_at)} for r in rows]}
 
 
-def progress_view(task: TaskRow | None, progress: TaskProgressRow | None, i: IncidentRow) -> dict:
-    """Milestones (recorded times only) and the resolution estimate."""
+def progress_view(session, task: TaskRow | None, progress: TaskProgressRow | None, i: IncidentRow) -> dict:
+    """Milestones (recorded times only), the journey phase, the resolution estimate,
+    and a timeline of events that actually happened."""
     p = progress
-    return {"reported_at": iso(i.created_at), "assigned_at": iso(task.assigned_at) if task else None,
+    phase = phase_of(task, p)
+    intel = session.get(IntelligenceRow, i.incident_id)
+    return {"phase": phase, "phase_text": PHASE_TEXT[phase],
+            "reported_at": iso(i.created_at),
+            "analysed_at": iso(intel.completed_at) if intel is not None and intel.status == "COMPLETED" else None,
+            "assigned_at": iso(task.assigned_at) if task else None,
+            "accepted_at": iso(p.accepted_at) if p else None,
             "tracking_started_at": iso(p.tracking_started_at) if p else None, "arrived_at": iso(p.arrived_at) if p else None,
             "work_started_at": iso(p.work_started_at) if p else None,
             "completion_submitted_at": iso(p.completion_submitted_at) if p else None,
             "resolved_at": iso(p.resolved_at) if p else None, "tracking_active": bool(p and p.tracking_active),
-            "etr": estimates.etr_view(task, p, i)}
+            "etr": estimates.etr_view(task, p, i), "events": timeline_events(session, i, task, p, intel)}
+
+
+def timeline_events(session, i: IncidentRow, task, p, intel) -> list[dict]:
+    """Citizen-facing events from persisted timestamps only; nothing is shown before it happens."""
+    ev = [("REPORTED", i.created_at, "Incident reported", None)]
+    if intel is not None and intel.status == "COMPLETED":
+        ev.append(("ANALYSED", intel.completed_at, "Analysed by Incident Intelligence", f"Priority {priority_of(intel)}"))
+    for d in session.scalars(select(DispatchRow).where(DispatchRow.incident_id == i.incident_id).order_by(DispatchRow.created_at)):
+        if d.status == "UNASSIGNED":
+            ev.append(("ASSIGNMENT_PENDING", d.created_at, "No field worker available yet", "A supervisor will assign it"))
+        elif d.status == "RELEASED":
+            ev.append(("ASSIGNMENT_RELEASED", d.created_at, "Assignment withdrawn", {"DECLINED": "Worker declined",
+                       "ACCEPTANCE_TIMEOUT": "Not accepted in time", "CANCELLED": "Cancelled by a supervisor"}.get(d.method, d.method)))
+        elif d.method == "REASSIGNED":
+            ev.append(("REASSIGNED", d.created_at, "Reassigned to another worker", None))
+        else:
+            ev.append(("ASSIGNED", d.created_at, "Field worker assigned", None))
+    if p is not None:
+        for key, at, text in (("ACCEPTED", p.accepted_at, "Worker accepted"), ("EN_ROUTE", p.tracking_started_at, "Worker on the way"),
+                              ("ARRIVED", p.arrived_at, "Worker arrived (estimated from shared location)"),
+                              ("WORK_STARTED", p.work_started_at, "Work started")):
+            if at is not None:
+                ev.append((key, at, text, None))
+    if task is not None:
+        for u in session.scalars(select(ProgressUpdateRow).where(ProgressUpdateRow.task_id == task.task_id)):
+            ev.append(("PROGRESS_UPDATE", u.created_at, "Progress update",
+                       u.note + (f" · about {u.estimate_minutes} min left (worker's estimate)" if u.estimate_minutes else "")))
+        for c in session.scalars(select(CompletionRow).where(CompletionRow.task_id == task.task_id, CompletionRow.accepted.is_(True))
+                                 .order_by(CompletionRow.submitted_at)):
+            ev.append(("EVIDENCE_SUBMITTED", c.submitted_at, "Completion evidence submitted", f"Attempt {c.attempt}"))
+            ev.append(("LOCATION_VERIFIED", c.submitted_at, "Location verification completed",
+                       {"PASS": "Verified on site", "REVIEW_REQUIRED": "Needs supervisor review"}.get(c.outcome, c.outcome)))
+            if c.reviewed_at is not None:
+                ev.append(("REVIEWED", c.reviewed_at, "Supervisor review completed",
+                           {"APPROVE": "Approved", "REJECT": "Sent back for rework", "REQUEST_EVIDENCE": "More evidence requested"}
+                           .get(c.review_decision, c.review_decision)))
+    if p is not None and p.resolved_at is not None:
+        ev.append(("RESOLVED", p.resolved_at, "Incident resolved", None))
+    ev.sort(key=lambda e: as_utc(e[1]))
+    return [{"event": k, "time": iso(t), "text": text, "detail": detail} for k, t, text, detail in ev]
 
 
 def audit_view(session, e: AuditRow) -> dict:
-    who = "Verification engine" if e.actor_role == "SYSTEM" else name_of(session, e.actor_id)
+    system_names = {"dispatch": "Dispatch", "incident-intelligence": "Incident Intelligence"}
+    who = system_names.get(e.actor_id, "Verification engine") if e.actor_role == "SYSTEM" else name_of(session, e.actor_id)
     return {"event_id": e.event_id, "actor": who, "actor_role": e.actor_role, "action": e.action,
             "incident_id": e.incident_id, "time": iso(e.event_time), "details": e.details or {}}

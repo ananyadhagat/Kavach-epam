@@ -1,6 +1,6 @@
 # KAVACH integration: GeoSatya + Incident Intelligence + Dispatch + tracking, ETA, ETR
 
-Status as of 30 Oct 2026. Working copy: `services/geosatya/` on branch `geosatya-location-verification`.
+Status as of 30 Oct 2026 (second phase: acceptance, decline, timeout, cancellation, confirmed arrival, stationary flag, supervisor dispatch board, citizen timeline). Working copy: `services/geosatya/` on branch `geosatya-location-verification`.
 
 ## 1. Sources inspected
 
@@ -68,17 +68,28 @@ Order matters: the report is **committed before** the agent is called, so an una
 
 | Conceptual state | GeoSatya representation |
 |---|---|
-| Reported / unassigned | incident `SUBMITTED`, dispatch record `UNASSIGNED` |
-| Assigned | task `ASSIGNED` (`assigned_at`) |
-| Accepted | **not supported**: there is no accept step |
+| Reported / unassigned | incident `SUBMITTED`, dispatch record `UNASSIGNED` (phase `UNASSIGNED`) |
+| Assigned, awaiting acceptance | task `ASSIGNED`, no `accepted_at` (phase `AWAITING_ACCEPTANCE`; flagged after `ACCEPTANCE_TIMEOUT_MIN`) |
+| Accepted | task `ASSIGNED` + `task_progress.accepted_at` (explicit accept, or implied by starting the journey or work) |
+| Declined / acceptance timeout / cancelled | task row removed, `dispatch_records` `RELEASED` (method `DECLINED` / `ACCEPTANCE_TIMEOUT` / `CANCELLED`), incident back to `SUBMITTED`, Dispatch re-run excluding released workers. Only before any completion attempt. |
 | En route | task `ASSIGNED` + `task_progress.tracking_started_at`, tracking active |
-| Arrived | `task_progress.arrived_at` (estimated within `ARRIVAL_RADIUS_M`, accuracy ≤ 50 m) |
+| Arrived | `task_progress.arrived_at`: `ARRIVAL_CONFIRM_READINGS` (2) consecutive readings within `ARRIVAL_RADIUS_M`, accuracy ≤ 50 m, fix not older than `TRACKING_STALE_S` |
 | Work in progress | task `IN_PROGRESS` (`work_started_at`) |
 | Completion submitted / verification pending / supervisor review | task `AWAITING_VERIFICATION` (`completion_submitted_at`); the geofence check is synchronous |
 | Resolved | task `RESOLVED` (`resolved_at` = review time) |
 | Rejected / more evidence | back to `ASSIGNED`, attempt + 1 (existing behaviour) |
-| Reassigned | same task, new worker, `ASSIGNED`; incident `IN_PROGRESS → ASSIGNED` is now an allowed, audited transition |
-| Cancelled | **not supported** |
+| Reassigned | same task, new worker, `ASSIGNED`, acceptance reset; incident `IN_PROGRESS → ASSIGNED` is an allowed, audited transition |
+
+The phase shown to people (`progress.phase`, `tracking.phase`) is derived by `phase_of()` in `services/tracking.py` from the task status plus these milestones: `UNASSIGNED`, `AWAITING_ACCEPTANCE`, `ACCEPTED`, `EN_ROUTE`, `ARRIVED`, `IN_PROGRESS`, `AWAITING_REVIEW`, `RESOLVED`. No new status enum was added, and the existing `CHECK` constraints are unchanged. New incident transitions: `ASSIGNED → SUBMITTED` and `IN_PROGRESS → SUBMITTED` (released assignment).
+
+### Citizen timeline and supervisor board
+
+- `progress.events` is built only from persisted rows (incident, intelligence, dispatch records, task progress, accepted completions, review fields), so an event appears only after it happened. Rejected completion attempts (FAIL / NOT_CHECKED) are not shown as "evidence submitted".
+- `GET /dispatch/board` lists open incidents (plus the 5 most recently resolved). For each it gives the phase, worker and availability, time since assignment, arrival and work start, tracking freshness, ETA, ETR, latest verification outcome and review decision. Flags: `UNASSIGNED`, `ACCEPTANCE_OVERDUE`, `TRACKING_STALE`, `WORKER_STATIONARY`, `ETR_OVERDUE`, `AWAITING_EVIDENCE`, `AWAITING_REVIEW`. It is read-only; actions stay on the existing authorised endpoints.
+
+### Update mechanism
+
+There is no real-time transport in the project, so **controlled polling** was chosen: the incident page every 15 s, the board every 30 s, both only while the browser tab is visible. Location updates are sent at most every 10 s and the server ignores closer ones. WebSockets or SSE would add infrastructure without changing what the data can show.
 
 ## 6. Tracking, ETA, ETR
 
@@ -87,6 +98,7 @@ Order matters: the report is **committed before** the agent is called, so an una
 - **Retention:** at most `TRACKING_HISTORY_KEEP` points per task; all deleted on completion submission or reassignment.
 - **Throttling:** updates closer than `TRACKING_MIN_INTERVAL_S` are acknowledged but not stored; the client sends at most every 10 s, and viewers poll every 15 s while the tab is visible.
 - **States:** `NOT_STARTED`, `LIVE`, `STALE` (> `TRACKING_STALE_S`), `STOPPED`, `ENDED`; the location is labelled `CURRENT` or `LAST_KNOWN`.
+- **Stationary worker:** if the shared locations span at least `STATIONARY_AFTER_S` with less than 20 m of progress toward the incident, the ETA carries `stationary: true`, is marked uncertain, and the board flags `WORKER_STATIONARY`.
 - **ETA:** straight-line remaining distance × `ETA_ROUTE_FACTOR` ÷ speed. The speed is the observed approach speed (distance drop over ≥ 60 s within 10 min, 0.5–20 m/s), else `ETA_ASSUMED_SPEED_KMH`. Shown as a minute range (×0.8 … ×1.3). States: `WAITING_FOR_LOCATION`, `AVAILABLE`, `STALE`, `ARRIVED`, `NOT_APPLICABLE`. Always `APPROXIMATE_STRAIGHT_LINE`, never road routing.
 - **ETR:** recomputed only on events (`ASSIGNED`, `FIRST_LOCATION`, `ARRIVED`, `WORK_STARTED`, `COMPLETION_SUBMITTED`, `REWORK`, `REASSIGNED`, `RESOLVED`). It is travel (ETA upper bound, or `ETR_DEFAULT_TRAVEL_MIN` when the location is unknown) + work (median of ≥ 3 resolved jobs in the category, else the category baseline) + `ETR_REVIEW_BUFFER_MIN`. It is shown as approximate with its basis, and `OVERDUE` when passed.
 - **Actual resolution:** from recorded timestamps only. It covers report → resolved, plus to-assignment, travel (tracking start → arrival), work (start → submission) and review (submission → approval). Missing milestones stay empty.

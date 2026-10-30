@@ -1,7 +1,7 @@
 /* Citizen report: Issue → Photo & location (automatic) → Review. */
 
 import { api, category, session, upload } from "../api.js";
-import { DEMO_CENTER, SIM_PRESETS, capturePhoto, locate, permissionState, simulatedFix, simulationOn } from "../capture.js";
+import { DEMO_CENTER, LOCATION_BLOCKED_HELP, SIM_PRESETS, capturePhoto, locate, permissionState, simulatedFix, simulationOn } from "../capture.js";
 import { categoryIcon, flagChips, locationSource, timingLine } from "../components.js";
 import { createMap, legend, mapProviderName } from "../maps.js";
 import { banner, button, card, chip, clear, fmtCoord, h, icon, pageHead, spinner, toast } from "../ui.js";
@@ -187,5 +187,5 @@ export async function renderReport(ctx) {
 
   const perm = await permissionState();
   render();
-  if (perm === "denied") body.prepend(banner("review", h("strong", {}, "Location is blocked for this site. "), "Allow it in the address-bar site settings so photos can be tagged with where they were taken. You can also choose the spot on the map."));
+  if (perm === "denied") body.prepend(banner("review", LOCATION_BLOCKED_HELP, " You can also choose the spot on the map."));
 }

@@ -11,8 +11,17 @@ older than the freshness limit when the photo is taken, it is refreshed first. *
 import { preference, session } from "./api.js";
 import { button, clear, h, icon } from "./ui.js";
 
+/* How to re-allow location depends on the device; give the steps for this one. */
+const IS_IOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+const IS_ANDROID = /Android/.test(navigator.userAgent);
+export const LOCATION_BLOCKED_HELP = IS_IOS
+  ? "Location is blocked. On iPhone: Settings → Privacy & Security → Location Services (on) → Safari Websites → While Using the App, with Precise Location on. Then in Safari tap \"aA\" → Website Settings → Location → Allow, reload the page and press Retry."
+  : IS_ANDROID
+    ? "Location is blocked. In Chrome, tap the icon left of the address → Permissions → Location → Allow. Also check the phone's Location is switched on. Then press Retry."
+    : "Location permission is blocked for this site. Click the lock (or tune) icon beside the address bar, set Location to Allow, then press Retry.";
+
 const GEO_TEXT = {
-  PERMISSION_DENIED: "Location permission is blocked for this site. Click the lock (or tune) icon beside the address bar, set Location to Allow, then press Retry.",
+  PERMISSION_DENIED: LOCATION_BLOCKED_HELP,
   POSITION_UNAVAILABLE: "Your device couldn't work out its position. Move near a window or outdoors, then press Retry.",
   TIMEOUT: "Getting a GPS fix took too long. Press Retry, ideally outdoors.",
   UNSUPPORTED: "This page can't use location. Location needs https:// or http://localhost, and a browser that supports it.",

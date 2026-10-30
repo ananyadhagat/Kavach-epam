@@ -1,13 +1,15 @@
 /* GeoSatya shell: role-aware navigation, demo role switcher, router. */
 
-import { bootstrap, firstUser, preference, session, switchUser } from "./api.js";
-import { button, clear, errorState, h, icon, spinner } from "./ui.js";
+import { bootstrap, connectivity, firstUser, flushOutbox, preference, session, switchUser } from "./api.js";
+import { onChange as onOutboxChange, pending, results } from "./outbox.js";
+import { button, clear, errorState, h, icon, spinner, toast } from "./ui.js";
 import { renderDashboard } from "./pages/dashboard.js";
 import { renderReport } from "./pages/report.js";
 import { renderIncident, renderMyReports } from "./pages/incident.js";
 import { renderEvidenceShortcut, renderTask, renderTasks } from "./pages/tasks.js";
 import { renderNextReview, renderQueue, renderReview } from "./pages/review.js";
 import { renderHistory } from "./pages/history.js";
+import { renderBoard } from "./pages/board.js";
 import { renderSettings } from "./pages/settings.js";
 
 const ROLE_TEXT = { CITIZEN: "citizen", WORKER: "field worker", SUPERVISOR: "supervisor" };
@@ -17,8 +19,7 @@ const NAV = [
   ["#/reports", "My Reports", "list", ["CITIZEN"]],
   ["#/tasks", "Worker Tasks", "tasks", ["WORKER"]],
   ["#/evidence", "Submit Completion Evidence", "upload", ["WORKER"]],
-  ["#/queue", "Verification Queue", "queue", ["SUPERVISOR"]],
-  ["#/review", "Supervisor Review", "review", ["SUPERVISOR"]],
+  ["#/queue", "Reviews", "review", ["SUPERVISOR"]],
   ["#/history", "Evidence History", "history", ["SUPERVISOR"]],
   ["#/settings", "Settings", "settings", ["SUPERVISOR"]],
 ];
@@ -30,6 +31,7 @@ const ROUTES = [
   [/^tasks$/, renderTasks, ["WORKER", "SUPERVISOR"]],
   [/^evidence$/, renderEvidenceShortcut, ["WORKER"]],
   [/^tasks\/(.+)$/, renderTask, ["WORKER", "SUPERVISOR"]],
+  [/^board$/, renderBoard, ["SUPERVISOR"]],
   [/^queue$/, renderQueue, ["SUPERVISOR"]],
   [/^review$/, renderNextReview, ["SUPERVISOR"]],
   [/^review\/(.+)$/, renderReview, ["SUPERVISOR"]],
@@ -43,7 +45,8 @@ const currentPath = () => decodeURIComponent((location.hash || "#/").replace(/^#
 function renderNav() {
   const path = "#/" + currentPath(), role = session.me?.role;
   clear(document.getElementById("nav"), NAV.filter(([, , , roles]) => !roles || roles.includes(role)).map(([href, text, ic]) =>
-    h("a", { href, "aria-current": (href === "#/" ? path === "#/" : path.startsWith(href)) ? "page" : null }, icon(ic, 19), h("span", {}, text))));
+    h("a", { href, "aria-current": (href === "#/" ? (path === "#/" || path === "#/board")
+      : href === "#/queue" ? (path.startsWith("#/queue") || path.startsWith("#/review")) : path.startsWith(href)) ? "page" : null }, icon(ic, 19), h("span", {}, text))));
 }
 
 function renderRoleSwitcher() {
@@ -89,13 +92,65 @@ async function route() {
   clear(main, errorState(new Error("Page not found"), () => { location.hash = "#/"; }));
 }
 
+/* ---------------------------------------------- worker app: offline status */
+const KIND_TEXT = { accept: "Accept", arrive: "Arrival", start: "Start work", location: "Location", progress: "Progress note", completion: "Completion photo" };
+
+async function renderNetStatus() {
+  const host = document.getElementById("net-status");
+  if (!session.me) { host.hidden = true; return; }
+  const waiting = await pending(session.me.user_id).catch(() => []);
+  const offline = navigator.onLine === false;
+  const unreachable = !offline && !connectivity.serverReachable;
+  host.hidden = !offline && !unreachable && !waiting.length;
+  clear(host,
+    h("span", { class: `net-dot ${offline || unreachable ? "off" : "on"}` }),
+    h("span", {}, offline ? "Offline" : unreachable ? "Can't reach the server" : "Online"),
+    waiting.length ? h("span", { class: "muted" }, `· ${waiting.length} waiting to send`) : null,
+    waiting.length && !offline ? button("Send now", { class: "btn small", onclick: () => sendQueued(true) }) : null);
+}
+
+/* Send queued actions, then tell the worker what happened to each. */
+async function sendQueued(manual = false) {
+  if (!session.me || navigator.onLine === false) return;
+  const before = new Set((await results(session.me.user_id).catch(() => [])).map((r) => r.id));
+  const sent = await flushOutbox();
+  const fresh = (await results(session.me.user_id).catch(() => [])).filter((r) => !before.has(r.id));
+  for (const r of fresh) {
+    const what = r.label || KIND_TEXT[r.kind] || "Saved action";
+    if (!r.ok) toast(`${what} (saved offline) was not accepted: ${r.message}`, "fail");
+    else if (r.kind === "completion") {
+      const c = r.data?.completion;
+      toast(`${what} sent: ${c?.accepted ? "accepted for review" : `not accepted (${(c?.outcome || "").toLowerCase()}): ${c?.message || ""}`}`, c?.accepted ? "pass" : "fail");
+    } else if (r.kind !== "location") toast(`${what} sent`, "pass");
+  }
+  if (manual && !sent) toast("Nothing could be sent yet.", "info");
+  if (fresh.some((r) => r.kind !== "location") && /^tasks/.test(currentPath())) route();
+}
+
+function setupWorkerApp() {
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("sw.js").catch((err) => console.warn("Service worker not registered:", err.message));
+  }
+  // Kept for the worker dashboard's "Install app" button (Chrome / Edge / Android).
+  window.addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); session.installPrompt = e; });
+  window.addEventListener("online", () => { renderNetStatus(); sendQueued(); });
+  window.addEventListener("offline", renderNetStatus);
+  // When the server answers again, show it and send what's waiting.
+  window.addEventListener("geosatya-connectivity", () => { renderNetStatus(); if (connectivity.serverReachable) sendQueued(); });
+  onOutboxChange(renderNetStatus);
+  setInterval(() => sendQueued(), 30000);   // also retries after a server error, not just after "online"
+  renderNetStatus();
+  sendQueued();
+}
+
 async function start() {
   const main = document.getElementById("main");
   clear(main, spinner("Starting GeoSatya…"));
   try { await bootstrap(); } catch (err) { clear(main, errorState(err, start)); return; }
   renderRoleSwitcher();
   setupSimulationToggle();
-  session.listeners.add(() => { renderRoleSwitcher(); location.hash = "#/"; route(); });
+  setupWorkerApp();
+  session.listeners.add(() => { renderRoleSwitcher(); renderNetStatus(); location.hash = "#/"; route(); });
   window.addEventListener("hashchange", route);
   route();
 }

@@ -82,8 +82,34 @@ class Settings(BaseSettings):
     tracking_stale_s: int = Field(default=120, ge=10)
     tracking_history_keep: int = Field(default=20, ge=2, le=500)
     arrival_radius_m: float = Field(default=50.0, ge=10, le=500)
+    # Arrival needs this many consecutive good readings inside the arrival radius, so one stray fix can't claim it.
+    arrival_confirm_readings: int = Field(default=2, ge=1, le=10)
+    # An assignment not accepted within this time is shown as overdue; a supervisor can re-dispatch it.
+    acceptance_timeout_min: int = Field(default=15, ge=1)
+    # No movement toward the incident for this long (while not arrived) marks the worker as stationary.
+    stationary_after_s: int = Field(default=180, ge=60)
     eta_assumed_speed_kmh: float = Field(default=20.0, gt=1, le=120)
     eta_route_factor: float = Field(default=1.4, ge=1.0, le=3.0)  # straight line -> typical road distance
+
+    # --- Road routing (optional). "none" = straight-line estimates only.
+    # "osrm" needs ROUTING_URL, e.g. a self-hosted OSRM server. The public demo
+    # server (https://router.project-osrm.org) is for light testing only: its
+    # usage policy does not allow production traffic.
+    routing_provider: Literal["none", "osrm"] = "none"
+    routing_url: str = ""
+    routing_profile: str = "driving"
+    routing_timeout_s: float = Field(default=4.0, gt=0, le=30)
+    routing_cache_s: int = Field(default=120, ge=0)
+    # Dispatch compares road travel time for this many top-ranked eligible workers.
+    dispatch_route_candidates: int = Field(default=3, ge=1, le=10)
+    # A worker location less accurate than this is not used for dispatch distance.
+    dispatch_max_location_accuracy_m: float = Field(default=200.0, gt=0)
+    # Development link gate: when set, every page and API call needs this code first (except /health).
+    # Use it whenever the app is reachable beyond this computer (tunnel, Wi-Fi). Never commit a real code.
+    access_code: SecretStr = SecretStr("")
+    access_cookie_hours: int = Field(default=12, ge=1, le=720)
+    # Citizen report submissions per user per minute (0 = off).
+    report_rate_limit_per_min: int = Field(default=10, ge=0)
 
     # --- Resolution estimate (ETR) baseline, used until history exists.
     etr_default_travel_min: int = Field(default=30, ge=1)
