@@ -34,6 +34,9 @@ class Settings:
     quality_duplicate_hash_distance: int = field(
         default_factory=lambda: int(os.getenv("QUALITY_DUPLICATE_HASH_DISTANCE", "5"))
     )
+    verification_confidence_threshold: float = field(
+        default_factory=lambda: float(os.getenv("KAVACH_REVIEW_CONFIDENCE_THRESHOLD", "80"))
+    )
 
 
 WEIGHTS = {"image_evidence": 0.45, "gps_consistency": 0.25, "plan_compliance": 0.30}

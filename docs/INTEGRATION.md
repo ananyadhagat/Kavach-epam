@@ -87,6 +87,7 @@ Contract history is additive:
 
 - **1.0:** initial response carried verification IDs/status, score, findings, remarks and evidence/version metadata.
 - **1.1:** retained those fields and added `reason_codes` and `failed_requirement_ids`. No 1.0 response fields were intentionally removed or renamed. Consumers should ignore unknown fields; future compatible changes must be additive. A breaking change requires a new contract version.
+- **1.1 additive extension:** adds optional `verification_confidence` and `alignment_finding` response fields, optional `cleanup_score` and `confidence` in `image_findings`, and the reason codes `LOW_VERIFICATION_CONFIDENCE`, `VERIFICATION_CONFIDENCE_UNAVAILABLE`, and `IMAGE_ALIGNMENT_LOW_CONFIDENCE`. Existing fields remain unchanged. Consumers should tolerate these additional fields and reason-code values.
 - Old cached SQLite 1.0 rows are refreshed under the same task/submission/rule idempotency key so they do not produce an invalid 1.1 response.
 
 Every response includes these fields:
@@ -100,6 +101,10 @@ Every response includes these fields:
 | `score_status` | `AVAILABLE`, `PARTIAL`, or `UNAVAILABLE`. |
 | `score_breakdown` | Component scores (`image_evidence`, `gps_consistency`, `plan_compliance`) or null. |
 | `image_findings` | Validated observations/change/limitations, or `{status: UNAVAILABLE, reason: ...}`. |
+| `image_findings.cleanup_score` | Vision model's bounded (0-100) semantic estimate of visible cleanup; it informs the image score component but does not decide the final status. |
+| `image_findings.confidence` | Vision model's bounded (0-100) self-assessment for its observations/cleanup estimate; this is not a calibrated probability. |
+| `verification_confidence` | Conservative minimum of semantic confidence and available landmark alignment confidence; null when semantic confidence is unavailable. |
+| `alignment_finding` | OpenCV ORB/RANSAC registration status and match/inlier/reprojection diagnostics; never includes image bytes. |
 | `location_finding` | Status, optional score/distance, and reasons; raw coordinates are not returned. |
 | `plan_compliance_findings` | Requirement IDs, labels, mandatory flags, worker claims, evidence finding, reason, evidence IDs. |
 | `remarks` | Deterministic, evidence-linked explanations; vision model prose is not used. |
@@ -108,7 +113,7 @@ Every response includes these fields:
 | `vision_provider`, `vision_model_version`, `vision_prompt_version` | Analysis provenance; no API key is recorded. |
 | `evidence_refs` | Evidence IDs referenced by this result. |
 | `created_at` | UTC result timestamp. |
-| `reason_codes` | Stable enum codes: `MANDATORY_REQUIREMENT_CONTRADICTED`, `MANDATORY_REQUIREMENT_NOT_CLAIMED`, `GPS_MISMATCH`, `EVIDENCE_MISSING`, `ANALYSIS_UNAVAILABLE`, `IMAGE_UNCERTAIN`, `SCORE_BELOW_THRESHOLD`, `INTEGRATION_CONTRACT_INCOMPLETE`, `IMAGE_BLURRY`, `IMAGE_TOO_DARK`, `IMAGE_TOO_BRIGHT`, `IMAGE_LOW_RESOLUTION`, `BEFORE_AFTER_IDENTICAL`, `QUALITY_NOT_CHECKED`. |
+| `reason_codes` | Stable enum codes, including `LOW_VERIFICATION_CONFIDENCE`, `VERIFICATION_CONFIDENCE_UNAVAILABLE`, and `IMAGE_ALIGNMENT_LOW_CONFIDENCE` for the new verification stage. |
 | `failed_requirement_ids` | Requirement IDs causing a mandatory FAIL; otherwise empty. |
 
 ### Status meaning downstream
@@ -118,11 +123,17 @@ Every response includes these fields:
 | `PASS` | Required evidence and configured checks support completion; score threshold passes when applicable. | No automated downstream transition is implemented. |
 | `FAIL` | A definite mandatory contradiction/non-completion or a score-only below-threshold outcome. Mandatory findings take precedence over score. | Correction, supervisor review, and reassignment policy is pending E2. |
 | `INCONCLUSIVE` | Required evidence, analysis, GPS, or upstream policy metadata is missing/invalid. | Retry/hold/escalation policy is pending E2. |
-| `MANUAL_REVIEW` | Evidence is uncertain, blurry/obstructed, visual change is uncertain, or GPS conflicts with otherwise clean evidence. | Recipient/queue/notification is pending E1. |
+| `MANUAL_REVIEW` | Evidence is uncertain, blurry/obstructed, visual change is uncertain, GPS conflicts with otherwise clean evidence, or combined verification confidence is below the configured threshold. | Response flag is `requires_manual_review=true`; a real inspector assignment/notification queue remains an orchestrator/Supervisor integration and is not implemented in this repository. |
+
+## Two-tier visual verification and human review
+
+The deterministic OpenCV quality audit remains a quality gate (sharpness, brightness, image dimensions and near-duplicate detection). `ImageAlignmentService` is a separate step: it matches ORB keypoints, estimates an AFTER-to-BEFORE homography using RANSAC, reports match/inlier/reprojection diagnostics, and supplies a registered image pair to Gemini when registration confidence reaches the configured threshold. If registration is weak, Gemini can describe the original pair, but the alignment limitation forces `MANUAL_REVIEW`.
+
+Gemini returns fixed-shape `before_observations`, `after_observations`, `visual_change`, `limitations`, `cleanup_score` and `confidence`. The model must not choose the final status or write remarks. The image evidence score uses the semantic cleanup score when available; older/mock findings without one retain the deterministic compatibility fallback. Combined verification confidence is the lower of semantic confidence and the available alignment score. Set `KAVACH_REVIEW_CONFIDENCE_THRESHOLD` to control the cutoff (default 80). A confidence below 80 produces `MANUAL_REVIEW`, `requires_manual_review=true` and `LOW_VERIFICATION_CONFIDENCE`; exactly 80 does not trigger this threshold alone. Missing confidence with usable visual findings also produces MANUAL_REVIEW with `VERIFICATION_CONFIDENCE_UNAVAILABLE`. Mock confidence is synthetic fixture data only. Gemini self-confidence and ORB registration scores are uncalibrated estimates and require labelled-photo evaluation before operational use.
 
 ### Real API examples
 
-The following full response objects were captured from the running FastAPI app using `TestClient` and `VISION_PROVIDER=mock`; they are prototype fixture outputs. `SUB-REVIEW` is a temporary copy of the PASS fixture with a blur limitation added for the status example. Request examples omit the configured API key header for readability.
+The following full response objects are historical baseline examples captured from the prototype with `VISION_PROVIDER=mock`; they predate the additive alignment/confidence fields described above and do not show those fields. `SUB-REVIEW` is a temporary copy of the PASS fixture with a blur limitation added for the status example. Request examples omit the configured API key header for readability. Use the current response schema and `/docs` output when integrating the new fields.
 
 #### PASS
 

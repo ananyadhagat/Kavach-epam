@@ -85,7 +85,7 @@ def test_pdf_08_mandatory_failure_overrides_high_score(make_service):
     visual = VisualFindings.model_validate({
         "before_observations": {"overflow": "PRESENT"},
         "after_observations": {"overflow": "ABSENT", "scattered_waste": "ABSENT", "path_obstructed": "ABSENT"},
-        "visual_change": "IMPROVED", "limitations": [],
+        "visual_change": "IMPROVED", "limitations": [], "confidence": 100.0,
     })
     submission = {
         "task_id": "TASK-100",

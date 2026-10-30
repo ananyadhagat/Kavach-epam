@@ -36,6 +36,8 @@ def findings(**overrides):
         "after_observations": {"overflow": "ABSENT", "scattered_waste": "ABSENT", "path_obstructed": "ABSENT"},
         "visual_change": "IMPROVED",
         "limitations": [],
+        "cleanup_score": 95.0,
+        "confidence": 96.0,
     }
     value.update(overrides)
     return value
@@ -105,6 +107,18 @@ def test_valid_json_is_parsed_into_existing_visual_schema():
     sent_parts = [part for part in client.calls[0]["contents"] if isinstance(part, dict)]
     assert len(sent_parts) == 2
     assert all(part["inline_data"]["mime_type"] == "image/png" for part in sent_parts)
+    assert result.cleanup_score == 95.0
+    assert result.confidence == 96.0
+
+
+def test_aligned_image_pair_uses_same_strict_semantic_contract():
+    data = png_bytes("blue")
+    adapter, client, _ = make_adapter([json_result()], image_data=data)
+    result = adapter.analyze_aligned_pair(data, "image/png", data, "image/png")
+    assert result is not None
+    assert result.cleanup_score == 95.0
+    assert result.confidence == 96.0
+    assert len(client.calls) == 1
 
 
 def test_invalid_json_then_valid_retries_and_succeeds():

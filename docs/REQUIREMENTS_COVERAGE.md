@@ -73,6 +73,15 @@ The Verification Agent guide is currently in Downloads, not `docs/specs/`: `KAVA
 | Audit stores measurements, flags, dHashes and thresholds but not image bytes/paths | `VerificationService._create_verification` internal audit payload | `tests/test_image_quality_service.py::test_quality_thresholds_used_are_persisted_without_image_bytes` | FIXED |
 | Real field-photo quality and production threshold calibration | Representative labeled field photo collection is not supplied | No production dataset is available. Defaults are illustrative and must be calibrated by KAVACH owners. | NOT COVERED |
 
+## Visual alignment and confidence review
+
+| Requirement | Implementation | Test evidence | Status |
+|---|---|---|---|
+| Landmark keypoint alignment | `app/services/image_alignment_service.py` uses ORB features, ratio-tested matches and RANSAC homography; reports diagnostic fields without image bytes. Aligned frames are passed to analyzer implementations that support `analyze_aligned_pair`. | `tests/test_image_alignment_service.py` same-scene translation, blank image, missing pair; Gemini aligned-pair test | IMPLEMENTED as heuristic; thresholds require field-photo calibration |
+| Vision semantic cleanup score | Gemini schema requires bounded `cleanup_score` and `confidence`; cleanup score becomes the image component; mock values are synthetic fixtures. | `tests/test_gemini_vision_adapter.py` structured output and aligned-pair tests; cleanup score service test | IMPLEMENTED for adapter/schema behavior; real Gemini calls and scoring accuracy are NOT COVERED |
+| Strict below-80 review routing | Configured threshold defaults to 80. Combined confidence is conservative minimum of semantic and available registration confidence. Below threshold yields `MANUAL_REVIEW`, `requires_manual_review=true`, and `LOW_VERIFICATION_CONFIDENCE`; unavailable confidence cannot pass silently. | `tests/test_requested_fixes.py` threshold, exact-boundary, configured threshold, low-alignment and missing-confidence cases | IMPLEMENTED |
+| Supervisor/inspector queue | Response includes the review flag/reasons; this repository has no inspector registry, assignment queue or notifications. | No endpoint or service exists | EXTERNAL HANDOFF REQUIRED; Supervisor/orchestrator must consume the response flag |
+
 ## Not covered / prototype limits
 
 | Requirement | Status and reason |
@@ -81,4 +90,6 @@ The Verification Agent guide is currently in Downloads, not `docs/specs/`: `KAVA
 | Whether a photo is authentic or was taken at the claimed site | NOT COVERED: image decoding proves processability only; authenticity requires an approved product/security design. |
 | Approved policy values and downstream status transitions | NOT COVERED: waiting for KAVACH team decisions listed in `AUDIT.md` and README. |
 | Production authentication, roles, privacy retention and multi-device database operations | NOT COVERED: current API-key and SQLite implementations are prototypes. |
+| Calibrated semantic/alignment confidence and real field performance | NOT COVERED: current scores are model self-assessment and ORB heuristics; obtain labeled representative photos and calibrate before operational decisions. |
+| Actual inspector assignment/notification and final closure policy | NOT COVERED in this service: `requires_manual_review` is the handoff signal; Supervisor/orchestrator owns the human queue and final routing. |
 | Full incident-location evidence fusion (citizen pin, device GPS, EXIF, registered facility) | NOT COVERED by this verification agent: the shared location module covers deterministic coordinate checks; full source collection/fusion is a separate integration. |

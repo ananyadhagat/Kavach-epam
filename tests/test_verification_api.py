@@ -40,6 +40,8 @@ def test_http_verification_demo_returns_versioned_contract(client):
     assert response.json()["reason_codes"] == ["QUALITY_NOT_CHECKED"]
     assert response.json()["failed_requirement_ids"] == []
     assert response.json()["verification_status"] == "PASS"
+    assert response.json()["verification_confidence"] == 100.0
+    assert response.json()["alignment_finding"]["status"] == "NOT_CHECKED"
 
 
 def test_http_unknown_task_and_invalid_request_are_rejected(client):

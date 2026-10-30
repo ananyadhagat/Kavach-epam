@@ -21,6 +21,8 @@ class VisualFindings(BaseModel):
     after_observations: dict[str, Observation]
     visual_change: VisualChange
     limitations: list[str] = Field(default_factory=list)
+    cleanup_score: float | None = Field(default=None, ge=0, le=100)
+    confidence: float | None = Field(default=None, ge=0, le=100)
 
 
 class GeminiObservationSet(BaseModel):
@@ -32,9 +34,11 @@ class GeminiObservationSet(BaseModel):
 
 
 class GeminiVisualFindings(BaseModel):
-    """Vision-only response schema. No decision, score, or remark fields are allowed."""
+    """Vision-only semantic score schema. It cannot make a verification decision."""
     model_config = ConfigDict(extra="forbid")
     before_observations: GeminiObservationSet
     after_observations: GeminiObservationSet
     visual_change: VisualChange
     limitations: list[str] = Field(default_factory=list)
+    cleanup_score: float = Field(ge=0, le=100)
+    confidence: float = Field(ge=0, le=100)

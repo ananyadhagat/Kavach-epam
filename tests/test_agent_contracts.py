@@ -230,10 +230,15 @@ def test_field_worker_contract_flows_through_verification_service(make_service, 
             return VisualFindings.model_validate({
                 "before_observations": {"scattered_waste": "PRESENT", "path_obstructed": "PRESENT", "overflow": "PRESENT"},
                 "after_observations": {"scattered_waste": "ABSENT", "path_obstructed": "ABSENT", "overflow": "ABSENT"},
-                "visual_change": "IMPROVED", "limitations": [],
+                "visual_change": "IMPROVED", "limitations": [], "confidence": 100,
             })
 
     service.vision = FixedVision()
+    from types import SimpleNamespace
+    service.image_alignment.align_pair = lambda *_: SimpleNamespace(
+        status="ALIGNED", confidence=100, before_image=None, before_mime=None,
+        aligned_after=None, after_mime=None, as_dict=lambda: {"status": "ALIGNED", "confidence": 100},
+    )
     completion = FieldWorkerCompletion.model_validate({
         "task_id": "TASK-100", "submission_id": "SUB-CONTRACT", "checklist_completed": ["STEP-01", "STEP-02", "STEP-03"],
         "before_evidence_ids": ["EVD-BEFORE"], "after_evidence_ids": ["EVD-AFTER"],

@@ -32,6 +32,9 @@ class ReasonCode(str, Enum):
     IMAGE_LOW_RESOLUTION = "IMAGE_LOW_RESOLUTION"
     BEFORE_AFTER_IDENTICAL = "BEFORE_AFTER_IDENTICAL"
     QUALITY_NOT_CHECKED = "QUALITY_NOT_CHECKED"
+    LOW_VERIFICATION_CONFIDENCE = "LOW_VERIFICATION_CONFIDENCE"
+    VERIFICATION_CONFIDENCE_UNAVAILABLE = "VERIFICATION_CONFIDENCE_UNAVAILABLE"
+    IMAGE_ALIGNMENT_LOW_CONFIDENCE = "IMAGE_ALIGNMENT_LOW_CONFIDENCE"
 
 
 class EvidenceType(str, Enum):
@@ -276,6 +279,8 @@ class VerificationResponseV1(ContractModel):
     submission_id: str
     verification_status: Literal["PASS", "FAIL", "INCONCLUSIVE", "MANUAL_REVIEW"]
     verification_score: float | None
+    verification_confidence: float | None = Field(default=None, ge=0, le=100)
+    alignment_finding: dict = Field(default_factory=dict)
     score_status: Literal["AVAILABLE", "PARTIAL", "UNAVAILABLE"]
     remarks: list[str]
     reason_codes: list[ReasonCode] = Field(default_factory=list)

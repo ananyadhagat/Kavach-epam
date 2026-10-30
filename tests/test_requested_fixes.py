@@ -50,6 +50,83 @@ def test_visual_schema_accepts_overflow_and_valid_change_labels():
     assert findings.after_observations["overflow"].value == "ABSENT"
 
 
+def test_low_confidence_routes_to_manual_review_without_auto_rejection(make_service, submissions):
+    submissions["SUB-PASS"]["mock_visual"]["confidence"] = 79.9
+    result = run(make_service())
+    assert result["verification_status"] == "MANUAL_REVIEW"
+    assert result["requires_manual_review"] is True
+    assert result["verification_confidence"] == 79.9
+    assert result["verification_score"] == 100.0
+    assert "LOW_VERIFICATION_CONFIDENCE" in result["reason_codes"]
+
+
+def test_low_confidence_overrides_a_failure_to_require_human_review(make_service, submissions):
+    submissions["SUB-FAIL"]["mock_visual"]["confidence"] = 65.0
+    result = run(make_service(), "SUB-FAIL")
+    assert result["verification_status"] == "MANUAL_REVIEW"
+    assert result["requires_manual_review"] is True
+    assert result["failed_requirement_ids"] == []
+    assert "LOW_VERIFICATION_CONFIDENCE" in result["reason_codes"]
+
+
+def test_low_alignment_confidence_is_combined_and_reported(make_service):
+    from app.services.image_alignment_service import ImageAlignmentResult
+
+    service = make_service()
+    service.image_alignment.align_pair = lambda *_: ImageAlignmentResult(
+        status="LOW_CONFIDENCE", confidence=72.0,
+        reason="Only a weak landmark match was available.",
+    )
+    result = service.verify("TASK-100", VerificationRequest(submission_id="SUB-PASS"))
+    assert result["verification_status"] == "MANUAL_REVIEW"
+    assert result["verification_confidence"] == 72.0
+    assert result["alignment_finding"]["status"] == "LOW_CONFIDENCE"
+    assert "IMAGE_ALIGNMENT_LOW_CONFIDENCE" in result["reason_codes"]
+    assert "LOW_VERIFICATION_CONFIDENCE" in result["reason_codes"]
+
+
+def test_confidence_exactly_80_does_not_trigger_threshold_review(make_service, submissions):
+    submissions["SUB-PASS"]["mock_visual"]["confidence"] = 80.0
+    result = run(make_service())
+    assert result["verification_status"] == "PASS"
+    assert result["requires_manual_review"] is False
+    assert "LOW_VERIFICATION_CONFIDENCE" not in result["reason_codes"]
+
+
+def test_confidence_threshold_is_configurable(make_service, submissions):
+    submissions["SUB-PASS"]["mock_visual"]["confidence"] = 84.0
+    result = run(make_service(review_confidence_threshold=85))
+    assert result["verification_status"] == "MANUAL_REVIEW"
+    assert result["verification_confidence"] == 84.0
+    assert "LOW_VERIFICATION_CONFIDENCE" in result["reason_codes"]
+
+
+def test_semantic_cleanup_score_feeds_image_score_component(make_service, submissions):
+    submissions["SUB-PASS"]["mock_visual"]["cleanup_score"] = 73.5
+    result = run(make_service())
+    assert result["score_breakdown"]["image_evidence"] == 73.5
+    assert result["image_findings"]["cleanup_score"] == 73.5
+
+
+def test_missing_visual_confidence_routes_to_review(make_service, submissions):
+    class ConfidenceMissingVision:
+        provider = "mock"
+        model_version = "test"
+        prompt_version = "test"
+        unavailable_reason = None
+
+        def analyze(self, submission, evidence):
+            return VisualFindings.model_validate({
+                **submission["mock_visual"], "confidence": None,
+            })
+
+    result = run(make_service(vision=ConfidenceMissingVision()))
+    assert result["verification_status"] == "MANUAL_REVIEW"
+    assert result["requires_manual_review"] is True
+    assert result["verification_confidence"] is None
+    assert "VERIFICATION_CONFIDENCE_UNAVAILABLE" in result["reason_codes"]
+
+
 def test_visual_schema_rejects_partial_change_value():
     with pytest.raises(ValidationError):
         VisualFindings.model_validate({
@@ -111,6 +188,8 @@ def test_stale_sqlite_contract_response_is_refreshed_without_http_500(make_servi
         service.audit = audit
         result = run(service)
         assert result["contract_version"] == "1.1"
+        assert result["verification_confidence"] == 100.0
+        assert result["alignment_finding"]["status"] == "NOT_CHECKED"
         assert result["reason_codes"] == ["QUALITY_NOT_CHECKED"]
         assert result["failed_requirement_ids"] == []
         assert audit.get_existing("TASK-100", "SUB-PASS", service.settings.rule_version) == result

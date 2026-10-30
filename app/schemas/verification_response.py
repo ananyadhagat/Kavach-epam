@@ -25,6 +25,8 @@ class VerificationResponse(BaseModel):
     submission_id: str
     verification_status: VerificationStatus
     verification_score: float | None
+    verification_confidence: float | None = Field(default=None, ge=0, le=100)
+    alignment_finding: dict = Field(default_factory=dict)
     score_status: Literal["AVAILABLE", "PARTIAL", "UNAVAILABLE"]
     score_breakdown: dict[str, float | None] | None
     image_findings: dict

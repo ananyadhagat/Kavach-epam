@@ -7,6 +7,15 @@ from typing import Protocol
 
 from ..contracts.v1 import CONTRACT_VERSION
 
+CURRENT_RESPONSE_FIELDS = {
+    "reason_codes", "failed_requirement_ids", "verification_confidence", "alignment_finding",
+}
+
+
+def _is_current(response: dict) -> bool:
+    return (response.get("contract_version") == CONTRACT_VERSION
+            and CURRENT_RESPONSE_FIELDS <= response.keys())
+
 
 class VerificationRepository(Protocol):
     def get_existing(self, task_id: str, submission_id: str, rule_version: str) -> dict | None: ...
@@ -49,8 +58,7 @@ class SQLiteVerificationRepository:
             ).fetchone()
             if row:
                 cached = json.loads(row["response_json"])
-                if (cached.get("contract_version") == CONTRACT_VERSION
-                        and "reason_codes" in cached and "failed_requirement_ids" in cached):
+                if _is_current(cached):
                     db.commit()
                     return cached
                 # Contract upgrades add response fields. Rebuild stale cached output once
@@ -99,8 +107,7 @@ class MemoryVerificationRepository:
         key = (task_id, submission_id, rule_version)
         with self._lock:
             cached = self.records.get(key)
-            if (cached is None or cached.get("contract_version") != CONTRACT_VERSION
-                    or "reason_codes" not in cached or "failed_requirement_ids" not in cached):
+            if cached is None or not _is_current(cached):
                 self.records[key] = create_response()
             return self.records[key]
 

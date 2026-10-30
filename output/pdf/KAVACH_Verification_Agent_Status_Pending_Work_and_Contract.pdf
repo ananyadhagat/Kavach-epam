@@ -1,0 +1,2609 @@
+%PDF-1.4
+%‚„œ”
+1 0 obj
+<<
+/Producer (pypdf)
+>>
+endobj
+2 0 obj
+<<
+/Type /Pages
+/Count 7
+/Kids [ 4 0 R 11 0 R 15 0 R 19 0 R 23 0 R 27 0 R 31 0 R ]
+>>
+endobj
+3 0 obj
+<<
+/Type /Catalog
+/Pages 2 0 R
+>>
+endobj
+4 0 obj
+<<
+/Contents 5 0 R
+/MediaBox [ 0 0 595.2756 841.8898 ]
+/Resources <<
+/Font <<
+/F1 6 0 R
+/F1-0 7 0 R
+/F2 8 0 R
+/F2-0 9 0 R
+/F3 10 0 R
+>>
+/ProcSet [ /ImageB /ImageC /ImageI /PDF /Text ]
+>>
+/Rotate 0
+/Trans <<
+>>
+/Type /Page
+/Annots [ ]
+/Parent 2 0 R
+>>
+endobj
+5 0 obj
+<<
+/Length 6395
+>>
+stream
+q
+1 0 0 1 0 0 cm  BT /F1 12 Tf 14.4 TL ET
+q
+.839216 .878431 .898039 RG
+.5 w
+n 48.18898 42.51969 m 547.0866 42.51969 l S
+BT /F1 7.5 Tf 9 TL ET
+.364706 .423529 .458824 rg
+BT 1 0 0 1 48.18898 29.76378 Tm (KAVACH Verification Agent | Prototype status and implementation planning) Tj T* ET
+BT 1 0 0 1 523.3191 29.76378 Tm (Page 1) Tj T* ET
+Q
+q
+1 0 0 1 54.18898 767.8583 cm
+Q
+q
+1 0 0 1 48.18898 629.8583 cm
+q
+.070588 .168627 .235294 rg
+n 0 138 498.8976 -138 re f*
+0 0 0 rg
+BT /F1 10 Tf 12 TL ET
+q
+1 0 0 1 14 61 cm
+q
+BT 1 0 0 1 0 37 Tm 31 TL /F2 25 Tf 1 1 1 rg (KAVACH) Tj  T* (Verification Agent) Tj T* ET
+Q
+Q
+q
+1 0 0 1 14 41 cm
+q
+.847059 .909804 .933333 rg
+BT 1 0 0 1 0 5 Tm /F1 11 Tf 16 TL (Current implementation status, pending work, integration flow and JSON contract) Tj T* ET
+Q
+Q
+q
+1 0 0 1 14 14 cm
+q
+.847059 .909804 .933333 rg
+BT 1 0 0 1 0 5 Tm /F1 11 Tf 16 TL (Repository review | 23 October 2026 | Branch: verification-agent) Tj T* ET
+Q
+Q
+q
+Q
+Q
+Q
+q
+1 0 0 1 54.18898 610.0157 cm
+Q
+q
+1 0 0 1 54.18898 586.0157 cm
+q
+.070588 .168627 .235294 rg
+BT 1 0 0 1 0 4 Tm /F2 18 Tf 22 TL (1. Scope and ownership) Tj T* ET
+Q
+Q
+q
+1 0 0 1 54.18898 536.1157 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 30.7 Tm /F1 9.2 Tf 13.3 TL (The Verification Agent evaluates a submitted cleaning completion using stored before/after evidence, checklist claims,) Tj T* -0.026584 Tw (task requirements and available location evidence. It returns a versioned JSON finding for the orchestrator/supervisor to) Tj T* 0 Tw (route. It is not the worker task app, dispatch allocator, inspector queue, or incident-closure service.) Tj T* ET
+Q
+Q
+q
+1 0 0 1 54.18898 491.1157 cm
+q
+.066667 .478431 .447059 RG
+.7 w
+.905882 .956863 .945098 rg
+n -9 -9 504.8976 57 re B*
+Q
+q
+.070588 .168627 .235294 rg
+BT 1 0 0 1 0 30 Tm /F2 9 Tf 13 TL (This report describes the checked-out project folder as found. The three requested product features below are) Tj T* (intentionally recorded as PENDING; source code for those features is not present in the current repository) Tj T* (snapshot.) Tj T* ET
+Q
+Q
+q
+1 0 0 1 54.18898 332.1157 cm
+q
+.070588 .168627 .235294 rg
+n 0 150 498.8976 -20 re f*
+.94902 .964706 .972549 rg
+n 0 130 498.8976 -20 re f*
+.94902 .964706 .972549 rg
+n 0 80 498.8976 -30 re f*
+.94902 .964706 .972549 rg
+n 0 30 498.8976 -30 re f*
+0 0 0 rg
+BT /F1 10 Tf 12 TL ET
+q
+1 0 0 1 6 135 cm
+q
+.070588 .168627 .235294 rg
+BT 1 0 0 1 0 2.3 Tm /F2 7.7 Tf 10 TL (Item) Tj T* ET
+Q
+Q
+q
+1 0 0 1 113.7165 135 cm
+q
+.070588 .168627 .235294 rg
+BT 1 0 0 1 0 2.3 Tm /F2 7.7 Tf 10 TL (Observed status) Tj T* ET
+Q
+Q
+q
+1 0 0 1 227.1024 135 cm
+q
+.070588 .168627 .235294 rg
+BT 1 0 0 1 0 2.3 Tm /F2 7.7 Tf 10 TL (Practical meaning) Tj T* ET
+Q
+Q
+q
+1 0 0 1 6 115 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 2.3 Tm /F1 7.7 Tf 10 TL (Verification API) Tj T* ET
+Q
+Q
+q
+1 0 0 1 113.7165 115 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 2.3 Tm /F1 7.7 Tf 10 TL (Implemented prototype) Tj T* ET
+Q
+Q
+q
+1 0 0 1 227.1024 115 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 2.3 Tm /F1 7.7 Tf 10 TL (FastAPI endpoint validates a submission and returns structured findings.) Tj T* ET
+Q
+Q
+q
+1 0 0 1 6 95 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 2.3 Tm /F1 7.7 Tf 10 TL (Visual analysis) Tj T* ET
+Q
+Q
+q
+1 0 0 1 113.7165 95 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 2.3 Tm /F1 7.7 Tf 10 TL (Partial prototype) Tj T* ET
+Q
+Q
+q
+1 0 0 1 227.1024 85 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 12.3 Tm /F1 7.7 Tf 10 TL (Gemini or a mock analyzer describes visible observations; no semantic) Tj T* (cleanup score/confidence yet.) Tj T* ET
+Q
+Q
+q
+1 0 0 1 6 65 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 2.3 Tm /F1 7.7 Tf 10 TL (Image quality) Tj T* ET
+Q
+Q
+q
+1 0 0 1 113.7165 65 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 2.3 Tm /F1 7.7 Tf 10 TL (Implemented prototype) Tj T* ET
+Q
+Q
+q
+1 0 0 1 227.1024 55 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 12.3 Tm /F1 7.7 Tf 10 TL (OpenCV checks blur, brightness, dimensions and near-duplicate images; it) Tj T* (does not align camera viewpoints.) Tj T* ET
+Q
+Q
+q
+1 0 0 1 6 35 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 2.3 Tm /F1 7.7 Tf 10 TL (Worker-facing PWA) Tj T* ET
+Q
+Q
+q
+1 0 0 1 113.7165 35 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 2.3 Tm /F1 7.7 Tf 10 TL (Pending) Tj T* ET
+Q
+Q
+q
+1 0 0 1 227.1024 35 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 2.3 Tm /F1 7.7 Tf 10 TL (No browser app directory or camera-only capture flow exists in this folder.) Tj T* ET
+Q
+Q
+q
+1 0 0 1 6 15 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 2.3 Tm /F1 7.7 Tf 10 TL (Inspector routing) Tj T* ET
+Q
+Q
+q
+1 0 0 1 113.7165 15 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 2.3 Tm /F1 7.7 Tf 10 TL (Pending integration) Tj T* ET
+Q
+Q
+q
+1 0 0 1 227.1024 5 cm
+q
+BT 1 0 0 1 0 12.3 Tm -0.040142 Tw 10 TL /F1 7.7 Tf .12549 .192157 .231373 rg (Response has a review boolean for current inconclusive/manual cases, but no) Tj T* 0 Tw (explicit <) Tj (80% confidence rule or inspector assignment/alert service.) Tj T* ET
+Q
+Q
+q
+1 J
+1 j
+.839216 .878431 .898039 RG
+.35 w
+n 0 150 m 498.8976 150 l S
+n 0 0 m 498.8976 0 l S
+n 0 0 m 0 150 l S
+n 498.8976 0 m 498.8976 150 l S
+n 0 130 m 498.8976 130 l S
+n 0 110 m 498.8976 110 l S
+n 0 80 m 498.8976 80 l S
+n 0 50 m 498.8976 50 l S
+n 0 30 m 498.8976 30 l S
+n 107.7165 0 m 107.7165 150 l S
+n 221.1024 0 m 221.1024 150 l S
+Q
+Q
+Q
+q
+1 0 0 1 54.18898 320.7772 cm
+Q
+q
+1 0 0 1 54.18898 297.7772 cm
+q
+.066667 .478431 .447059 rg
+BT 1 0 0 1 0 3 Tm /F2 12 Tf 15 TL (Important boundary) Tj T* ET
+Q
+Q
+q
+1 0 0 1 54.18898 238.5772 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 44 Tm /F1 9.2 Tf 13.3 TL (The reference PDF supplied for this task specifies Field Worker execution and its status/JSON contract. It is used here) Tj T* (as a format and integration reference. Its Module 06 implementation instructions do not change the Verification Agent's) Tj T* (ownership. Verification consumes worker submissions; it must not generate dispatch decisions or claim work is) Tj T* (verified/closed unless a separately approved downstream workflow assigns that action.) Tj T* ET
+Q
+Q
+ 
+
+Q
+
+q
+0.0 0.0 595.2756 841.8898 re
+W
+n
+1 0 0 1 0 0 cm
+BT
+/F1-0 12 Tf
+14.4 TL
+ET
+1 1 1 rg
+BT
+/F2-0 7.7 Tf
+9.24 TL
+ET
+BT
+1 0 0 1 60.18898 468.8218 Tm
+(Item) Tj
+T*
+ET
+BT
+1 0 0 1 167.9055 468.8218 Tm
+(Observed) Tj
+T*
+ET
+BT
+1 0 0 1 205.5662 468.8218 Tm
+(status) Tj
+T*
+ET
+BT
+1 0 0 1 281.2914 468.8218 Tm
+(Practical) Tj
+T*
+ET
+BT
+1 0 0 1 315.5333 468.8218 Tm
+(meaning) Tj
+T*
+ET
+Q
+
+
+endstream
+endobj
+6 0 obj
+<<
+/BaseFont /Helvetica
+/Encoding /WinAnsiEncoding
+/Name /F1
+/Subtype /Type1
+/Type /Font
+>>
+endobj
+7 0 obj
+<<
+/BaseFont /Helvetica
+/Encoding /WinAnsiEncoding
+/Name /F1
+/Subtype /Type1
+/Type /Font
+>>
+endobj
+8 0 obj
+<<
+/BaseFont /Helvetica-Bold
+/Encoding /WinAnsiEncoding
+/Name /F2
+/Subtype /Type1
+/Type /Font
+>>
+endobj
+9 0 obj
+<<
+/BaseFont /Helvetica-Bold
+/Encoding /WinAnsiEncoding
+/Name /F2
+/Subtype /Type1
+/Type /Font
+>>
+endobj
+10 0 obj
+<<
+/BaseFont /Courier
+/Encoding /WinAnsiEncoding
+/Name /F3
+/Subtype /Type1
+/Type /Font
+>>
+endobj
+11 0 obj
+<<
+/Contents 12 0 R
+/MediaBox [ 0 0 595.2756 841.8898 ]
+/Resources <<
+/Font <<
+/F1 6 0 R
+/F1-0 13 0 R
+/F2 8 0 R
+/F2-0 14 0 R
+/F3 10 0 R
+>>
+/ProcSet [ /ImageB /ImageC /ImageI /PDF /Text ]
+>>
+/Rotate 0
+/Trans <<
+>>
+/Type /Page
+/Annots [ ]
+/Parent 2 0 R
+>>
+endobj
+12 0 obj
+<<
+/Length 6659
+>>
+stream
+q
+1 0 0 1 0 0 cm  BT /F1 12 Tf 14.4 TL ET
+q
+.839216 .878431 .898039 RG
+.5 w
+n 48.18898 42.51969 m 547.0866 42.51969 l S
+BT /F1 7.5 Tf 9 TL ET
+.364706 .423529 .458824 rg
+BT 1 0 0 1 48.18898 29.76378 Tm (KAVACH Verification Agent | Prototype status and implementation planning) Tj T* ET
+BT 1 0 0 1 523.3191 29.76378 Tm (Page 2) Tj T* ET
+Q
+q
+1 0 0 1 54.18898 765.7008 cm
+q
+.070588 .168627 .235294 rg
+BT 1 0 0 1 0 4 Tm /F2 18 Tf 22 TL (2. What the current project does) Tj T* ET
+Q
+Q
+q
+1 0 0 1 54.18898 702.5008 cm
+q
+BT 1 0 0 1 0 44 Tm 13.3 TL /F1 9.2 Tf .12549 .192157 .231373 rg (Current API route: ) Tj /F2 9.2 Tf (POST /api/v1/tasks/{task_id}/verification) Tj /F1 9.2 Tf (. It expects an API key in ) Tj /F2 9.2 Tf (X-KAVACH-API-Key) Tj /F1 9.2 Tf ( and a) Tj T* (request containing either a submission ID or a Field Worker completion contract. The service retrieves task and) Tj T* (evidence records, checks their task ownership and required before/after references, then computes visual, checklist,) Tj T* (GPS and score findings.) Tj T* ET
+Q
+Q
+q
+1 0 0 1 54.18898 446.5008 cm
+q
+.070588 .168627 .235294 rg
+n 0 250 498.8976 -20 re f*
+.94902 .964706 .972549 rg
+n 0 230 498.8976 -30 re f*
+.94902 .964706 .972549 rg
+n 0 170 498.8976 -30 re f*
+.94902 .964706 .972549 rg
+n 0 120 498.8976 -30 re f*
+.94902 .964706 .972549 rg
+n 0 60 498.8976 -30 re f*
+0 0 0 rg
+BT /F1 10 Tf 12 TL ET
+q
+1 0 0 1 6 235 cm
+q
+.070588 .168627 .235294 rg
+BT 1 0 0 1 0 2.3 Tm /F2 7.7 Tf 10 TL (Pipeline step) Tj T* ET
+Q
+Q
+q
+1 0 0 1 119.3858 235 cm
+q
+.070588 .168627 .235294 rg
+BT 1 0 0 1 0 2.3 Tm /F2 7.7 Tf 10 TL (Current behavior in code) Tj T* ET
+Q
+Q
+q
+1 0 0 1 6 215 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 2.3 Tm /F1 7.7 Tf 10 TL (Request and authentication) Tj T* ET
+Q
+Q
+q
+1 0 0 1 119.3858 205 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 12.3 Tm /F1 7.7 Tf 10 TL (Pydantic request validation; development API-key dependency. Missing configured key returns 503; wrong) Tj T* (key returns 401.) Tj T* ET
+Q
+Q
+q
+1 0 0 1 6 185 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 2.3 Tm /F1 7.7 Tf 10 TL (Task/evidence loading) Tj T* ET
+Q
+Q
+q
+1 0 0 1 119.3858 175 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 12.3 Tm /F1 7.7 Tf 10 TL (Repository interfaces with demo memory repositories and SQLite-backed task/evidence/audit repositories.) Tj T* (Evidence image paths are constrained under a trusted storage root.) Tj T* ET
+Q
+Q
+q
+1 0 0 1 6 155 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 2.3 Tm /F1 7.7 Tf 10 TL (Field Worker mapping) Tj T* ET
+Q
+Q
+q
+1 0 0 1 119.3858 145 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 12.3 Tm /F1 7.7 Tf 10 TL (Adapter maps worker evidence types/statuses and completion location/checklist fields to verifier internal) Tj T* (fields, preserving unknown/missing values.) Tj T* ET
+Q
+Q
+q
+1 0 0 1 6 125 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 2.3 Tm /F1 7.7 Tf 10 TL (Image file validation) Tj T* ET
+Q
+Q
+q
+1 0 0 1 119.3858 125 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 2.3 Tm /F1 7.7 Tf 10 TL (JPEG/PNG/WebP decode and MIME, size and ownership checks before vision use.) Tj T* ET
+Q
+Q
+q
+1 0 0 1 6 105 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 2.3 Tm /F1 7.7 Tf 10 TL (Image quality) Tj T* ET
+Q
+Q
+q
+1 0 0 1 119.3858 95 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 12.3 Tm /F1 7.7 Tf 10 TL (OpenCV sharpness, brightness, dimensions and dHash near-duplicate measurements; quality flags append) Tj T* (limitations/reason codes.) Tj T* ET
+Q
+Q
+q
+1 0 0 1 6 75 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 2.3 Tm /F1 7.7 Tf 10 TL (Vision analysis) Tj T* ET
+Q
+Q
+q
+1 0 0 1 119.3858 65 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 12.3 Tm /F1 7.7 Tf 10 TL (Mock fixture analyzer or Gemini structured JSON analyzer produces BEFORE/AFTER observations, visual) Tj T* (change and limitations. Gemini does not choose PASS/FAIL.) Tj T* ET
+Q
+Q
+q
+1 0 0 1 6 45 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 2.3 Tm /F1 7.7 Tf 10 TL (Plan/GPS/decision) Tj T* ET
+Q
+Q
+q
+1 0 0 1 119.3858 35 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 12.3 Tm /F1 7.7 Tf 10 TL (Plan compliance compares claims with observations; GPS checks configured location; weighted score and) Tj T* (deterministic decision engine generate status and remarks.) Tj T* ET
+Q
+Q
+q
+1 0 0 1 6 15 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 2.3 Tm /F1 7.7 Tf 10 TL (Audit and response) Tj T* ET
+Q
+Q
+q
+1 0 0 1 119.3858 5 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 12.3 Tm /F1 7.7 Tf 10 TL (Verification record is persisted/idempotent through repository implementation and returned with contract) Tj T* (version, findings, remarks and evidence references.) Tj T* ET
+Q
+Q
+q
+1 J
+1 j
+.839216 .878431 .898039 RG
+.35 w
+n 0 250 m 498.8976 250 l S
+n 0 0 m 498.8976 0 l S
+n 0 0 m 0 250 l S
+n 498.8976 0 m 498.8976 250 l S
+n 0 230 m 498.8976 230 l S
+n 0 200 m 498.8976 200 l S
+n 0 170 m 498.8976 170 l S
+n 0 140 m 498.8976 140 l S
+n 0 120 m 498.8976 120 l S
+n 0 90 m 498.8976 90 l S
+n 0 60 m 498.8976 60 l S
+n 0 30 m 498.8976 30 l S
+n 113.3858 0 m 113.3858 250 l S
+Q
+Q
+Q
+q
+1 0 0 1 54.18898 423.5008 cm
+q
+.066667 .478431 .447059 rg
+BT 1 0 0 1 0 3 Tm /F2 12 Tf 15 TL (Current response statuses) Tj T* ET
+Q
+Q
+q
+1 0 0 1 54.18898 377.6008 cm
+q
+BT 1 0 0 1 0 30.7 Tm 13.3 TL /F2 9.2 Tf .12549 .192157 .231373 rg (PASS) Tj /F1 9.2 Tf ( means current deterministic rules support completion; ) Tj /F2 9.2 Tf (FAIL) Tj /F1 9.2 Tf ( means a supported failure condition;) Tj T* /F2 9.2 Tf (INCONCLUSIVE) Tj /F1 9.2 Tf ( means evidence is missing or analysis cannot resolve the case; ) Tj /F2 9.2 Tf (MANUAL_REVIEW) Tj /F1 9.2 Tf ( is used for) Tj T* (contradictory or limited evidence. A separate human reviewer assignment mechanism is not present.) Tj T* ET
+Q
+Q
+q
+1 0 0 1 54.18898 354.6008 cm
+q
+.066667 .478431 .447059 rg
+BT 1 0 0 1 0 3 Tm /F2 12 Tf 15 TL (Project caveats) Tj T* ET
+Q
+Q
+q
+1 0 0 1 54.18898 308.7008 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 30.7 Tm /F1 9.2 Tf 13.3 TL (The current configuration defaults to mock vision and memory repositories. A SQLite option exists. This is not a) Tj T* (production PostgreSQL-only deployment. Authentication is an API-key development stub, not user/worker identity plus) Tj T* (role-based access. These details must be agreed with the shared backend and supervisor team.) Tj T* ET
+Q
+Q
+ 
+
+Q
+
+q
+0.0 0.0 595.2756 841.8898 re
+W
+n
+1 0 0 1 0 0 cm
+BT
+/F1-0 12 Tf
+14.4 TL
+ET
+1 1 1 rg
+BT
+/F2-0 7.7 Tf
+9.24 TL
+ET
+BT
+1 0 0 1 60.18898 683.2069 Tm
+(Pipeline) Tj
+T*
+ET
+BT
+1 0 0 1 91.85908 683.2069 Tm
+(step) Tj
+T*
+ET
+BT
+1 0 0 1 173.5748 683.2069 Tm
+(Current) Tj
+T*
+ET
+BT
+1 0 0 1 203.5201 683.2069 Tm
+(behavior) Tj
+T*
+ET
+BT
+1 0 0 1 237.7543 683.2069 Tm
+(in) Tj
+T*
+ET
+BT
+1 0 0 1 246.7402 683.2069 Tm
+(code) Tj
+T*
+ET
+Q
+
+
+endstream
+endobj
+13 0 obj
+<<
+/BaseFont /Helvetica
+/Encoding /WinAnsiEncoding
+/Name /F1
+/Subtype /Type1
+/Type /Font
+>>
+endobj
+14 0 obj
+<<
+/BaseFont /Helvetica-Bold
+/Encoding /WinAnsiEncoding
+/Name /F2
+/Subtype /Type1
+/Type /Font
+>>
+endobj
+15 0 obj
+<<
+/Contents 16 0 R
+/MediaBox [ 0 0 595.2756 841.8898 ]
+/Resources <<
+/Font <<
+/F1 6 0 R
+/F1-0 17 0 R
+/F2 8 0 R
+/F2-0 18 0 R
+/F3 10 0 R
+>>
+/ProcSet [ /ImageB /ImageC /ImageI /PDF /Text ]
+>>
+/Rotate 0
+/Trans <<
+>>
+/Type /Page
+/Annots [ ]
+/Parent 2 0 R
+>>
+endobj
+16 0 obj
+<<
+/Length 8156
+>>
+stream
+q
+1 0 0 1 0 0 cm  BT /F1 12 Tf 14.4 TL ET
+q
+.839216 .878431 .898039 RG
+.5 w
+n 48.18898 42.51969 m 547.0866 42.51969 l S
+BT /F1 7.5 Tf 9 TL ET
+.364706 .423529 .458824 rg
+BT 1 0 0 1 48.18898 29.76378 Tm (KAVACH Verification Agent | Prototype status and implementation planning) Tj T* ET
+BT 1 0 0 1 523.3191 29.76378 Tm (Page 3) Tj T* ET
+Q
+q
+1 0 0 1 54.18898 765.7008 cm
+q
+.070588 .168627 .235294 rg
+BT 1 0 0 1 0 4 Tm /F2 18 Tf 22 TL (3. Pending work \(keep all three requested items open\)) Tj T* ET
+Q
+Q
+q
+1 0 0 1 54.18898 715.8008 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 30.7 Tm /F1 9.2 Tf 13.3 TL (Status below is based on the actual folder contents. Existing OpenCV image-quality checks and Gemini observation) Tj T* (extraction are useful foundations, but they do not satisfy the requested landmark alignment, cleanup score, PWA, or) Tj T* (confidence threshold behavior.) Tj T* ET
+Q
+Q
+q
+1 0 0 1 54.18898 339.8008 cm
+q
+.070588 .168627 .235294 rg
+n 0 370 498.8976 -30 re f*
+.94902 .964706 .972549 rg
+n 0 340 498.8976 -60 re f*
+.94902 .964706 .972549 rg
+n 0 220 498.8976 -60 re f*
+.94902 .964706 .972549 rg
+n 0 100 498.8976 -50 re f*
+0 0 0 rg
+BT /F1 10 Tf 12 TL ET
+q
+1 0 0 1 6 345 cm
+q
+.070588 .168627 .235294 rg
+BT 1 0 0 1 0 12.3 Tm /F2 7.7 Tf 10 TL (Priori) Tj T* (ty) Tj T* ET
+Q
+Q
+q
+1 0 0 1 40.01575 355 cm
+q
+.070588 .168627 .235294 rg
+BT 1 0 0 1 0 2.3 Tm /F2 7.7 Tf 10 TL (Pending item) Tj T* ET
+Q
+Q
+q
+1 0 0 1 159.0709 355 cm
+q
+.070588 .168627 .235294 rg
+BT 1 0 0 1 0 2.3 Tm /F2 7.7 Tf 10 TL (Gap in current folder) Tj T* ET
+Q
+Q
+q
+1 0 0 1 343.3228 355 cm
+q
+.070588 .168627 .235294 rg
+BT 1 0 0 1 0 2.3 Tm /F2 7.7 Tf 10 TL (Completion evidence) Tj T* ET
+Q
+Q
+q
+1 0 0 1 6 325 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 2.3 Tm /F1 7.7 Tf 10 TL (P0) Tj T* ET
+Q
+Q
+q
+1 0 0 1 40.01575 305 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 22.3 Tm /F1 7.7 Tf 10 TL (Offline-first, lightweight Worker) Tj T* (PWA; camera-only capture and) Tj T* (client-side compression.) Tj T* ET
+Q
+Q
+q
+1 0 0 1 159.0709 295 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 32.3 Tm /F1 7.7 Tf 10 TL (No PWA/frontend exists. No getUserMedia) Tj T* (camera flow, offline capture queue, install) Tj T* (manifest/service worker, compression UI, or) Tj T* (worker API upload client.) Tj T* ET
+Q
+Q
+q
+1 0 0 1 343.3228 285 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 42.3 Tm /F1 7.7 Tf 10 TL (Installable on target phone; camera) Tj T* (permission capture only; no gallery/file) Tj T* (picker; compressed image metadata; offline) Tj T* (queue survives reload and syncs safely) Tj T* (when online.) Tj T* ET
+Q
+Q
+q
+1 0 0 1 6 265 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 2.3 Tm /F1 7.7 Tf 10 TL (P0) Tj T* ET
+Q
+Q
+q
+1 0 0 1 40.01575 245 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 22.3 Tm /F1 7.7 Tf 10 TL (Two-tier verification: landmark) Tj T* (keypoint alignment + vision) Tj T* (semantic cleanup scoring.) Tj T* ET
+Q
+Q
+q
+1 0 0 1 159.0709 225 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 42.3 Tm /F1 7.7 Tf 10 TL (OpenCV currently measures quality and duplicate) Tj T* (hashes only; it does not keypoint-match/register) Tj T* (before and after images. Gemini returns) Tj T* (observations/change/limitations, not a numeric) Tj T* (cleanup score.) Tj T* ET
+Q
+Q
+q
+1 0 0 1 343.3228 225 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 42.3 Tm /F1 7.7 Tf 10 TL (Tests for known aligned and mismatched) Tj T* (views; alignment metrics and aligned frame) Tj T* (passed to vision; JSON includes bounded) Tj T* (cleanup_score; residual conditions remain) Tj T* (visible.) Tj T* ET
+Q
+Q
+q
+1 0 0 1 6 205 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 2.3 Tm /F1 7.7 Tf 10 TL (P0) Tj T* ET
+Q
+Q
+q
+1 0 0 1 40.01575 185 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 22.3 Tm /F1 7.7 Tf 10 TL (Human-in-the-loop: confidence) Tj T* (below 80% flags manual) Tj T* (review.) Tj T* ET
+Q
+Q
+q
+1 0 0 1 159.0709 175 cm
+q
+BT 1 0 0 1 0 32.3 Tm 10 TL /F1 7.7 Tf .12549 .192157 .231373 rg (No verification_confidence field, threshold setting,) Tj T* (low-confidence reason code, or explicit <) Tj (80 rule.) Tj T* (Current MANUAL_REVIEW for limitations is not) Tj T* (this requirement.) Tj T* ET
+Q
+Q
+q
+1 0 0 1 343.3228 165 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 42.3 Tm /F1 7.7 Tf 10 TL (At confidence 79.9: MANUAL_REVIEW,) Tj T* (requires_manual_review=true and explicit) Tj T* (reason code. At exactly 80: no) Tj T* (low-confidence trigger. No auto-close on) Tj T* (low confidence.) Tj T* ET
+Q
+Q
+q
+1 0 0 1 6 145 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 2.3 Tm /F1 7.7 Tf 10 TL (P1) Tj T* ET
+Q
+Q
+q
+1 0 0 1 40.01575 135 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 12.3 Tm /F1 7.7 Tf 10 TL (Inspector queue / notification) Tj T* (integration.) Tj T* ET
+Q
+Q
+q
+1 0 0 1 159.0709 135 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 12.3 Tm /F1 7.7 Tf 10 TL (No inspector user identity, queue, notification,) Tj T* (assignment API or callback.) Tj T* ET
+Q
+Q
+q
+1 0 0 1 343.3228 105 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 42.3 Tm /F1 7.7 Tf 10 TL (Supervisor/orchestrator consumes review) Tj T* (flag and records) Tj T* (assignment/acknowledgement; reviewer) Tj T* (decision returns through an agreed) Tj T* (contract.) Tj T* ET
+Q
+Q
+q
+1 0 0 1 6 85 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 2.3 Tm /F1 7.7 Tf 10 TL (P1) Tj T* ET
+Q
+Q
+q
+1 0 0 1 40.01575 75 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 12.3 Tm /F1 7.7 Tf 10 TL (Production runtime and shared) Tj T* (contract decisions.) Tj T* ET
+Q
+Q
+q
+1 0 0 1 159.0709 55 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 32.3 Tm /F1 7.7 Tf 10 TL (Auth stub and SQLite/memory alternatives; no) Tj T* (shared identity provider, authoritative deployed) Tj T* (DB/storage config, or frozen cross-agent payload) Tj T* (version.) Tj T* ET
+Q
+Q
+q
+1 0 0 1 343.3228 55 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 32.3 Tm /F1 7.7 Tf 10 TL (Agreed contract version, production) Tj T* (auth/RBAC, shared DB/evidence store,) Tj T* (integration tests against the real Field) Tj T* (Worker endpoint.) Tj T* ET
+Q
+Q
+q
+1 0 0 1 6 35 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 2.3 Tm /F1 7.7 Tf 10 TL (P1) Tj T* ET
+Q
+Q
+q
+1 0 0 1 40.01575 25 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 12.3 Tm /F1 7.7 Tf 10 TL (Real-photo and provider) Tj T* (evaluation.) Tj T* ET
+Q
+Q
+q
+1 0 0 1 159.0709 15 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 22.3 Tm /F1 7.7 Tf 10 TL (Tests mostly use fixtures/fake Gemini; no labeled) Tj T* (dataset, calibrated confidence or operational) Tj T* (review metrics.) Tj T* ET
+Q
+Q
+q
+1 0 0 1 343.3228 5 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 32.3 Tm /F1 7.7 Tf 10 TL (Consent-safe labeled photo set, rubric,) Tj T* (threshold calibration,) Tj T* (false-pass/false-review analysis and) Tj T* (monitored provider availability.) Tj T* ET
+Q
+Q
+q
+1 J
+1 j
+.839216 .878431 .898039 RG
+.35 w
+n 0 370 m 498.8976 370 l S
+n 0 0 m 498.8976 0 l S
+n 0 0 m 0 370 l S
+n 498.8976 0 m 498.8976 370 l S
+n 0 340 m 498.8976 340 l S
+n 0 280 m 498.8976 280 l S
+n 0 220 m 498.8976 220 l S
+n 0 160 m 498.8976 160 l S
+n 0 100 m 498.8976 100 l S
+n 0 50 m 498.8976 50 l S
+n 34.01575 0 m 34.01575 370 l S
+n 153.0709 0 m 153.0709 370 l S
+n 337.3228 0 m 337.3228 370 l S
+Q
+Q
+Q
+q
+1 0 0 1 54.18898 328.4622 cm
+Q
+q
+1 0 0 1 54.18898 284.4622 cm
+q
+.066667 .478431 .447059 RG
+.7 w
+.905882 .956863 .945098 rg
+n -9 -9 504.8976 57 re B*
+Q
+q
+.070588 .168627 .235294 rg
+BT 1 0 0 1 0 30 Tm /F2 9 Tf 13 TL (Do not mark the first three as complete until their acceptance evidence exists. In particular, current OpenCV) Tj T* (image quality is not landmark keypoint alignment, and current Gemini descriptions are not a numeric cleanup) Tj T* (score.) Tj T* ET
+Q
+Q
+ 
+
+Q
+
+q
+0.0 0.0 595.2756 841.8898 re
+W
+n
+1 0 0 1 0 0 cm
+BT
+/F1-0 12 Tf
+14.4 TL
+ET
+1 1 1 rg
+BT
+/F2-0 7.7 Tf
+9.24 TL
+ET
+BT
+1 0 0 1 60.18898 696.5069 Tm
+(Priori) Tj
+T*
+ET
+BT
+1 0 0 1 94.20473 696.5069 Tm
+(Pending) Tj
+T*
+ET
+BT
+1 0 0 1 126.7218 696.5069 Tm
+(item) Tj
+T*
+ET
+BT
+1 0 0 1 213.2599 696.5069 Tm
+(Gap) Tj
+T*
+ET
+BT
+1 0 0 1 230.377 696.5069 Tm
+(in) Tj
+T*
+ET
+BT
+1 0 0 1 239.3629 696.5069 Tm
+(current) Tj
+T*
+ET
+BT
+1 0 0 1 268.03 696.5069 Tm
+(folder) Tj
+T*
+ET
+BT
+1 0 0 1 397.5118 696.5069 Tm
+(Completion) Tj
+T*
+ET
+BT
+1 0 0 1 442.0024 696.5069 Tm
+(evidence) Tj
+T*
+ET
+Q
+
+
+endstream
+endobj
+17 0 obj
+<<
+/BaseFont /Helvetica
+/Encoding /WinAnsiEncoding
+/Name /F1
+/Subtype /Type1
+/Type /Font
+>>
+endobj
+18 0 obj
+<<
+/BaseFont /Helvetica-Bold
+/Encoding /WinAnsiEncoding
+/Name /F2
+/Subtype /Type1
+/Type /Font
+>>
+endobj
+19 0 obj
+<<
+/Contents 20 0 R
+/MediaBox [ 0 0 595.2756 841.8898 ]
+/Resources <<
+/Font <<
+/F1 6 0 R
+/F1-0 21 0 R
+/F2 8 0 R
+/F2-0 22 0 R
+/F3 10 0 R
+>>
+/ProcSet [ /ImageB /ImageC /ImageI /PDF /Text ]
+>>
+/Rotate 0
+/Trans <<
+>>
+/Type /Page
+/Annots [ ]
+/Parent 2 0 R
+>>
+endobj
+20 0 obj
+<<
+/Length 6497
+>>
+stream
+q
+1 0 0 1 0 0 cm  BT /F1 12 Tf 14.4 TL ET
+q
+.839216 .878431 .898039 RG
+.5 w
+n 48.18898 42.51969 m 547.0866 42.51969 l S
+BT /F1 7.5 Tf 9 TL ET
+.364706 .423529 .458824 rg
+BT 1 0 0 1 48.18898 29.76378 Tm (KAVACH Verification Agent | Prototype status and implementation planning) Tj T* ET
+BT 1 0 0 1 523.3191 29.76378 Tm (Page 4) Tj T* ET
+Q
+q
+1 0 0 1 54.18898 765.7008 cm
+q
+.070588 .168627 .235294 rg
+BT 1 0 0 1 0 4 Tm /F2 18 Tf 22 TL (4. How the agents should interact) Tj T* ET
+Q
+Q
+q
+1 0 0 1 54.18898 742.4008 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 4.1 Tm /F1 9.2 Tf 13.3 TL (Expected chain, subject to the team's orchestrator contract:) Tj T* ET
+Q
+Q
+q
+1 0 0 1 54.18898 727.3008 cm
+%PreformattedPara
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 2 Tm /F3 7.1 Tf 9.1 TL (Incident Intelligence -> Duplicate Detection -> Supervisor -> Sanitation -> Dispatch -> Field Worker -> Verification -> Supervisor / inspector review) Tj T* ET
+Q
+q
+1 0 0 1 54.18898 681.4008 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 30.7 Tm /F1 9.2 Tf 13.3 TL (The upstream agents provide an incident/task package and policy. Dispatch owns worker assignment. Field Worker) Tj T* (owns task execution and capture. Verification receives a submission and reads server-stored evidence bytes by trusted) Tj T* (evidence IDs. Verification returns findings; supervisor/orchestrator owns the review queue and final operational routing.) Tj T* ET
+Q
+Q
+q
+1 0 0 1 54.18898 505.4008 cm
+q
+.070588 .168627 .235294 rg
+n 0 170 498.8976 -20 re f*
+.94902 .964706 .972549 rg
+n 0 150 498.8976 -40 re f*
+.94902 .964706 .972549 rg
+n 0 70 498.8976 -40 re f*
+0 0 0 rg
+BT /F1 10 Tf 12 TL ET
+q
+1 0 0 1 6 155 cm
+q
+.070588 .168627 .235294 rg
+BT 1 0 0 1 0 2.3 Tm /F2 7.7 Tf 10 TL (Producer -> consumer) Tj T* ET
+Q
+Q
+q
+1 0 0 1 116.5512 155 cm
+q
+.070588 .168627 .235294 rg
+BT 1 0 0 1 0 2.3 Tm /F2 7.7 Tf 10 TL (Required handoff data) Tj T* ET
+Q
+Q
+q
+1 0 0 1 331.9843 155 cm
+q
+.070588 .168627 .235294 rg
+BT 1 0 0 1 0 2.3 Tm /F2 7.7 Tf 10 TL (Boundary to confirm) Tj T* ET
+Q
+Q
+q
+1 0 0 1 6 135 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 2.3 Tm /F1 7.7 Tf 10 TL (Dispatch -> Field Worker) Tj T* ET
+Q
+Q
+q
+1 0 0 1 116.5512 125 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 12.3 Tm /F1 7.7 Tf 10 TL (Accepted assignment/task IDs, worker identity, approved) Tj T* (task/checklist, site policy, evidence requirements.) Tj T* ET
+Q
+Q
+q
+1 0 0 1 331.9843 115 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 22.3 Tm /F1 7.7 Tf 10 TL (Only accepted assignments become) Tj T* (executable; exact task/status identifiers must) Tj T* (be frozen.) Tj T* ET
+Q
+Q
+q
+1 0 0 1 6 95 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 2.3 Tm /F1 7.7 Tf 10 TL (Field Worker -> Verification) Tj T* ET
+Q
+Q
+q
+1 0 0 1 116.5512 75 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 22.3 Tm /F1 7.7 Tf 10 TL (Task/submission IDs, completed checklist step IDs,) Tj T* (before/after evidence IDs, completion location event ID,) Tj T* (secure stored-image references.) Tj T* ET
+Q
+Q
+q
+1 0 0 1 331.9843 85 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 12.3 Tm /F1 7.7 Tf 10 TL -0.000202 Tw (Evidence is accepted only when server storage) Tj T* 0 Tw (confirms it; verifier rejects cross-task IDs.) Tj T* ET
+Q
+Q
+q
+1 0 0 1 6 45 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 12.3 Tm /F1 7.7 Tf 10 TL (Verification ->) Tj T* (Supervisor/orchestrator) Tj T* ET
+Q
+Q
+q
+1 0 0 1 116.5512 35 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 22.3 Tm /F1 7.7 Tf 10 TL (Contract version, status, score and score role, confidence,) Tj T* (reason codes, failed requirement IDs, remarks and) Tj T* (evidence references.) Tj T* ET
+Q
+Q
+q
+1 0 0 1 331.9843 35 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 22.3 Tm /F1 7.7 Tf 10 TL (Supervisor decides handling for PASS/FAIL/IN) Tj T* (CONCLUSIVE/MANUAL_REVIEW; no silent) Tj T* (close on low confidence.) Tj T* ET
+Q
+Q
+q
+1 0 0 1 6 5 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 12.3 Tm /F1 7.7 Tf 10 TL (Inspector ->) Tj T* (Supervisor/orchestrator) Tj T* ET
+Q
+Q
+q
+1 0 0 1 116.5512 5 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 12.3 Tm /F1 7.7 Tf 10 TL (Human review outcome, reviewer identity, rationale and) Tj T* (timestamp.) Tj T* ET
+Q
+Q
+q
+1 0 0 1 331.9843 5 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 12.3 Tm /F1 7.7 Tf 10 TL (Requires a new agreed API/queue contract;) Tj T* (not implemented here.) Tj T* ET
+Q
+Q
+q
+1 J
+1 j
+.839216 .878431 .898039 RG
+.35 w
+n 0 170 m 498.8976 170 l S
+n 0 0 m 498.8976 0 l S
+n 0 0 m 0 170 l S
+n 498.8976 0 m 498.8976 170 l S
+n 0 150 m 498.8976 150 l S
+n 0 110 m 498.8976 110 l S
+n 0 70 m 498.8976 70 l S
+n 0 30 m 498.8976 30 l S
+n 110.5512 0 m 110.5512 170 l S
+n 325.9843 0 m 325.9843 170 l S
+Q
+Q
+Q
+q
+1 0 0 1 54.18898 482.4008 cm
+q
+.066667 .478431 .447059 rg
+BT 1 0 0 1 0 3 Tm /F2 12 Tf 15 TL (Recommended delivery sequence) Tj T* ET
+Q
+Q
+q
+1 0 0 1 54.18898 409.9008 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 57.3 Tm /F1 9.2 Tf 13.3 TL (1\) Agree the shared worker submission/evidence contract and inspector routing contract. 2\) Build and secure the) Tj T* (camera PWA against the agreed Field Worker API. 3\) Add deterministic landmark registration and expose its) Tj T* (diagnostics. 4\) Extend the vision schema with cleanup_score and confidence. 5\) Combine signals and enforce the 80%) Tj T* (boundary centrally. 6\) Add API/contract tests, real-device offline tests, image-pair tests, and supervisor queue) Tj T* (integration. 7\) Calibrate with labeled field photos before operational use.) Tj T* ET
+Q
+Q
+q
+1 0 0 1 54.18898 364.9008 cm
+q
+.066667 .478431 .447059 RG
+.7 w
+.905882 .956863 .945098 rg
+n -9 -9 504.8976 57 re B*
+Q
+q
+.070588 .168627 .235294 rg
+BT 1 0 0 1 0 30 Tm /F2 9 Tf 13 TL (The report's confidence requirement is a product rule: values below 80% route to human review, not rejection or) Tj T* (automatic closure. It does not imply that the model's confidence is statistically reliable; calibration and a reviewer) Tj T* (route are separate prerequisites.) Tj T* ET
+Q
+Q
+ 
+
+Q
+
+q
+0.0 0.0 595.2756 841.8898 re
+W
+n
+1 0 0 1 0 0 cm
+BT
+/F1-0 12 Tf
+14.4 TL
+ET
+1 1 1 rg
+BT
+/F2-0 7.7 Tf
+9.24 TL
+ET
+BT
+1 0 0 1 60.18898 662.1069 Tm
+(Producer) Tj
+T*
+ET
+BT
+1 0 0 1 96.13258 662.1069 Tm
+(\055\076) Tj
+T*
+ET
+BT
+1 0 0 1 105.3341 662.1069 Tm
+(consumer) Tj
+T*
+ET
+BT
+1 0 0 1 170.7402 662.1069 Tm
+(Required) Tj
+T*
+ET
+BT
+1 0 0 1 206.2526 662.1069 Tm
+(handoff) Tj
+T*
+ET
+BT
+1 0 0 1 236.6214 662.1069 Tm
+(data) Tj
+T*
+ET
+BT
+1 0 0 1 386.1733 662.1069 Tm
+(Boundary) Tj
+T*
+ET
+BT
+1 0 0 1 424.2498 662.1069 Tm
+(to) Tj
+T*
+ET
+BT
+1 0 0 1 433.6592 662.1069 Tm
+(confirm) Tj
+T*
+ET
+Q
+
+
+endstream
+endobj
+21 0 obj
+<<
+/BaseFont /Helvetica
+/Encoding /WinAnsiEncoding
+/Name /F1
+/Subtype /Type1
+/Type /Font
+>>
+endobj
+22 0 obj
+<<
+/BaseFont /Helvetica-Bold
+/Encoding /WinAnsiEncoding
+/Name /F2
+/Subtype /Type1
+/Type /Font
+>>
+endobj
+23 0 obj
+<<
+/Contents 24 0 R
+/MediaBox [ 0 0 595.2756 841.8898 ]
+/Resources <<
+/Font <<
+/F1 6 0 R
+/F1-0 25 0 R
+/F2 8 0 R
+/F2-0 26 0 R
+/F3 10 0 R
+>>
+/ProcSet [ /ImageB /ImageC /ImageI /PDF /Text ]
+>>
+/Rotate 0
+/Trans <<
+>>
+/Type /Page
+/Annots [ ]
+/Parent 2 0 R
+>>
+endobj
+24 0 obj
+<<
+/Length 6491
+>>
+stream
+q
+1 0 0 1 0 0 cm  BT /F1 12 Tf 14.4 TL ET
+q
+.839216 .878431 .898039 RG
+.5 w
+n 48.18898 42.51969 m 547.0866 42.51969 l S
+BT /F1 7.5 Tf 9 TL ET
+.364706 .423529 .458824 rg
+BT 1 0 0 1 48.18898 29.76378 Tm (KAVACH Verification Agent | Prototype status and implementation planning) Tj T* ET
+BT 1 0 0 1 523.3191 29.76378 Tm (Page 5) Tj T* ET
+Q
+q
+1 0 0 1 54.18898 765.7008 cm
+q
+.070588 .168627 .235294 rg
+BT 1 0 0 1 0 4 Tm /F2 18 Tf 22 TL (5. Current API and JSON contract) Tj T* ET
+Q
+Q
+q
+1 0 0 1 54.18898 740.7008 cm
+q
+.066667 .478431 .447059 rg
+BT 1 0 0 1 0 3 Tm /F2 12 Tf 15 TL (Request example) Tj T* ET
+Q
+Q
+q
+1 0 0 1 54.18898 662.9008 cm
+%PreformattedPara
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 65.7 Tm /F3 7.1 Tf 9.1 TL (POST /api/v1/tasks/TASK-100/verification) Tj T* (X-KAVACH-API-Key: <configured-development-key>) Tj T* (Content-Type: application/json) Tj T*  T* ({) Tj T* (  "contract_version": "1.1",) Tj T* (  "submission_id": "SUB-123") Tj T* (}) Tj T* ET
+Q
+q
+1 0 0 1 54.18898 603.7008 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 44 Tm /F1 9.2 Tf 13.3 TL (A Field Worker completion payload may be supplied in place of a previously stored submission ID. The request contract) Tj T* (has task/submission references, checklist_completed, before_evidence_ids, after_evidence_ids and) Tj T* (completion_location_event_id. Image bytes are not uploaded to this verifier endpoint; it resolves bytes from the trusted) Tj T* (server-side evidence repository.) Tj T* ET
+Q
+Q
+q
+1 0 0 1 54.18898 580.7008 cm
+q
+.066667 .478431 .447059 rg
+BT 1 0 0 1 0 3 Tm /F2 12 Tf 15 TL (Current response shape \(trimmed\)) Tj T* ET
+Q
+Q
+q
+1 0 0 1 54.18898 366.4008 cm
+%PreformattedPara
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 202.2 Tm /F3 7.1 Tf 9.1 TL ({) Tj T* (  "contract_version": "1.1",) Tj T* (  "verification_id": "VER-...",) Tj T* (  "task_id": "TASK-100",) Tj T* (  "submission_id": "SUB-123",) Tj T* (  "verification_status": "PASS | FAIL | INCONCLUSIVE | MANUAL_REVIEW",) Tj T* (  "verification_score": 0.0,) Tj T* (  "score_status": "AVAILABLE | PARTIAL | UNAVAILABLE",) Tj T* (  "score_breakdown": {"image_evidence": 0.0, "gps_consistency": 0.0, "plan_compliance": 0.0},) Tj T* (  "image_findings": {) Tj T* (    "before_observations": {"overflow": "PRESENT", "scattered_waste": "PRESENT", "path_obstructed": "PRESENT"},) Tj T* (    "after_observations": {"overflow": "ABSENT", "scattered_waste": "ABSENT", "path_obstructed": "ABSENT"},) Tj T* (    "visual_change": "IMPROVED",) Tj T* (    "limitations": []) Tj T* (  },) Tj T* (  "location_finding": {"status": "CONSISTENT", "score": 100.0, "reasons": []},) Tj T* (  "plan_compliance_findings": [],) Tj T* (  "remarks": [],) Tj T* (  "requires_manual_review": false,) Tj T* (  "reason_codes": [],) Tj T* (  "evidence_refs": ["EVIDENCE-BEFORE", "EVIDENCE-AFTER"],) Tj T* (  "created_at": "<ISO-8601>") Tj T* (}) Tj T* ET
+Q
+q
+1 0 0 1 54.18898 343.4008 cm
+q
+.066667 .478431 .447059 rg
+BT 1 0 0 1 0 3 Tm /F2 12 Tf 15 TL (Fields required for the pending confidence feature) Tj T* ET
+Q
+Q
+q
+1 0 0 1 54.18898 168.4008 cm
+q
+.070588 .168627 .235294 rg
+n 0 170 498.8976 -20 re f*
+.94902 .964706 .972549 rg
+n 0 150 498.8976 -30 re f*
+.94902 .964706 .972549 rg
+n 0 90 498.8976 -30 re f*
+.94902 .964706 .972549 rg
+n 0 30 498.8976 -30 re f*
+0 0 0 rg
+BT /F1 10 Tf 12 TL ET
+q
+1 0 0 1 6 155 cm
+q
+.070588 .168627 .235294 rg
+BT 1 0 0 1 0 2.3 Tm /F2 7.7 Tf 10 TL (Additive response field) Tj T* ET
+Q
+Q
+q
+1 0 0 1 156.2362 155 cm
+q
+.070588 .168627 .235294 rg
+BT 1 0 0 1 0 2.3 Tm /F2 7.7 Tf 10 TL (Expected meaning) Tj T* ET
+Q
+Q
+q
+1 0 0 1 6 135 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 2.3 Tm /F1 7.7 Tf 10 TL (verification_confidence) Tj T* ET
+Q
+Q
+q
+1 0 0 1 156.2362 125 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 12.3 Tm /F1 7.7 Tf 10 TL (0-100 combined prototype estimate; derive conservatively from alignment and semantic) Tj T* (confidence. Null/unavailable must never be converted to a high value.) Tj T* ET
+Q
+Q
+q
+1 0 0 1 6 105 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 2.3 Tm /F1 7.7 Tf 10 TL (alignment_finding) Tj T* ET
+Q
+Q
+q
+1 0 0 1 156.2362 95 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 12.3 Tm /F1 7.7 Tf 10 TL (Registration status plus match/inlier diagnostics, confidence and failure reason; never include raw) Tj T* (image bytes.) Tj T* ET
+Q
+Q
+q
+1 0 0 1 6 75 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 2.3 Tm /F1 7.7 Tf 10 TL (image_findings.cleanup_score) Tj T* ET
+Q
+Q
+q
+1 0 0 1 156.2362 65 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 12.3 Tm /F1 7.7 Tf 10 TL (0-100 semantic visual cleanup estimate based on conditions before and after; keep separate from) Tj T* (final PASS/FAIL.) Tj T* ET
+Q
+Q
+q
+1 0 0 1 6 45 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 2.3 Tm /F1 7.7 Tf 10 TL (image_findings.confidence) Tj T* ET
+Q
+Q
+q
+1 0 0 1 156.2362 35 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 12.3 Tm /F1 7.7 Tf 10 TL (Model self-assessment for visual observations and cleanup score; explicitly label as uncalibrated) Tj T* (until validated.) Tj T* ET
+Q
+Q
+q
+1 0 0 1 6 5 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 12.3 Tm /F1 7.7 Tf 10 TL (requires_manual_review +) Tj T* (reason_codes) Tj T* ET
+Q
+Q
+q
+1 0 0 1 156.2362 5 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 12.3 Tm /F1 7.7 Tf 10 TL -0.053698 Tw (True below 80 or when evidence is inconclusive; add LOW_VERIFICATION_CONFIDENCE and/or) Tj T* 0 Tw (VERIFICATION_CONFIDENCE_UNAVAILABLE.) Tj T* ET
+Q
+Q
+q
+1 J
+1 j
+.839216 .878431 .898039 RG
+.35 w
+n 0 170 m 498.8976 170 l S
+n 0 0 m 498.8976 0 l S
+n 0 0 m 0 170 l S
+n 498.8976 0 m 498.8976 170 l S
+n 0 150 m 498.8976 150 l S
+n 0 120 m 498.8976 120 l S
+n 0 90 m 498.8976 90 l S
+n 0 60 m 498.8976 60 l S
+n 0 30 m 498.8976 30 l S
+n 150.2362 0 m 150.2362 170 l S
+Q
+Q
+Q
+q
+1 0 0 1 54.18898 130.9008 cm
+q
+.364706 .423529 .458824 rg
+BT 1 0 0 1 0 23.7 Tm /F1 7.8 Tf 10.5 TL (Maintain an additive contract update and coordinate the version with Field Worker and Supervisor owners before publishing. The attached) Tj T* (Field Worker PDF uses illustrative schemas and explicitly calls for shared-contract agreement; do not copy its sample enums blindly into this) Tj T* (verifier.) Tj T* ET
+Q
+Q
+ 
+
+Q
+
+q
+0.0 0.0 595.2756 841.8898 re
+W
+n
+1 0 0 1 0 0 cm
+BT
+/F1-0 12 Tf
+14.4 TL
+ET
+1 1 1 rg
+BT
+/F2-0 7.7 Tf
+9.24 TL
+ET
+BT
+1 0 0 1 60.18898 325.1069 Tm
+(Additive) Tj
+T*
+ET
+BT
+1 0 0 1 92.70608 325.1069 Tm
+(response) Tj
+T*
+ET
+BT
+1 0 0 1 129.0809 325.1069 Tm
+(field) Tj
+T*
+ET
+BT
+1 0 0 1 210.4252 325.1069 Tm
+(Expected) Tj
+T*
+ET
+BT
+1 0 0 1 246.8 325.1069 Tm
+(meaning) Tj
+T*
+ET
+Q
+
+
+endstream
+endobj
+25 0 obj
+<<
+/BaseFont /Helvetica
+/Encoding /WinAnsiEncoding
+/Name /F1
+/Subtype /Type1
+/Type /Font
+>>
+endobj
+26 0 obj
+<<
+/BaseFont /Helvetica-Bold
+/Encoding /WinAnsiEncoding
+/Name /F2
+/Subtype /Type1
+/Type /Font
+>>
+endobj
+27 0 obj
+<<
+/Contents 28 0 R
+/MediaBox [ 0 0 595.2756 841.8898 ]
+/Resources <<
+/Font <<
+/F1 6 0 R
+/F1-0 29 0 R
+/F2 8 0 R
+/F2-0 30 0 R
+/F3 10 0 R
+>>
+/ProcSet [ /ImageB /ImageC /ImageI /PDF /Text ]
+>>
+/Rotate 0
+/Trans <<
+>>
+/Type /Page
+/Annots [ ]
+/Parent 2 0 R
+>>
+endobj
+28 0 obj
+<<
+/Length 9044
+>>
+stream
+q
+1 0 0 1 0 0 cm  BT /F1 12 Tf 14.4 TL ET
+q
+.839216 .878431 .898039 RG
+.5 w
+n 48.18898 42.51969 m 547.0866 42.51969 l S
+BT /F1 7.5 Tf 9 TL ET
+.364706 .423529 .458824 rg
+BT 1 0 0 1 48.18898 29.76378 Tm (KAVACH Verification Agent | Prototype status and implementation planning) Tj T* ET
+BT 1 0 0 1 523.3191 29.76378 Tm (Page 6) Tj T* ET
+Q
+q
+1 0 0 1 54.18898 765.7008 cm
+q
+.070588 .168627 .235294 rg
+BT 1 0 0 1 0 4 Tm /F2 18 Tf 22 TL (6. Verification folder map) Tj T* ET
+Q
+Q
+q
+1 0 0 1 54.18898 729.1008 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 17.4 Tm /F1 9.2 Tf 13.3 TL -0.119798 Tw (The following table maps the current source tree to its responsibility. Virtual environments, pytest caches, temporary API) Tj T* 0 Tw (test folders, and the local audit database are development/runtime artifacts and are not application source.) Tj T* ET
+Q
+Q
+q
+1 0 0 1 54.18898 193.1008 cm
+q
+.070588 .168627 .235294 rg
+n 0 530 498.8976 -20 re f*
+.94902 .964706 .972549 rg
+n 0 510 498.8976 -30 re f*
+.94902 .964706 .972549 rg
+n 0 460 498.8976 -20 re f*
+.94902 .964706 .972549 rg
+n 0 420 498.8976 -20 re f*
+.94902 .964706 .972549 rg
+n 0 380 498.8976 -30 re f*
+.94902 .964706 .972549 rg
+n 0 320 498.8976 -30 re f*
+.94902 .964706 .972549 rg
+n 0 270 498.8976 -30 re f*
+.94902 .964706 .972549 rg
+n 0 190 498.8976 -30 re f*
+.94902 .964706 .972549 rg
+n 0 130 498.8976 -20 re f*
+.94902 .964706 .972549 rg
+n 0 90 498.8976 -30 re f*
+.94902 .964706 .972549 rg
+n 0 30 498.8976 -30 re f*
+0 0 0 rg
+BT /F1 10 Tf 12 TL ET
+q
+1 0 0 1 6 515 cm
+q
+.070588 .168627 .235294 rg
+BT 1 0 0 1 0 2.3 Tm /F2 7.7 Tf 10 TL (Path) Tj T* ET
+Q
+Q
+q
+1 0 0 1 184.5827 515 cm
+q
+.070588 .168627 .235294 rg
+BT 1 0 0 1 0 2.3 Tm /F2 7.7 Tf 10 TL (Purpose) Tj T* ET
+Q
+Q
+q
+1 0 0 1 6 495 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 2.3 Tm /F1 7.7 Tf 10 TL (app/main.py) Tj T* ET
+Q
+Q
+q
+1 0 0 1 184.5827 485 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 12.3 Tm /F1 7.7 Tf 10 TL (Creates FastAPI app, initializes repositories and vision adapter, registers route and health) Tj T* (endpoints.) Tj T* ET
+Q
+Q
+q
+1 0 0 1 6 465 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 2.3 Tm /F1 7.7 Tf 10 TL (app/config.py; app/security.py) Tj T* ET
+Q
+Q
+q
+1 0 0 1 184.5827 465 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 2.3 Tm /F1 7.7 Tf 10 TL (Environment-backed runtime settings; development API-key authentication dependency.) Tj T* ET
+Q
+Q
+q
+1 0 0 1 6 445 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 2.3 Tm /F1 7.7 Tf 10 TL (app/api/verification_routes.py) Tj T* ET
+Q
+Q
+q
+1 0 0 1 184.5827 445 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 2.3 Tm /F1 7.7 Tf 10 TL (Protected POST verification endpoint and HTTP error mapping.) Tj T* ET
+Q
+Q
+q
+1 0 0 1 6 425 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 2.3 Tm /F1 7.7 Tf 10 TL (app/contracts/v1.py) Tj T* ET
+Q
+Q
+q
+1 0 0 1 184.5827 425 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 2.3 Tm /F1 7.7 Tf 10 TL (Versioned inter-agent enums and request/response boundary contracts.) Tj T* ET
+Q
+Q
+q
+1 0 0 1 6 405 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 2.3 Tm /F1 7.7 Tf 10 TL (app/adapters/agent_contracts.py) Tj T* ET
+Q
+Q
+q
+1 0 0 1 184.5827 405 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 2.3 Tm /F1 7.7 Tf 10 TL -0.024714 Tw (Validates/maps Field Worker completion, evidence, GPS events and Sanitation plan fields.) Tj T* 0 Tw ET
+Q
+Q
+q
+1 0 0 1 6 385 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 2.3 Tm /F1 7.7 Tf 10 TL (app/schemas/) Tj T* ET
+Q
+Q
+q
+1 0 0 1 184.5827 385 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 2.3 Tm /F1 7.7 Tf 10 TL (Pydantic request, response, GPS and visual observation schemas.) Tj T* ET
+Q
+Q
+q
+1 0 0 1 6 365 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 2.3 Tm /F1 7.7 Tf 10 TL (app/repositories/) Tj T* ET
+Q
+Q
+q
+1 0 0 1 184.5827 355 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 12.3 Tm /F1 7.7 Tf 10 TL (Repository interfaces plus demo-memory and SQLite task/evidence/audit) Tj T* (implementations.) Tj T* ET
+Q
+Q
+q
+1 0 0 1 6 335 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 2.3 Tm /F1 7.7 Tf 10 TL (app/services/verification_service.py) Tj T* ET
+Q
+Q
+q
+1 0 0 1 184.5827 325 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 12.3 Tm /F1 7.7 Tf 10 TL (Coordinates evidence checks, vision, GPS, plan compliance, scoring, decisions, remarks) Tj T* (and audit response.) Tj T* ET
+Q
+Q
+q
+1 0 0 1 6 305 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 2.3 Tm /F1 7.7 Tf 10 TL (app/services/vision_model_service.py) Tj T* ET
+Q
+Q
+q
+1 0 0 1 184.5827 295 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 12.3 Tm /F1 7.7 Tf 10 TL -0.026604 Tw (Mock and Gemini vision analyzers, image loading/validation, structured-output parsing and) Tj T* 0 Tw (bounded retries.) Tj T* ET
+Q
+Q
+q
+1 0 0 1 6 275 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 2.3 Tm /F1 7.7 Tf 10 TL (app/services/image_quality_service.py) Tj T* ET
+Q
+Q
+q
+1 0 0 1 184.5827 275 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 2.3 Tm /F1 7.7 Tf 10 TL (OpenCV sharpness, brightness, dimensions and perceptual duplicate audit.) Tj T* ET
+Q
+Q
+q
+1 0 0 1 6 245 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 12.3 Tm /F1 7.7 Tf 10 TL (app/services/location_service.py;) Tj T* (gps_verification_service.py) Tj T* ET
+Q
+Q
+q
+1 0 0 1 184.5827 255 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 2.3 Tm /F1 7.7 Tf 10 TL (Distance, accuracy, coordinate, timestamp and location-source checks.) Tj T* ET
+Q
+Q
+q
+1 0 0 1 6 195 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 32.3 Tm /F1 7.7 Tf 10 TL (app/services/decision_engine.py;) Tj T* (score_calculator.py;) Tj T* (plan_compliance_service.py;) Tj T* (remarks_service.py) Tj T* ET
+Q
+Q
+q
+1 0 0 1 184.5827 215 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 12.3 Tm /F1 7.7 Tf 10 TL (Deterministic outcome rules, weighted/partial score, requirement findings and) Tj T* (human-readable remarks.) Tj T* ET
+Q
+Q
+q
+1 0 0 1 6 165 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 12.3 Tm /F1 7.7 Tf 10 TL (app/services/image_evidence_service.py;) Tj T* (app/validators/) Tj T* ET
+Q
+Q
+q
+1 0 0 1 184.5827 175 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 2.3 Tm /F1 7.7 Tf 10 TL (Evidence collection/completeness, task ownership, trusted bytes and format validation.) Tj T* ET
+Q
+Q
+q
+1 0 0 1 6 145 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 2.3 Tm /F1 7.7 Tf 10 TL (tests/) Tj T* ET
+Q
+Q
+q
+1 0 0 1 184.5827 135 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 12.3 Tm /F1 7.7 Tf 10 TL (Six focused test modules covering API, contracts, Gemini adapter, image quality, scenario) Tj T* (outcomes and requested fixes.) Tj T* ET
+Q
+Q
+q
+1 0 0 1 6 115 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 2.3 Tm /F1 7.7 Tf 10 TL (scripts/try_gemini.py; check_image_quality.py) Tj T* ET
+Q
+Q
+q
+1 0 0 1 184.5827 115 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 2.3 Tm /F1 7.7 Tf 10 TL (Manual Gemini/provider diagnostic and local image-quality diagnostic scripts.) Tj T* ET
+Q
+Q
+q
+1 0 0 1 6 95 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 2.3 Tm /F1 7.7 Tf 10 TL (docs/INTEGRATION.md) Tj T* ET
+Q
+Q
+q
+1 0 0 1 184.5827 95 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 2.3 Tm /F1 7.7 Tf 10 TL (Agent boundary, source-field mappings, API examples and status behavior.) Tj T* ET
+Q
+Q
+q
+1 0 0 1 6 75 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 2.3 Tm /F1 7.7 Tf 10 TL (docs/REQUIREMENTS_COVERAGE.md) Tj T* ET
+Q
+Q
+q
+1 0 0 1 184.5827 65 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 12.3 Tm /F1 7.7 Tf 10 TL (Mapping from the Verification guide requirements to implementation and tests; includes) Tj T* (known prototype limits.) Tj T* ET
+Q
+Q
+q
+1 0 0 1 6 45 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 2.3 Tm /F1 7.7 Tf 10 TL (docs/specs/) Tj T* ET
+Q
+Q
+q
+1 0 0 1 184.5827 35 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 12.3 Tm /F1 7.7 Tf 10 TL (Seven PDF references for other KAVACH agents; the Verification technical guide) Tj T* (referenced by coverage is not stored in this folder.) Tj T* ET
+Q
+Q
+q
+1 0 0 1 6 5 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 12.3 Tm /F1 7.7 Tf 10 TL (requirements.txt; .env.example; pytest.ini;) Tj T* (README.md) Tj T* ET
+Q
+Q
+q
+1 0 0 1 184.5827 5 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 12.3 Tm /F1 7.7 Tf 10 TL (Dependency declarations, sample settings, pytest configuration and minimal project entry) Tj T* (point.) Tj T* ET
+Q
+Q
+q
+1 J
+1 j
+.839216 .878431 .898039 RG
+.35 w
+n 0 530 m 498.8976 530 l S
+n 0 0 m 498.8976 0 l S
+n 0 0 m 0 530 l S
+n 498.8976 0 m 498.8976 530 l S
+n 0 510 m 498.8976 510 l S
+n 0 480 m 498.8976 480 l S
+n 0 460 m 498.8976 460 l S
+n 0 440 m 498.8976 440 l S
+n 0 420 m 498.8976 420 l S
+n 0 400 m 498.8976 400 l S
+n 0 380 m 498.8976 380 l S
+n 0 350 m 498.8976 350 l S
+n 0 320 m 498.8976 320 l S
+n 0 290 m 498.8976 290 l S
+n 0 270 m 498.8976 270 l S
+n 0 240 m 498.8976 240 l S
+n 0 190 m 498.8976 190 l S
+n 0 160 m 498.8976 160 l S
+n 0 130 m 498.8976 130 l S
+n 0 110 m 498.8976 110 l S
+n 0 90 m 498.8976 90 l S
+n 0 60 m 498.8976 60 l S
+n 0 30 m 498.8976 30 l S
+n 178.5827 0 m 178.5827 530 l S
+Q
+Q
+Q
+ 
+
+Q
+
+q
+0.0 0.0 595.2756 841.8898 re
+W
+n
+1 0 0 1 0 0 cm
+BT
+/F1-0 12 Tf
+14.4 TL
+ET
+1 1 1 rg
+BT
+/F2-0 7.7 Tf
+9.24 TL
+ET
+BT
+1 0 0 1 60.18898 709.8069 Tm
+(Path) Tj
+T*
+ET
+BT
+1 0 0 1 238.7717 709.8069 Tm
+(Purpose) Tj
+T*
+ET
+Q
+
+
+endstream
+endobj
+29 0 obj
+<<
+/BaseFont /Helvetica
+/Encoding /WinAnsiEncoding
+/Name /F1
+/Subtype /Type1
+/Type /Font
+>>
+endobj
+30 0 obj
+<<
+/BaseFont /Helvetica-Bold
+/Encoding /WinAnsiEncoding
+/Name /F2
+/Subtype /Type1
+/Type /Font
+>>
+endobj
+31 0 obj
+<<
+/Contents 32 0 R
+/MediaBox [ 0 0 595.2756 841.8898 ]
+/Resources <<
+/Font <<
+/F1 6 0 R
+/F1-0 33 0 R
+/F2 8 0 R
+/F2-0 34 0 R
+/F3 10 0 R
+>>
+/ProcSet [ /ImageB /ImageC /ImageI /PDF /Text ]
+>>
+/Rotate 0
+/Trans <<
+>>
+/Type /Page
+/Annots [ ]
+/Parent 2 0 R
+>>
+endobj
+32 0 obj
+<<
+/Length 9337
+>>
+stream
+q
+1 0 0 1 0 0 cm  BT /F1 12 Tf 14.4 TL ET
+q
+.839216 .878431 .898039 RG
+.5 w
+n 48.18898 42.51969 m 547.0866 42.51969 l S
+BT /F1 7.5 Tf 9 TL ET
+.364706 .423529 .458824 rg
+BT 1 0 0 1 48.18898 29.76378 Tm (KAVACH Verification Agent | Prototype status and implementation planning) Tj T* ET
+BT 1 0 0 1 523.3191 29.76378 Tm (Page 7) Tj T* ET
+Q
+q
+1 0 0 1 54.18898 765.7008 cm
+q
+.070588 .168627 .235294 rg
+BT 1 0 0 1 0 4 Tm /F2 18 Tf 22 TL (7. Test status, risks and acceptance checklist) Tj T* ET
+Q
+Q
+q
+1 0 0 1 54.18898 740.7008 cm
+q
+.066667 .478431 .447059 rg
+BT 1 0 0 1 0 3 Tm /F2 12 Tf 15 TL (Test inventory in the folder) Tj T* ET
+Q
+Q
+q
+1 0 0 1 54.18898 565.7008 cm
+q
+.070588 .168627 .235294 rg
+n 0 170 498.8976 -20 re f*
+.94902 .964706 .972549 rg
+n 0 150 498.8976 -30 re f*
+.94902 .964706 .972549 rg
+n 0 90 498.8976 -30 re f*
+.94902 .964706 .972549 rg
+n 0 40 498.8976 -20 re f*
+0 0 0 rg
+BT /F1 10 Tf 12 TL ET
+q
+1 0 0 1 6 155 cm
+q
+.070588 .168627 .235294 rg
+BT 1 0 0 1 0 2.3 Tm /F2 7.7 Tf 10 TL (Test file) Tj T* ET
+Q
+Q
+q
+1 0 0 1 190.252 155 cm
+q
+.070588 .168627 .235294 rg
+BT 1 0 0 1 0 2.3 Tm /F2 7.7 Tf 10 TL (Coverage area) Tj T* ET
+Q
+Q
+q
+1 0 0 1 6 135 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 2.3 Tm /F1 7.7 Tf 10 TL (tests/test_verification_api.py) Tj T* ET
+Q
+Q
+q
+1 0 0 1 190.252 125 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 12.3 Tm /F1 7.7 Tf 10 TL (HTTP auth, request validation, response contract, lifespan/health and image-quality) Tj T* (route cases.) Tj T* ET
+Q
+Q
+q
+1 0 0 1 6 105 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 2.3 Tm /F1 7.7 Tf 10 TL (tests/test_agent_contracts.py) Tj T* ET
+Q
+Q
+q
+1 0 0 1 190.252 95 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 12.3 Tm /F1 7.7 Tf 10 TL -0.048804 Tw (Field Worker/Sanitation mapping, shared contract schemas, evidence/location ownership) Tj T* 0 Tw (and repositories.) Tj T* ET
+Q
+Q
+q
+1 0 0 1 6 75 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 2.3 Tm /F1 7.7 Tf 10 TL (tests/test_gemini_vision_adapter.py) Tj T* ET
+Q
+Q
+q
+1 0 0 1 190.252 65 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 12.3 Tm /F1 7.7 Tf 10 TL (Structured Gemini parsing, retries/errors, schema rejection, privacy, stored-image) Tj T* (validation.) Tj T* ET
+Q
+Q
+q
+1 0 0 1 6 45 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 2.3 Tm /F1 7.7 Tf 10 TL (tests/test_image_quality_service.py) Tj T* ET
+Q
+Q
+q
+1 0 0 1 190.252 45 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 2.3 Tm /F1 7.7 Tf 10 TL (Blur, brightness, resolution, duplicate hashes, missing bytes and audit metadata.) Tj T* ET
+Q
+Q
+q
+1 0 0 1 6 25 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 2.3 Tm /F1 7.7 Tf 10 TL (tests/test_pdf_scenarios.py) Tj T* ET
+Q
+Q
+q
+1 0 0 1 190.252 25 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 2.3 Tm /F1 7.7 Tf 10 TL (End-to-end deterministic outcomes, scores, contradictions and idempotency.) Tj T* ET
+Q
+Q
+q
+1 0 0 1 6 5 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 2.3 Tm /F1 7.7 Tf 10 TL (tests/test_requested_fixes.py) Tj T* ET
+Q
+Q
+q
+1 0 0 1 190.252 5 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 2.3 Tm /F1 7.7 Tf 10 TL (GPS/range/policy and requested regression fixes.) Tj T* ET
+Q
+Q
+q
+1 J
+1 j
+.839216 .878431 .898039 RG
+.35 w
+n 0 170 m 498.8976 170 l S
+n 0 0 m 498.8976 0 l S
+n 0 0 m 0 170 l S
+n 498.8976 0 m 498.8976 170 l S
+n 0 150 m 498.8976 150 l S
+n 0 120 m 498.8976 120 l S
+n 0 90 m 498.8976 90 l S
+n 0 60 m 498.8976 60 l S
+n 0 40 m 498.8976 40 l S
+n 0 20 m 498.8976 20 l S
+n 184.252 0 m 184.252 170 l S
+Q
+Q
+Q
+q
+1 0 0 1 54.18898 534.7008 cm
+q
+.066667 .478431 .447059 RG
+.7 w
+.905882 .956863 .945098 rg
+n -9 -9 504.8976 44 re B*
+Q
+q
+.070588 .168627 .235294 rg
+BT 1 0 0 1 0 17 Tm /F2 9 Tf 13 TL (This report reviewed the tests and source coverage map but did not complete a fresh full test run. Existing pass) Tj T* (counts in the coverage document should be re-run in the intended project virtual environment before merge.) Tj T* ET
+Q
+Q
+q
+1 0 0 1 54.18898 510.7008 cm
+q
+.066667 .478431 .447059 rg
+BT 1 0 0 1 0 3 Tm /F2 12 Tf 15 TL (Acceptance checklist for the pending suggestions) Tj T* ET
+Q
+Q
+q
+1 0 0 1 54.18898 275.7008 cm
+q
+.070588 .168627 .235294 rg
+n 0 230 498.8976 -20 re f*
+.94902 .964706 .972549 rg
+n 0 210 498.8976 -30 re f*
+.94902 .964706 .972549 rg
+n 0 150 498.8976 -30 re f*
+.94902 .964706 .972549 rg
+n 0 90 498.8976 -30 re f*
+.94902 .964706 .972549 rg
+n 0 30 498.8976 -30 re f*
+0 0 0 rg
+BT /F1 10 Tf 12 TL ET
+q
+1 0 0 1 6 215 cm
+q
+.070588 .168627 .235294 rg
+BT 1 0 0 1 0 2.3 Tm /F2 7.7 Tf 10 TL (Check) Tj T* ET
+Q
+Q
+q
+1 0 0 1 127.8898 215 cm
+q
+.070588 .168627 .235294 rg
+BT 1 0 0 1 0 2.3 Tm /F2 7.7 Tf 10 TL (Pass condition) Tj T* ET
+Q
+Q
+q
+1 0 0 1 6 195 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 2.3 Tm /F1 7.7 Tf 10 TL (Camera-only) Tj T* ET
+Q
+Q
+q
+1 0 0 1 127.8898 185 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 12.3 Tm /F1 7.7 Tf 10 TL (App has no gallery/file picker route; browser camera permission is required; task/type are visible before) Tj T* (capture.) Tj T* ET
+Q
+Q
+q
+1 0 0 1 6 165 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 2.3 Tm /F1 7.7 Tf 10 TL (Offline PWA) Tj T* ET
+Q
+Q
+q
+1 0 0 1 127.8898 155 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 12.3 Tm /F1 7.7 Tf 10 TL (App shell opens offline; compressed captured photos persist with task/type/operation metadata; retries are) Tj T* (safe and no capture is silently discarded.) Tj T* ET
+Q
+Q
+q
+1 0 0 1 6 135 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 2.3 Tm /F1 7.7 Tf 10 TL (Landmark alignment) Tj T* ET
+Q
+Q
+q
+1 0 0 1 127.8898 125 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 12.3 Tm /F1 7.7 Tf 10 TL (Known same-scene images align to a shared frame and show match/inlier diagnostics; unrelated scenes) Tj T* (fail conservatively and request review.) Tj T* ET
+Q
+Q
+q
+1 0 0 1 6 105 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 2.3 Tm /F1 7.7 Tf 10 TL (Semantic cleanup scoring) Tj T* ET
+Q
+Q
+q
+1 0 0 1 127.8898 95 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 12.3 Tm /F1 7.7 Tf 10 TL (Vision response validates observations, cleanup_score 0-100, confidence 0-100 and limitations; schema) Tj T* (rejects unsupported/extra decision fields.) Tj T* ET
+Q
+Q
+q
+1 0 0 1 6 75 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 2.3 Tm /F1 7.7 Tf 10 TL (80% rule) Tj T* ET
+Q
+Q
+q
+1 0 0 1 127.8898 65 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 12.3 Tm /F1 7.7 Tf 10 TL (79.9 routes MANUAL_REVIEW and sets the review flag; exactly 80 is not flagged by this threshold alone;) Tj T* (missing confidence cannot pass silently.) Tj T* ET
+Q
+Q
+q
+1 0 0 1 6 45 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 2.3 Tm /F1 7.7 Tf 10 TL (Human route) Tj T* ET
+Q
+Q
+q
+1 0 0 1 127.8898 35 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 12.3 Tm /F1 7.7 Tf 10 TL -0.003452 Tw (Supervisor/inspector integration records the reviewer, decision, rationale and time; low confidence does not) Tj T* 0 Tw (auto-reject or auto-close.) Tj T* ET
+Q
+Q
+q
+1 0 0 1 6 15 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 2.3 Tm /F1 7.7 Tf 10 TL (Integration) Tj T* ET
+Q
+Q
+q
+1 0 0 1 127.8898 5 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 12.3 Tm /F1 7.7 Tf 10 TL (Contract tests cover Field Worker upload/evidence IDs and Supervisor consumption of the verifier) Tj T* (response.) Tj T* ET
+Q
+Q
+q
+1 J
+1 j
+.839216 .878431 .898039 RG
+.35 w
+n 0 230 m 498.8976 230 l S
+n 0 0 m 498.8976 0 l S
+n 0 0 m 0 230 l S
+n 498.8976 0 m 498.8976 230 l S
+n 0 210 m 498.8976 210 l S
+n 0 180 m 498.8976 180 l S
+n 0 150 m 498.8976 150 l S
+n 0 120 m 498.8976 120 l S
+n 0 90 m 498.8976 90 l S
+n 0 60 m 498.8976 60 l S
+n 0 30 m 498.8976 30 l S
+n 121.8898 0 m 121.8898 230 l S
+Q
+Q
+Q
+q
+1 0 0 1 54.18898 252.7008 cm
+q
+.066667 .478431 .447059 rg
+BT 1 0 0 1 0 3 Tm /F2 12 Tf 15 TL (Known risks) Tj T* ET
+Q
+Q
+q
+1 0 0 1 54.18898 193.5008 cm
+q
+.12549 .192157 .231373 rg
+BT 1 0 0 1 0 44 Tm /F1 9.2 Tf 13.3 TL (Model confidence may be overconfident and must be calibrated on representative labeled photos. Keypoint alignment) Tj T* (can fail under viewpoint, lighting or scene changes and is not proof of authenticity. Offline browser storage can be) Tj T* (cleared or evicted. Real Gemini calls can fail for credentials, model access, quotas or network reasons. The current) Tj T* (inspector flag has no destination until Supervisor/orchestrator integration is defined.) Tj T* ET
+Q
+Q
+q
+1 0 0 1 54.18898 170.5008 cm
+q
+.066667 .478431 .447059 rg
+BT 1 0 0 1 0 3 Tm /F2 12 Tf 15 TL (Source basis) Tj T* ET
+Q
+Q
+q
+1 0 0 1 54.18898 122.5008 cm
+q
+.364706 .423529 .458824 rg
+BT 1 0 0 1 0 34.2 Tm /F1 7.8 Tf 10.5 TL (Repository files reviewed: docs/INTEGRATION.md, docs/REQUIREMENTS_COVERAGE.md, current app) Tj T* (API/contracts/schemas/services/configuration, requirements.txt, and test inventory. Reference format and handoff-boundary context:) Tj T* (KAVACH_New_Field_Worker_Execution_Task_Status_and_JSON_Contract.pdf. The reference itself distinguishes Module 06 ownership) Tj T* (from Verification and describes its JSON examples as structural/illustrative pending team agreement.) Tj T* ET
+Q
+Q
+ 
+
+Q
+
+q
+0.0 0.0 595.2756 841.8898 re
+W
+n
+1 0 0 1 0 0 cm
+BT
+/F1-0 12 Tf
+14.4 TL
+ET
+1 1 1 rg
+BT
+/F2-0 7.7 Tf
+9.24 TL
+ET
+BT
+1 0 0 1 60.18898 722.4069 Tm
+(Test) Tj
+T*
+ET
+BT
+1 0 0 1 78.16078 722.4069 Tm
+(file) Tj
+T*
+ET
+BT
+1 0 0 1 244.441 722.4069 Tm
+(Coverage) Tj
+T*
+ET
+BT
+1 0 0 1 281.6705 722.4069 Tm
+(area) Tj
+T*
+ET
+BT
+1 0 0 1 60.18898 492.4069 Tm
+(Check) Tj
+T*
+ET
+BT
+1 0 0 1 182.0788 492.4069 Tm
+(Pass) Tj
+T*
+ET
+BT
+1 0 0 1 202.1989 492.4069 Tm
+(condition) Tj
+T*
+ET
+Q
+
+
+endstream
+endobj
+33 0 obj
+<<
+/BaseFont /Helvetica
+/Encoding /WinAnsiEncoding
+/Name /F1
+/Subtype /Type1
+/Type /Font
+>>
+endobj
+34 0 obj
+<<
+/BaseFont /Helvetica-Bold
+/Encoding /WinAnsiEncoding
+/Name /F2
+/Subtype /Type1
+/Type /Font
+>>
+endobj
+xref
+0 35
+0000000000 65535 f 
+0000000015 00000 n 
+0000000054 00000 n 
+0000000155 00000 n 
+0000000204 00000 n 
+0000000470 00000 n 
+0000006917 00000 n 
+0000007024 00000 n 
+0000007131 00000 n 
+0000007243 00000 n 
+0000007355 00000 n 
+0000007461 00000 n 
+0000007731 00000 n 
+0000014443 00000 n 
+0000014551 00000 n 
+0000014664 00000 n 
+0000014934 00000 n 
+0000023143 00000 n 
+0000023251 00000 n 
+0000023364 00000 n 
+0000023634 00000 n 
+0000030184 00000 n 
+0000030292 00000 n 
+0000030405 00000 n 
+0000030675 00000 n 
+0000037219 00000 n 
+0000037327 00000 n 
+0000037440 00000 n 
+0000037710 00000 n 
+0000046807 00000 n 
+0000046915 00000 n 
+0000047028 00000 n 
+0000047298 00000 n 
+0000056688 00000 n 
+0000056796 00000 n 
+trailer
+<<
+/Size 35
+/Root 3 0 R
+/Info 1 0 R
+>>
+startxref
+56909
+%%EOF
