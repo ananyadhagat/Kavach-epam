@@ -3,13 +3,16 @@
 > **This is a prototype in progress, not yet a functioning duplicate detector.**
 > Phase 2 implemented the schema, repository and configuration foundation.
 > Phase 3 added the four core **comparators** (category, time, location, text),
-> which produce individual, advisory evidence signals only. Phase 4 adds both the
-> **weighted scoring engine** (M3), which combines those signals into a ranking
-> score, and the **decision policy** (M4), which turns the scored evidence into
-> `DUPLICATE` / `REVIEW_REQUIRED` / `NEW`.
+> which produce individual, advisory evidence signals only. The `text` signal
+> can be produced by a local sentence-embedding comparator (default) or the
+> lexical TF-IDF comparator (baseline/fallback); exactly one is used per
+> comparison. Phase 4 adds both the **weighted scoring engine** (M3), which
+> combines those signals into a ranking score, and the **decision policy** (M4),
+> which turns the scored evidence into `DUPLICATE` / `REVIEW_REQUIRED` / `NEW`.
 >
 > The scoring engine and decision policy are implemented. The FastAPI endpoint,
-> candidate retrieval and image similarity remain **not** implemented.
+> candidate retrieval, service wiring and image similarity remain **not**
+> implemented.
 
 This component is owned by one member of a 10-member KAVACH group project. It is
 built as a **standalone Python package** so it can be developed independently and
@@ -20,8 +23,10 @@ The Phase 1 design lives in [`docs/duplicate_detection/`](./docs/duplicate_detec
 plan). This README describes the Phase 2 foundation, the Phase 3 comparators and
 the Phase 4 scoring engine (M3) and decision policy (M4). Their implementation
 notes are in
-[`scoring_engine.md`](./docs/duplicate_detection/scoring_engine.md) and
-[`phase4_decision_policy.md`](./docs/duplicate_detection/phase4_decision_policy.md).
+[`scoring_engine.md`](./docs/duplicate_detection/scoring_engine.md),
+[`phase4_decision_policy.md`](./docs/duplicate_detection/phase4_decision_policy.md)
+and
+[`embedding_comparator.md`](./docs/duplicate_detection/embedding_comparator.md).
 
 ## Purpose
 
@@ -43,13 +48,20 @@ merges, or overwrites complaints.
 
 ## Phase 3 scope (what is implemented)
 
-Four independent **comparators** under `app/comparators/`, each returning a shared
-`SignalResult` for one new complaint versus one candidate complaint:
+Four independent **signal types** under `app/comparators/`, each returning a
+shared `SignalResult` for one new complaint versus one candidate complaint:
 
 - `CategoryComparator` — exact / compatible / incompatible / unknown categories.
 - `TimeComparator` — exponential decay over the `reported_at` gap.
 - `LocationComparator` — identifier precedence plus Haversine/coordinate decay.
-- `TextComparator` — lexical TF-IDF + cosine similarity.
+- **Text** — one selectable backend: `EmbeddingTextComparator` (local sentence
+  embeddings, default) or `TextComparator` (lexical TF-IDF + cosine,
+  baseline/fallback).
+
+The text backends are alternatives for the same `text` signal, not independent
+signals. `build_core_comparators()` always returns exactly one `text` comparator,
+and the existing `text` weight (`0.40`) is unchanged. See
+[`embedding_comparator.md`](./docs/duplicate_detection/embedding_comparator.md).
 
 Plus focused unit tests for each and a **cross-comparator contract** test suite
 (`tests/test_comparator_contract.py`). See "Phase 3 — comparators" below.
@@ -102,8 +114,11 @@ retrieves candidates, touches storage/network/HTTP, or merges complaints. See
   service that wires retrieval → comparison → scoring → decision.
 - Image similarity (the `image_hash` signal) — no image hashing or image weight.
 - FastAPI routes, `main.py`, or any HTTP layer.
-- Frontend, database, PostGIS, external APIs, sentence-transformer embeddings or
-  vector store, and response caching.
+- Frontend, database, PostGIS, external LLM APIs, a vector database/store, and
+  response caching.
+- Automatic runtime fallback from embeddings to TF-IDF. The backend is selected
+  by configuration; model or inference failures return `ERROR` rather than
+  silently switching algorithms.
 - `candidates` / `search` / `policy` / `request_id` response blocks from Phase 1
   (deferred), and the decision-engine cross-field invariants (documented, not
   enforced).
@@ -127,17 +142,22 @@ app/
     settings.py             # MatchingWeights, DecisionThresholds, ComparatorSettings,
                             # DecisionPolicySettings, Settings
   comparators/
-    __init__.py             # exports the four comparators and the shared helpers
+    __init__.py             # exports the comparators, factory and shared helpers
     base.py                 # Comparator ABC + result builders (null-score invariant)
     category_comparator.py  # CategoryComparator
     time_comparator.py      # TimeComparator
     location_comparator.py  # LocationComparator (+ haversine_meters)
-    text_comparator.py      # TextComparator (TF-IDF cosine)
+    text_comparator.py      # TextComparator (TF-IDF cosine; baseline/fallback)
+    embedding_text_comparator.py  # EmbeddingTextComparator (local sentence embeddings)
+    factory.py              # selects exactly one text backend; builds core comparators
   scoring/
     __init__.py             # exports the scoring engine, decision policy and types
     engine.py               # WeightedScoringEngine (M3), ScoringResult, ScoringError
     decision_policy.py      # DecisionPolicy (M4), CandidateScore, RetrievalStatus,
                             # DecisionOutcome, reason-code catalog
+  adapters/
+    __init__.py
+    incident_payload.py     # Agent 1 handoff envelope -> existing Complaint model
 tests/
   test_schemas.py           # schema, response and configuration tests
   test_repository.py        # repository behaviour tests
@@ -145,13 +165,17 @@ tests/
   test_time_comparator.py
   test_location_comparator.py
   test_text_comparator.py
+  test_embedding_text_comparator.py  # offline fake-encoder tests
+  test_comparator_factory.py         # factory + embedding-to-scoring integration
   test_comparator_contract.py  # cross-comparator contract tests
   test_scoring_engine.py     # M3 weighted-scoring tests
   test_decision_policy.py    # M4 decision-policy tests
+scripts/
+  evaluate_text_similarity.py  # illustrative TF-IDF vs embedding evaluation
 conftest.py                 # adds project root to sys.path for pytest
 requirements.txt
 README.md
-docs/duplicate_detection/   # Phase 1 design docs + Phase 4 implementation notes
+docs/duplicate_detection/   # Phase 1 design docs + later implementation notes
 ```
 
 ## Schema responsibilities
@@ -163,6 +187,12 @@ docs/duplicate_detection/   # Phase 1 design docs + Phase 4 implementation notes
   normalise to `None`; missing values stay missing. Unknown extra fields are
   rejected, so an integration mapping layer should translate KAVACH field names
   first.
+- **`app/adapters/incident_payload.py`** — translates the draft Agent 1
+  duplicate-detection handoff envelope into `Complaint`. It consumes the
+  canonical handoff keys, drops the documented `kavach_agent1` context, and
+  rejects raw upstream names such as `incident_id`, `complaint_text`,
+  `incident_summary` and `created_at`. See
+  [`docs/duplicate_detection/m2_input_adapter.md`](docs/duplicate_detection/m2_input_adapter.md).
 - **`app/schemas/duplicate_response.py`** — `Decision` (`DUPLICATE`,
   `REVIEW_REQUIRED`, `NEW`), `SignalStatus` (`AVAILABLE`, `UNAVAILABLE`, `INVALID`,
   `ERROR`), reusable `SignalResult`, and `DuplicateDetectionResponse`. A score, when
@@ -227,6 +257,8 @@ tests only and **must not** be used to claim model accuracy.
 | thresholds.high | 0.85 | provisional |
 | thresholds.low | 0.55 | provisional |
 | tie_margin | 0.05 | provisional |
+| comparators.text_backend | embedding | provisional default; `tfidf` is the baseline/fallback |
+| comparators.embedding_model | sentence-transformers/all-MiniLM-L6-v2 | initial candidate |
 | comparators.time_decay_scale_seconds | 172800 (48 h) | provisional |
 | comparators.location_distance_scale_m | 500 | provisional |
 | comparators.category_compatible_score | 0.60 | provisional |
@@ -245,8 +277,10 @@ validated against labelled data.** Weights must be non-negative with a positive 
 floors/ceilings must be finite and in `[0, 1]`, and
 `location_conflict_location_ceiling` must be below `location_conflict_text_floor`.
 The comparator values are described in the Phase 3 section below; the `decision.*`
-values are described in the Phase 4 (M4) section. No environment-variable
-configuration is used (Phase 1 did not require it).
+values are described in the Phase 4 (M4) section. `text_backend` selects exactly
+one `text` signal and `embedding_model` is loaded lazily (and downloaded on first
+use unless cached). No KAVACH-specific environment-variable configuration is used
+(Phase 1 did not require it).
 
 ## Phase 3 — comparators
 
@@ -304,9 +338,15 @@ Evidence taxonomy (uniform across all four):
   matching `location_id` (checking `facility_id` context) → matching `facility_id`
   → coordinate proximity. Missing identifiers are **not** a mismatch; differing
   *present* identifiers are surfaced as conflicts.
-- **TextComparator** (`text_comparator.py`) — lexical TF-IDF + cosine similarity.
+- **Text signal** — one selectable backend, never both:
+  - **`TextComparator`** (`text_comparator.py`) — lexical TF-IDF + cosine
+    similarity; retained as the baseline/fallback.
+  - **`EmbeddingTextComparator`** (`embedding_text_comparator.py`) — local
+    sentence-embedding cosine similarity; the default.
 
-### How the text comparator works (high level)
+### How the text backends work (high level)
+
+#### TF-IDF backend
 
 For each pair, a fresh `TfidfVectorizer` is fitted to the **two** descriptions.
 Each description becomes an L2-normalised TF-IDF vector; the cosine of the two
@@ -319,7 +359,27 @@ Because the vectorizer is fitted **pair-locally**, IDF weights are not comparabl
 across different candidate comparisons and each pair is a separate vectorisation.
 This is acceptable for the first prototype; a production implementation should fit
 a **shared corpus** (or use a retrieval index) for consistent weighting and
-efficient candidate search. No external API, model download or vector store is used.
+efficient candidate search. The TF-IDF backend uses no external API, model
+download or vector store.
+
+#### Embedding backend
+
+The embedding backend encodes both descriptions with a local
+`sentence-transformers` model (default `all-MiniLM-L6-v2`), L2-normalises the
+vectors and computes their dot product (cosine similarity). It can recognise
+paraphrases that share no tokens. The model is loaded lazily **once per process**
+and cached; it is never rebuilt per comparison. The first use downloads it unless
+it is already cached. No external inference API or vector database is used.
+
+A successful comparison returns `AVAILABLE` with `TEXT_EMBEDDING_SIMILARITY`.
+Missing text stays `UNAVAILABLE`, non-string text is `INVALID`, and model load,
+inference or malformed-output failures return `ERROR`; none of these become a
+score of `0.0`. Negative cosine values are floored to `0.0` only for the public
+`[0, 1]` score and the raw value is retained in evidence. TF-IDF and embedding
+scores have different distributions, so the provisional thresholds must not be
+assumed to transfer between backends. See
+[`embedding_comparator.md`](./docs/duplicate_detection/embedding_comparator.md)
+for the full status table, cache lifecycle and illustrative evaluation.
 
 ### How the Haversine calculation is used
 
@@ -347,41 +407,68 @@ identical points score `1.0` and the score decreases monotonically with distance
 | `location_distance_scale_m` | `500` | linear distance scale (metres) |
 | `category_compatible_score` | `0.60` | score for a known-compatible pair |
 | `category_map` | sample data | **placeholder** — replace with the real taxonomy |
+| `text_backend` | `embedding` | `embedding` (default) or `tfidf` (baseline/fallback) |
+| `embedding_model` | `all-MiniLM-L6-v2` | local sentence-transformer model identifier |
 
 All are **provisional**. The distance scale does **not** mean "within the radius ⇒
 duplicate"; that judgement belongs to Phase 4. Comparators read configuration at
-construction time and hold no mutable global state.
+construction time; the embedding backend also keeps a process-local model cache
+that does not alter evidence semantics.
 
 ### Running the comparator tests
 
 ```powershell
-.\.venv\Scripts\python.exe -m pytest tests\test_category_comparator.py -q
-.\.venv\Scripts\python.exe -m pytest tests\test_time_comparator.py -q
-.\.venv\Scripts\python.exe -m pytest tests\test_location_comparator.py -q
-.\.venv\Scripts\python.exe -m pytest tests\test_text_comparator.py -q
-.\.venv\Scripts\python.exe -m pytest tests\test_comparator_contract.py -q
+python -m pytest tests\test_category_comparator.py -q
+python -m pytest tests\test_time_comparator.py -q
+python -m pytest tests\test_location_comparator.py -q
+python -m pytest tests\test_text_comparator.py -q
+python -m pytest tests\test_embedding_text_comparator.py -q
+python -m pytest tests\test_comparator_factory.py -q
+python -m pytest tests\test_comparator_contract.py -q
 # or everything:
-.\.venv\Scripts\python.exe -m pytest -q
+python -m pytest -q
 ```
+
+The embedding-comparator and factory tests inject fake encoders, so they do not
+download the model or require network access.
 
 ### Known limitations
 
-- **Lexical only.** TF-IDF cannot recognise paraphrases or synonyms
-  ("broken streetlight" vs "lamp not working" score `0.0`). Semantic similarity
-  would need embeddings, which are out of scope.
-- **Pair-local fitting.** IDF weights are not comparable across candidate
-  comparisons; a shared corpus/retrieval index is a production concern.
-- **Shared stopwords.** Common words ("the") are not removed by default, so two
-  unrelated sentences can share a small nonzero score. An optional `stop_words`
-  argument is available (e.g. `"english"`), but it is language-specific.
+- **Text backends have different limits.** The TF-IDF backend is lexical only and
+  cannot recognise paraphrases or synonyms ("broken streetlight" vs "lamp not
+  working" scores `0.0`). The default embedding backend handles many paraphrases,
+  but its scores are not calibrated to the provisional thresholds. In the
+  illustrative 40-pair evaluation, all 10 hard negatives were false positives at
+  `0.50` for both backends because they differ by location/entity, which text
+  alone cannot resolve. The full agent must also use location, category and time.
+  See
+  [`embedding_comparator.md`](./docs/duplicate_detection/embedding_comparator.md).
+- **Embedding cold start and truncation.** First use downloads the model (about
+  90 MB) unless cached, and a cold process load took about 22 s in this
+  environment. The default model truncates at 256 word pieces, and the cache is
+  process-local. A production deployment should pre-provision the model, pin its
+  revision and batch/co-locate inference.
+- **Pair-local fitting (TF-IDF).** IDF weights are not comparable across
+  candidate comparisons; a shared corpus/retrieval index is a production concern.
+- **Shared stopwords (TF-IDF).** Common words ("the") are not removed by default,
+  so two unrelated sentences can share a small nonzero score. An optional
+  `stop_words` argument is available (e.g. `"english"`), but it is
+  language-specific.
+- **Single backend, no automatic fallback.** Switching to TF-IDF is a
+  configuration change, not a runtime failover. Model or inference failures stay
+  `ERROR` so they are visible and are not mistaken for low lexical similarity.
 - **Category map is fictional.** The sample groups/pairs are placeholders.
-- **Scales are unvalidated.** Time and distance decay scales are guesses.
+- **Scales are unvalidated.** Time and distance decay scales are guesses, and the
+  embedding backend's score distribution differs from TF-IDF's.
 
 ### What remains after Phase 4
 
-The M3 scoring engine and M4 decision policy are implemented. Remaining work is
-candidate retrieval/service wiring, the optional image signal and its weight, and
-the FastAPI endpoint. None of these changes the scoring formula or the policy gates.
+The M3 scoring engine and M4 decision policy are implemented, and the text signal
+now has selectable embedding and TF-IDF backends. Remaining work is candidate
+retrieval/service wiring, the optional image signal and its weight, the FastAPI
+endpoint, and calibration/validation of the embedding backend and thresholds on
+real labelled data. The retrieval/wiring/image work does not change the scoring
+formula or the policy gates; threshold calibration is a separate, explicit task.
 
 ## Phase 4 (M3) — weighted scoring engine
 
@@ -471,7 +558,7 @@ Treat this as an open, additive set.
 ### Running the scoring-engine tests
 
 ```powershell
-.\.venv\Scripts\python.exe -m pytest tests\test_scoring_engine.py -q
+python -m pytest tests\test_scoring_engine.py -q
 ```
 
 ## Phase 4 (M4) — decision policy
@@ -586,19 +673,41 @@ outcome is `REVIEW_REQUIRED` (`AMBIGUOUS_TIED_CANDIDATES`).
 ### Running the decision-policy tests
 
 ```powershell
-.\.venv\Scripts\python.exe -m pytest tests\test_decision_policy.py -q
+python -m pytest tests\test_decision_policy.py -q
 ```
 
 ## Install and run tests (Windows PowerShell)
 
 ```powershell
-cd "C:\Users\dadla\OneDrive\Documents\Default Project"
+cd "C:\Users\dadla\OneDrive\Documents\Default Project\Kavach-epam"
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
 pip install -r requirements.txt
+
+# Optional: pre-download the default embedding model (~90 MB) so the first
+# real comparison does not pay the download/cold-start cost.
+python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2')"
+
 python -m pytest -q
 ```
+
+The unit tests (including the embedding-comparator suite) inject fake encoders
+and do **not** download the model or require network access. The optional model
+download is only needed for real comparisons and the evaluation script.
+
+After the model is cached, compare the two text backends on the synthetic
+evaluation set:
+
+```powershell
+$env:HF_HUB_OFFLINE='1'
+$env:TRANSFORMERS_OFFLINE='1'
+python scripts/evaluate_text_similarity.py --local-files-only
+```
+
+The results are **illustrative only**; the pairs are hand-written and the
+repository has no production labelled dataset. See
+[`embedding_comparator.md`](./docs/duplicate_detection/embedding_comparator.md).
 
 If PowerShell blocks activation, run `.\.venv\Scripts\python.exe -m pytest -q`
 instead of activating.
@@ -621,6 +730,12 @@ instead of activating.
   `SignalResult.name` / `weight` / `contradiction` fields, whereas the code uses
   mapping keys and `details` for conflicts. See
   [`scoring_engine.md`](./docs/duplicate_detection/scoring_engine.md).
+- **The embedding text backend is implemented** in
+  `app/comparators/embedding_text_comparator.py` and selected by default through
+  `build_core_comparators()`; TF-IDF remains selectable as the baseline/fallback.
+  It is integrated at the comparator/factory layer only — no HTTP service exists.
+  Its model, thresholds and evaluation are not production-validated. See
+  [`embedding_comparator.md`](./docs/duplicate_detection/embedding_comparator.md).
 - **Known time-decay discrepancy:** `matching_policy.md` §4.4 specifies a
   `0.10` decay floor, but `app/comparators/time_comparator.py` uses a plain
   exponential decay without a floor. This is unchanged by M3 and remains a

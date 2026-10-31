@@ -94,6 +94,17 @@ REASON_RETRIEVAL_FAILED = "CANDIDATE_RETRIEVAL_FAILED"
 
 _CORE_SIGNAL_NAMES: tuple[str, ...] = ("text", "location", "category", "time")
 
+# Comparator-specific conflict codes mapped to the policy's canonical reason
+# codes. The mapping is deliberately small and explicit; an unrecognised
+# explicit contradiction is still disqualifying and is surfaced verbatim.
+_EXPLICIT_CONTRADICTION_REASONS: Mapping[str, str] = {
+    "LOCATION_IDENTIFIER_CONFLICT": REASON_CONTRADICTION_LOCATION,
+    "LOCATION_FACILITY_CONFLICT": REASON_CONTRADICTION_LOCATION,
+    "CATEGORY_INCOMPATIBLE": REASON_CONTRADICTION_CATEGORY,
+    REASON_CONTRADICTION_LOCATION: REASON_CONTRADICTION_LOCATION,
+    REASON_CONTRADICTION_CATEGORY: REASON_CONTRADICTION_CATEGORY,
+}
+
 # Internal classification tags for one candidate's evidence.
 _SCORED = "scored"
 _UNSCORABLE = "unscorable"
@@ -135,7 +146,10 @@ class CandidateScore:
         ``category``, ``time``, optionally ``image``). Treated as read-only.
     contradictions:
         Optional explicit disqualifying codes already known for this candidate.
-        The policy additionally derives contradictions from ``signals``.
+        The policy additionally derives contradictions from ``signals``. Any
+        non-empty code here blocks ``DUPLICATE``; recognised comparator codes
+        are normalised to the canonical ``CONTRADICTION_*`` reason codes and
+        unrecognised codes are surfaced verbatim.
     reasons:
         Optional reason codes already attached to this candidate.
     """
@@ -527,6 +541,22 @@ class DecisionPolicy:
 
     def _contradiction_codes(self, candidate: CandidateScore) -> tuple[str, ...]:
         codes: list[str] = []
+
+        # Explicit disqualifiers from the upstream contract are honoured even
+        # when the corresponding signal details were not forwarded. Unknown
+        # codes are kept verbatim: they still block DUPLICATE and preserve the
+        # additive reason-code contract.
+        for code in candidate.contradictions:
+            if not isinstance(code, str):
+                continue
+            explicit = code.strip()
+            if not explicit:
+                continue
+            _append_unique(
+                codes,
+                _EXPLICIT_CONTRADICTION_REASONS.get(explicit, explicit),
+            )
+
         for name, signal in candidate.signals.items():
             if not isinstance(signal, SignalResult):
                 continue

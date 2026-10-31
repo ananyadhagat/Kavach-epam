@@ -283,6 +283,39 @@ def test_category_conflict_is_reviewed_not_duplicate():
     assert REASON_CONTRADICTION_CATEGORY in outcome.reasons
 
 
+@pytest.mark.parametrize(
+    "code, expected_reason",
+    [
+        ("LOCATION_IDENTIFIER_CONFLICT", REASON_CONTRADICTION_LOCATION),
+        ("LOCATION_FACILITY_CONFLICT", REASON_CONTRADICTION_LOCATION),
+        ("CATEGORY_INCOMPATIBLE", REASON_CONTRADICTION_CATEGORY),
+        (REASON_CONTRADICTION_LOCATION, REASON_CONTRADICTION_LOCATION),
+        (REASON_CONTRADICTION_CATEGORY, REASON_CONTRADICTION_CATEGORY),
+    ],
+)
+def test_explicit_contradiction_blocks_duplicate(code, expected_reason):
+    # The M3 -> M4 contract allows conflict codes to be attached directly.
+    # They must be honoured even when the signal details are not repeated.
+    outcome = POLICY.decide([candidate("CMP-1", 0.95, contradictions=(code,))])
+    assert outcome.decision is Decision.REVIEW_REQUIRED
+    assert outcome.decision is not Decision.DUPLICATE
+    assert outcome.matched_incident_id is None
+    assert expected_reason in outcome.reasons
+    assert code in outcome.candidates[0].contradictions
+
+
+def test_unrecognised_explicit_contradiction_is_still_disqualifying():
+    # The reason-code set is additive. An upstream code the policy does not
+    # know must not be silently dropped: block DUPLICATE and surface it.
+    outcome = POLICY.decide(
+        [candidate("CMP-1", 0.95, contradictions=("UPSTREAM_CONFLICT",))]
+    )
+    assert outcome.decision is Decision.REVIEW_REQUIRED
+    assert outcome.decision is not Decision.DUPLICATE
+    assert "UPSTREAM_CONFLICT" in outcome.reasons
+    assert "UPSTREAM_CONFLICT" in outcome.candidates[0].contradictions
+
+
 def test_absent_identifiers_are_not_a_false_conflict():
     # A coordinate-only location match: neither side carries identifiers, so
     # there is no conflict and a strong candidate is still a duplicate.

@@ -1,8 +1,12 @@
 # KAVACH Duplicate Detection Agent — dependencies.
-# Kept intentionally minimal: no FastAPI (no routes yet), no ML/embedding or
-# imaging libraries beyond scikit-learn (used for lexical TF-IDF in the Phase 3
-# text comparator). See README.md for the optional later-phase additions.
+# Kept intentionally minimal: no FastAPI (no routes yet), no vector database.
+# scikit-learn provides the lexical TF-IDF baseline; sentence-transformers
+# provides the local semantic embedding text comparator (see
+# docs/duplicate_detection/embedding_comparator.md). The embedding model is
+# downloaded on first use unless already cached; unit tests mock it.
 
 pydantic>=2.6,<3
 pytest>=8.0,<9
 scikit-learn>=1.4,<2
+sentence-transformers>=3.0,<6
+numpy>=1.24,<3

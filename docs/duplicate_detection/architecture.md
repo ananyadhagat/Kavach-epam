@@ -1,6 +1,17 @@
 # Duplicate Detection Agent — Architecture
 
-> Phase 1 design document. No implementation exists yet.
+> Phase 1 design document. The prototype core now exists under `app/`; see
+> [`service_orchestration.md`](./service_orchestration.md) for the current module
+> map, orchestration flow and implementation status. The conceptual design below
+> is retained as the original architecture.
+>
+> **Current implementation status.** The schema, repository, four core
+> comparators (including the optional embedding text backend), weighted scoring
+> engine, decision policy and internal `DuplicateDetectionService` are
+> implemented. The FastAPI edge (M5) and the optional image signal (M7) remain
+> deferred. Names and paths in the Phase 1 tables below are conceptual; the
+> current code lives in `app/services/`, `app/comparators/`, `app/scoring/`,
+> `app/repositories/`, `app/schemas/` and `app/config/`.
 
 ## 1. Purpose and scope
 
@@ -103,6 +114,15 @@ sidecar service (B). This specification supports both with no algorithm change.
 Each responsibility is a small, independently testable unit. Names below match the
 project brief; where a different name is clearer, it is noted.
 
+> **Current mapping.** The service is
+> [`app/services/detection_service.py`](../../app/services/detection_service.py);
+> comparators are in `app/comparators/`; scoring and decision rules are in
+> `app/scoring/engine.py` and `app/scoring/decision_policy.py`; the repository
+> contract is `app/repositories/base.py`. The `CandidateRetriever`, image
+> comparator and separate `policy/` package shown below are Phase 1 concepts and
+> are not present in the current prototype. See
+> [`service_orchestration.md`](./service_orchestration.md).
+
 | Responsibility | Input | Output | Boundary / notes |
 | --- | --- | --- | --- |
 | **DuplicateDetectionService** (`service/detection_service.py`) | `DetectionRequest` (domain) | `DetectionResult` (domain) | Orchestrates retrieval → comparison → scoring → decision. Contains **no** comparator maths and **no** policy thresholds itself; it delegates. Never performs I/O beyond calling the repository interface. |
@@ -147,16 +167,32 @@ project brief; where a different name is clearer, it is noted.
 5. Edge maps it to the response contract (HTTP 200 for every business outcome)
 ```
 
+> **Current implementation.** The service currently returns the existing
+> `DuplicateDetectionResponse` directly rather than a separate domain
+> `DetectionResult`; the future edge would only need transport/error mapping.
+> There is no `CandidateRetriever` object: the service calls
+> `repository.list_candidates(exclude_complaint_id=...)` directly and defensively
+> skips self/duplicate ids. See
+> [`service_orchestration.md`](./service_orchestration.md).
+
 ### Failure paths (distinct, never conflated)
 - **Invalid request** → transport layer returns `422`; business logic not invoked.
 - **No eligible candidates** → `200` with `decision = NEW`, reason `NO_ELIGIBLE_CANDIDATES`.
 - **Repository failure** → `500` (or `503`) with a structured error body; *not* `NEW`.
-- **Single comparator failure** → that signal is `ERROR`, excluded from scoring; if too
-  many signals error, decision is downgraded to `REVIEW_REQUIRED` (see matching_policy.md).
+- **Single comparator failure** → that signal is `ERROR`, excluded from scoring and the
+  remaining weights are renormalised. The outcome depends on the evidence gates: it may
+  still be `NEW`, `REVIEW_REQUIRED` or `DUPLICATE` (see
+  [`service_orchestration.md`](./service_orchestration.md) and
+  `matching_policy.md`).
 
 ## 6. Candidate retrieval behaviour
 
 `CandidateRetriever` is responsible for *eligibility*, not similarity:
+
+> **Current implementation.** No separate `CandidateRetriever` exists yet. The
+> service calls `repository.list_candidates(exclude_complaint_id=...)` directly,
+> then defensively skips the incoming id and duplicate candidate ids. No coarse
+> blocking filters or retrieval window are applied in the current prototype.
 
 - Always excludes records whose `complaint_id` equals the request `complaint_id`.
 - Retrieves from the repository via the interface only.
@@ -170,8 +206,10 @@ project brief; where a different name is clearer, it is noted.
   repository exception, which propagates as `RepositoryError`.
 
 Blocking is a performance optimisation only; it must never be the *reason* a true
-duplicate is missed silently — when blocking is active, the response records which
-filters were applied (see `api_contract.md`).
+duplicate is missed silently — when blocking is active, the response should record
+which filters were applied (see `api_contract.md`). The current six-field
+`DuplicateDetectionResponse` has no field for that metadata, so this remains
+deferred with the HTTP/API work.
 
 ## 7. Assumptions and open items
 

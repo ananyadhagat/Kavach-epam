@@ -1,16 +1,19 @@
 # Duplicate Detection Agent — Implementation Plan
 
-> Phase 1 design document. Nothing here is implemented yet. This is the ordered plan
-> for later phases, plus the proposed module structure and the test strategy.
+> **Historical Phase 1 plan.** This document is retained as the original ordered plan
+> and design rationale. The current prototype is implemented under `app/`; see
+> [`service_orchestration.md`](./service_orchestration.md) for the actual module map and
+> status. Statements below such as "not implemented yet" or "no embeddings" describe the
+> Phase 1 starting point and are superseded by the implementation notes.
 
-## 1. Proposed module structure (for Phase 2+, not created now)
+## 1. Proposed module structure (historical Phase 1 proposal)
 
-All paths below are **proposed future locations**, under a package root such as
-`src/duplicate_detection/`. They are intentionally minimal — no plugin frameworks, no
-DI containers, no ORM.
+The tree below is the **original proposed layout**, not the current repository layout.
+It is retained to explain the Phase 1 design. Current code lives under `app/` and is
+mapped in [`service_orchestration.md`](./service_orchestration.md).
 
 ```
-src/duplicate_detection/
+proposed_package/
 ├── __init__.py                # package marker; exports DuplicateDetectionService
 ├── api/
 │   ├── __init__.py
@@ -181,28 +184,37 @@ tolerable. **No numeric results are reported in Phase 1** — they require label
 | Over-fitting to synthetic data | Treat synthetic set as smoke tests only; evaluate on labelled real pairs. |
 | Coupling to FastAPI | Strict rule: core never imports transport; enforced by the unit tests not importing FastAPI. |
 
-## 8. Explicitly deferred (do NOT do in Phase 1 or early Phase 2)
-- No Python business logic, no FastAPI app, no DB, no packages installed in Phase 1.
+## 8. Explicitly out of scope for Phase 1 (historical)
+- Phase 1 deliberately contained no Python business logic, FastAPI app, DB or
+  installed packages.
 - No image processing prerequisite.
-- No embeddings/LLM.
+- Embeddings were not part of Phase 1; the optional local embedding text backend
+  was added later. No generative LLM is used.
 - No production database design.
 - No automatic progression to Phase 2 without the user's go-ahead.
 
-## 9. Exact first coding task for Phase 2
+The current prototype now includes the core Python pipeline and the internal
+service; the FastAPI edge, production database and image signal remain deferred.
+See [`service_orchestration.md`](./service_orchestration.md).
+
+## 9. Original first coding task for Phase 2 (historical)
 
 **M0 + M1, first slice:**
 
-> Create the package skeleton `src/duplicate_detection/` with empty `__init__.py` files,
-> then implement `service/models.py` (domain objects `SignalResult`, `IncidentRecord`,
-> `DetectionRequest`, `ScoredCandidate`, `DetectionResult`), `schemas/enums.py`
+> Create the package skeleton under the agreed package root with empty `__init__.py`
+> files, then implement the domain objects (`SignalResult`, `IncidentRecord`,
+> `DetectionRequest`, `ScoredCandidate`, `DetectionResult`), the shared enums
 > (`Decision`, `SignalStatus`, `SignalName`), and `repository/base.py`
 > (`IncidentRepository` protocol, `CandidateFilter`, `RepositoryError`).
 > Write `repository/in_memory.py` (`InMemoryIncidentRepository` with `add`, `seed`,
-> `list_candidates`, `get`, `count`) and `service/candidate_retriever.py`
-> (self-exclusion + empty-vs-error distinction), then a pytest file
-> `tests/unit/test_repository.py` proving: add/seed work, self-exclusion excludes the
-> request id, an empty repository returns `[]` (not an error), and a forced repository
-> failure raises `RepositoryError`.
+> `list_candidates`, `get`, `count`) and a candidate-retriever boundary
+> (self-exclusion + empty-vs-error distinction), then a pytest file proving:
+> add/seed work, self-exclusion excludes the request id, an empty repository returns
+> `[]` (not an error), and a forced repository failure raises `RepositoryError`.
+
+The implemented prototype uses `app/` as its package root and a smaller layout than
+this original proposal; the repository tests live in `tests/test_repository.py`. See
+[`service_orchestration.md`](./service_orchestration.md) for the current map.
 
 This is the smallest slice that establishes the data contracts, the storage
 abstraction, and the candidate-retrieval boundary — with **no** similarity maths, **no**

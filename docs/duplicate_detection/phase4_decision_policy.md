@@ -112,10 +112,14 @@ never delete or auto-reject anything.
 | C1 | `text ≥ location_conflict_text_floor` (0.80) **and** `location ≤ location_conflict_location_ceiling` (0.20), both `AVAILABLE` | `CONTRADICTION_LOCATION_MISMATCH` |
 | C2 | category signal carries a conflict flag (`details.conflict is True`) | `CONTRADICTION_CATEGORY_INCOMPATIBLE` |
 | — | location signal carries a conflict flag (identifier/facility) | `CONTRADICTION_LOCATION_MISMATCH` |
+| explicit | `CandidateScore.contradictions` contains a non-empty code | the canonical code for recognised comparator codes; otherwise the upstream code verbatim |
 
 The comparator-specific code (`LOCATION_IDENTIFIER_CONFLICT`,
 `LOCATION_FACILITY_CONFLICT`, `CATEGORY_INCOMPATIBLE`) is retained on the
 per-candidate summary (`RankedCandidate.contradictions`) so nothing is lost.
+Explicit contradictions are honoured even when the corresponding signal details
+are absent; the reason-code set is additive, so an unrecognised upstream code is
+surfaced rather than dropped.
 
 The asymmetry C1 depends on is preserved: a **computed** low location score can
 trigger C1, whereas an **unavailable** location score cannot. Likewise, **absent
@@ -140,7 +144,8 @@ and contradictions are checked **before** the thresholds):
 4. fewer than `min_available_signals` available → `REVIEW_REQUIRED`
    (`INSUFFICIENT_EVIDENCE`);
 5. no core anchor → `REVIEW_REQUIRED` (`MISSING_CORE_ANCHOR`);
-6. a material contradiction (C1/C2) → `REVIEW_REQUIRED` (`CONTRADICTION_*`);
+6. a material contradiction (C1/C2 or an explicit `CandidateScore.contradictions`
+   code) → `REVIEW_REQUIRED` (`CONTRADICTION_*`, or the upstream code verbatim);
 7. too few supportive signals → `REVIEW_REQUIRED` (`INSUFFICIENT_EVIDENCE`);
 8. top two candidates within `tie_margin` → `REVIEW_REQUIRED`
    (`AMBIGUOUS_TIED_CANDIDATES`);
@@ -151,10 +156,11 @@ and contradictions are checked **before** the thresholds):
 
 > **Documented deviations.**
 > 1. §6.4 lists evidence (C4), then contradictions (C1/C2), then the tie (C3),
->    then thresholds. This implementation also places the **corroboration** check
->    (§6.1) before contradictions, so that the more specific, more actionable
->    conflict code is what surfaces. Both readings keep every evidence gate ahead
->    of the thresholds.
+>    then thresholds. This implementation additionally checks corroboration
+>    (§6.1) **after** contradictions and before the tie, so the more specific,
+>    more actionable conflict code surfaces when a contradiction and missing
+>    corroboration both apply. Every evidence gate remains ahead of the
+>    thresholds and the ambiguity check.
 > 2. Ambiguity (C3) is applied literally **before** the threshold bands, so two
 >    near-equal *low*-scoring candidates become `REVIEW_REQUIRED`, not `NEW`.
 >    This is the conservative reading.
@@ -210,16 +216,17 @@ are returned.
 | `SCORE_BELOW_LOW_THRESHOLD` | best score < `low`. |
 | `INSUFFICIENT_EVIDENCE` | evidence/corroboration shortage, or no scoreable candidate. |
 | `MISSING_CORE_ANCHOR` | no supportive text/location anchor. |
-| `CONTRADICTION_LOCATION_MISMATCH` | C1, or a location conflict flag. |
-| `CONTRADICTION_CATEGORY_INCOMPATIBLE` | C2, or a category conflict flag. |
+| `CONTRADICTION_LOCATION_MISMATCH` | C1, a location conflict flag, or an explicit location conflict code. |
+| `CONTRADICTION_CATEGORY_INCOMPATIBLE` | C2, a category conflict flag, or an explicit category conflict code. |
 | `AMBIGUOUS_TIED_CANDIDATES` | top-two score gap < `tie_margin`. |
 | `NO_ELIGIBLE_CANDIDATES` | retrieval returned no candidates (and was complete). |
 | `INVALID_SCORE` | unusable/non-finite/out-of-range/missing score, or malformed evidence. |
 | `CANDIDATE_RETRIEVAL_INCOMPLETE` | retrieval not complete. |
 | `CANDIDATE_RETRIEVAL_FAILED` | retrieval failed. |
 
-Treat this as an open, additive set. The combined score is never described as a
-probability.
+Treat this as an open, additive set. An unrecognised explicit contradiction code
+appears verbatim in `reasons` (and still disqualifies `DUPLICATE`). The combined
+score is never described as a probability.
 
 ## Configuration (`Settings.decision` → `DecisionPolicySettings`)
 
@@ -260,7 +267,8 @@ magic numbers.
 ```
 
 Coverage includes the threshold bands, empty/thin/incomplete/failed retrieval,
-each evidence gate, each contradiction rule, absent-identifier non-conflicts,
-near-equal and exactly-equal tops, every invalid-score form, malformed evidence,
-invalid configuration (including `model_construct` bypass), the V1 response
-adapter, determinism, and input immutability.
+each evidence gate, each contradiction rule (including explicit
+`CandidateScore.contradictions`), absent-identifier non-conflicts, near-equal and
+exactly-equal tops, every invalid-score form, malformed evidence, invalid
+configuration (including `model_construct` bypass), the V1 response adapter,
+determinism, and input immutability.

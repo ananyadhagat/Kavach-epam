@@ -12,6 +12,7 @@ no scoring or decision logic.
 from __future__ import annotations
 
 import math
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -172,6 +173,22 @@ class ComparatorSettings(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
+    text_backend: Literal["tfidf", "embedding"] = Field(
+        default="embedding",
+        description=(
+            "Single text-similarity backend: the semantic embedding comparator "
+            "or the lexical TF-IDF baseline."
+        ),
+    )
+    embedding_model: str = Field(
+        default="sentence-transformers/all-MiniLM-L6-v2",
+        min_length=1,
+        max_length=256,
+        description=(
+            "Sentence Transformers model identifier; downloaded on first use "
+            "unless already present in the local Hugging Face cache."
+        ),
+    )
     time_decay_scale_seconds: float = Field(
         default=172_800.0,
         description="Time-decay scale (seconds); 48 hours provisionally.",
@@ -190,6 +207,14 @@ class ComparatorSettings(BaseModel):
         default_factory=CategoryCompatibilityMap,
         description="Provisional category compatibility mapping.",
     )
+
+    @field_validator("embedding_model")
+    @classmethod
+    def _non_blank_embedding_model(cls, value: str) -> str:
+        cleaned = value.strip()
+        if not cleaned:
+            raise ValueError("embedding_model must be a non-empty string")
+        return cleaned
 
     @field_validator("time_decay_scale_seconds", "location_distance_scale_m")
     @classmethod
