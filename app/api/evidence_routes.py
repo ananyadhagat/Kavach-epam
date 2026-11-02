@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
 
 from app.api.worker_task_routes import get_worker_id
-from app.schemas.evidence import EvidenceType
+from app.schemas.evidence import EvidenceHistoryResponse, EvidenceType
 from app.services.evidence_service import EvidenceService
 
 router = APIRouter(prefix="/worker/tasks", tags=["Task Evidence"])
@@ -9,6 +9,18 @@ router = APIRouter(prefix="/worker/tasks", tags=["Task Evidence"])
 
 def get_evidence_service(request: Request) -> EvidenceService:
     return request.app.state.evidence_service
+
+
+@router.get("/{task_id}/evidence", response_model=EvidenceHistoryResponse)
+async def list_evidence(
+    task_id: str,
+    worker_id: str = Depends(get_worker_id),
+    service: EvidenceService = Depends(get_evidence_service),
+):
+    return {
+        "task_id": task_id,
+        "evidence": await service.list_for_task(task_id, worker_id),
+    }
 
 
 @router.post("/{task_id}/evidence")

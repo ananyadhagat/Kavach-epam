@@ -15,6 +15,7 @@ from app.schemas.worker_task import (
     ChecklistDefinition,
     TaskLocation,
     TaskPriority,
+    TaskStatus,
     WorkerTask,
 )
 
@@ -29,6 +30,9 @@ def demo_task() -> WorkerTask:
         task_id=DEMO_TASK_ID,
         incident_id="INC-001",
         assigned_worker_id=DEMO_WORKER_ID,
+        # Stands in for an assignment Dispatch has already confirmed;
+        # Field Worker never accepts or rejects offers itself.
+        status=TaskStatus.ACCEPTED,
         title="Clean overflowing dustbin",
         description="Clean the area near the main gate.",
         priority=TaskPriority.HIGH,

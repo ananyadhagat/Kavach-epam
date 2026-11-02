@@ -3,6 +3,8 @@ from fastapi import HTTPException, status
 from app.repositories.task_repository import TaskRepository
 from app.schemas.worker_task import TaskStatus, WorkerTask
 from app.validators.task_transition_validator import (
+    ALLOWED_TRANSITIONS,
+    UNBLOCK_TRANSITIONS,
     InvalidTaskTransition,
     validate_transition,
 )
@@ -19,7 +21,10 @@ class TaskStateService:
         new_status: TaskStatus,
         expected_status: TaskStatus | None = None,
         completion_submission_id: str | None = None,
+        unblock: bool = False,
     ) -> WorkerTask:
+        # unblock=True is reserved for Dispatch/Supervisor blocker
+        # resolution; worker actions always use the worker transitions.
         task = await tasks.get_for_worker(task_id, worker_id)
 
         if task is None:
@@ -39,7 +44,10 @@ class TaskStateService:
             )
 
         try:
-            validate_transition(task.status, new_status)
+            validate_transition(
+                task.status, new_status,
+                UNBLOCK_TRANSITIONS if unblock else ALLOWED_TRANSITIONS,
+            )
         except InvalidTaskTransition as exc:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,

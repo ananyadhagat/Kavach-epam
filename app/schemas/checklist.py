@@ -19,9 +19,12 @@ class ChecklistStepRecord(BaseModel):
 
     step_id: str
     task_id: str
+    assigned_worker_id: str | None = None
     status: ChecklistStatus = ChecklistStatus.PENDING
     note: str | None = Field(default=None, max_length=500)
     updated_at: datetime = Field(default_factory=utc_now)
+    # Set when the step last became COMPLETED; None otherwise.
+    completed_at: datetime | None = None
 
 
 class ChecklistStepUpdate(BaseModel):

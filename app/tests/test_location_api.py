@@ -11,6 +11,7 @@ from app.tests.conftest import (
     location_records,
     make_task,
     post_action,
+    set_status,
 )
 
 
@@ -32,7 +33,6 @@ def task_body(client, task_id="TASK-001"):
 
 @pytest.fixture
 def accepted(client):
-    post_action(client, "TASK-001", "accept")
     return client
 
 
@@ -56,9 +56,16 @@ def test_valid_arrival(accepted):
     assert event["worker_id"] == "worker-001"
     assert event["received_at_server"]
 
-    assert task_body(accepted)["arrival_location_event_id"] == (
+    details = task_body(accepted)
+    assert details["arrival_location_event_id"] == (
         event["location_event_id"]
     )
+    assert details["arrival_location_accepted"] is True
+    assert details["accepted_arrival_location"]["location_event_id"] == (
+        event["location_event_id"]
+    )
+    assert details["accepted_arrival_location"]["latitude"] == 23.2599
+    assert details["accepted_arrival_location"]["longitude"] == 77.4126
 
 
 def test_valid_completion_location(in_progress):
@@ -178,6 +185,9 @@ def test_invalid_event_type(accepted, event_type):
 
 
 def test_event_type_must_match_endpoint(in_progress):
+    # Starting the task already recorded its arrival.
+    existing = location_records(in_progress)
+
     wrong_arrival = in_progress.post(
         f"{API}/TASK-001/arrival", json=location_payload("COMPLETION"),
         headers=AUTH,
@@ -190,7 +200,7 @@ def test_event_type_must_match_endpoint(in_progress):
     assert wrong_arrival.status_code == 422
     assert wrong_arrival.json() == {"detail": "event_type must be ARRIVAL."}
     assert wrong_completion.status_code == 422
-    assert location_records(in_progress) == {}
+    assert location_records(in_progress) == existing
 
 
 def test_extra_fields_rejected(accepted):
@@ -243,10 +253,31 @@ def test_repeated_completion_location_keeps_latest(in_progress):
     )
 
 
-@pytest.mark.parametrize("setup", [[], ["reject"]])
-def test_arrival_not_allowed_before_acceptance_or_after_reject(client, setup):
-    for action in setup:
-        post_action(client, "TASK-001", action)
+def test_inaccurate_completion_location_does_not_replace_accepted_reference(
+    in_progress,
+):
+    first = completion_location(in_progress).json()["location_event"]
+    response = completion_location(in_progress, accuracy_meters=1000)
+
+    assert response.status_code == 200
+    inaccurate = response.json()["location_event"]
+    assert inaccurate["capture_status"] == "INACCURATE"
+    assert inaccurate["latitude"] is None
+    assert inaccurate["longitude"] is None
+    assert task_body(in_progress)["completion_location_event_id"] == (
+        first["location_event_id"]
+    )
+    completion_records = [
+        record
+        for record in location_records(in_progress).values()
+        if record.event_type.value == "COMPLETION"
+    ]
+    assert len(completion_records) == 2
+
+
+@pytest.mark.parametrize("status", ["ASSIGNED", "REJECTED", "BLOCKED"])
+def test_arrival_not_allowed_outside_execution(client, status):
+    set_status(client, "TASK-001", status)
 
     response = arrival(client)
 
@@ -255,7 +286,7 @@ def test_arrival_not_allowed_before_acceptance_or_after_reject(client, setup):
 
 
 @pytest.mark.parametrize(
-    "setup", [["accept", "start"], ["accept", "start", "pause"]]
+    "setup", [["start"], ["start", "pause"]]
 )
 def test_arrival_allowed_during_work(client, setup):
     for action in setup:
@@ -264,10 +295,11 @@ def test_arrival_allowed_during_work(client, setup):
     assert arrival(client).status_code == 200
 
 
-@pytest.mark.parametrize("setup", [[], ["accept"], ["reject"]])
-def test_completion_location_requires_active_work(client, setup):
-    for action in setup:
-        post_action(client, "TASK-001", action)
+@pytest.mark.parametrize(
+    "status", ["ACCEPTED", "ASSIGNED", "REJECTED", "BLOCKED"]
+)
+def test_completion_location_requires_active_work(client, status):
+    set_status(client, "TASK-001", status)
 
     response = completion_location(client)
 

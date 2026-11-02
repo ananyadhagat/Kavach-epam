@@ -14,6 +14,7 @@ from sqlalchemy import (
     String,
     UniqueConstraint,
     func,
+    text,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from sqlalchemy.types import Uuid
@@ -32,8 +33,13 @@ def _in(column: str, values: tuple[str, ...]) -> str:
     return f"{column} IN ({quoted})"
 
 
+# ASSIGNED and REJECTED predate the Dispatch handoff and are kept only so
+# existing rows stay valid; Field Worker no longer moves tasks into them.
 TASK_STATUSES = ("ASSIGNED", "ACCEPTED", "REJECTED", "IN_PROGRESS",
-                 "PAUSED", "COMPLETION_SUBMITTED")
+                 "PAUSED", "BLOCKED", "COMPLETION_SUBMITTED")
+# States a blocked task can return to when it is unblocked.
+BLOCKABLE_STATUSES = ("ACCEPTED", "IN_PROGRESS", "PAUSED")
+BLOCKER_STATUSES = ("OPEN", "RESOLVED")
 TASK_PRIORITIES = ("LOW", "MEDIUM", "HIGH")
 CHECKLIST_STATUSES = ("PENDING", "COMPLETED", "BLOCKED")
 EVIDENCE_TYPES = ("BEFORE", "AFTER")
@@ -41,7 +47,7 @@ EVIDENCE_STATUSES = ("STORED",)
 IMAGE_MIME_TYPES = ("image/jpeg", "image/png", "image/webp")
 LOCATION_EVENT_TYPES = ("ARRIVAL", "COMPLETION")
 CAPTURE_STATUSES = ("CAPTURED", "UNAVAILABLE", "INACCURATE")
-SUBMISSION_STATUSES = ("SUBMITTED_FOR_VERIFICATION",)
+SUBMISSION_STATUSES = ("COMPLETION_SUBMITTED",)
 
 # PostgreSQL double precision accepts NaN and Infinity, and treats NaN as
 # greater than every number. Range checks therefore reject both.
@@ -142,14 +148,24 @@ class ChecklistStepRow(Base):
     position: Mapped[int] = mapped_column(Integer)
     title: Mapped[str] = mapped_column(String(250))
     required: Mapped[bool] = mapped_column(Boolean)
+    # The only worker allowed to update this step.
+    assigned_worker_id: Mapped[str] = mapped_column(
+        String(100), ForeignKey("workers.worker_id")
+    )
     status: Mapped[str] = mapped_column(String(20))
     note: Mapped[str | None] = mapped_column(String(500))
     updated_at: Mapped[datetime] = mapped_column(Timestamp)
+    # When the step last became COMPLETED; AFTER evidence must be newer.
+    completed_at: Mapped[datetime | None] = mapped_column(Timestamp)
 
     __table_args__ = (
         CheckConstraint(_in("status", CHECKLIST_STATUSES),
                         name="status_valid"),
         CheckConstraint("length(step_id) > 0", name="step_id_not_empty"),
+        CheckConstraint(
+            "(status = 'COMPLETED') = (completed_at IS NOT NULL)",
+            name="completed_at_matches_status",
+        ),
         UniqueConstraint("task_id", "position"),
     )
 
@@ -339,8 +355,73 @@ class IdempotencyRecordRow(Base):
     )
 
 
+class TaskBlockerRow(Base):
+    __tablename__ = "task_blockers"
+
+    blocker_id: Mapped[UUID] = mapped_column(Uuid, primary_key=True)
+    task_id: Mapped[str] = mapped_column(
+        String(100), ForeignKey("tasks.task_id")
+    )
+    worker_id: Mapped[str] = mapped_column(
+        String(100), ForeignKey("workers.worker_id")
+    )
+    step_id: Mapped[str | None] = mapped_column(String(100))
+    reason_code: Mapped[str] = mapped_column(String(50))
+    description: Mapped[str] = mapped_column(String(1000))
+    status: Mapped[str] = mapped_column(String(10))
+    previous_status: Mapped[str] = mapped_column(String(30))
+    reported_at: Mapped[datetime] = mapped_column(Timestamp)
+    resolved_at: Mapped[datetime | None] = mapped_column(Timestamp)
+    resolved_by: Mapped[str | None] = mapped_column(String(100))
+    resolution_note: Mapped[str | None] = mapped_column(String(1000))
+
+    __table_args__ = (
+        CheckConstraint(_in("status", BLOCKER_STATUSES), name="status_valid"),
+        CheckConstraint(_in("previous_status", BLOCKABLE_STATUSES),
+                        name="previous_status_valid"),
+        CheckConstraint("reason_code ~ '^[A-Z][A-Z0-9_]*$'",
+                        name="reason_code_format"),
+        CheckConstraint("length(trim(description)) > 0",
+                        name="description_not_blank"),
+        CheckConstraint(
+            "(status = 'RESOLVED') = "
+            "(resolved_at IS NOT NULL AND resolved_by IS NOT NULL)",
+            name="resolution_matches_status",
+        ),
+        # A blocked step must be a step of the same task.
+        ForeignKeyConstraint(
+            ["task_id", "step_id"],
+            ["checklist_steps.task_id", "checklist_steps.step_id"],
+            name="fk_task_blockers_checklist_step",
+        ),
+        # At most one open blocker per task; history is kept as RESOLVED.
+        Index("uq_task_blockers_one_open", "task_id", unique=True,
+              postgresql_where=text("status = 'OPEN'")),
+        Index("ix_task_blockers_status", "status"),
+    )
+
+
+class TaskRejectionRow(Base):
+    __tablename__ = "task_rejections"
+
+    task_id: Mapped[str] = mapped_column(
+        String(100), ForeignKey("tasks.task_id"), primary_key=True
+    )
+    worker_id: Mapped[str] = mapped_column(
+        String(100), ForeignKey("workers.worker_id")
+    )
+    reason: Mapped[str] = mapped_column(String(500))
+    rejected_at: Mapped[datetime] = mapped_column(Timestamp)
+
+    __table_args__ = (
+        CheckConstraint("length(trim(reason)) > 0", name="reason_not_blank"),
+    )
+
+
 # Every application table, in an order safe for TRUNCATE ... CASCADE.
 APP_TABLES = (
+    "task_blockers",
+    "task_rejections",
     "idempotency_records",
     "completion_submission_steps",
     "completion_submission_evidence",

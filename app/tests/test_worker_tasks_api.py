@@ -1,5 +1,7 @@
 import pytest
 
+from app.config import settings
+from app.schemas.worker_task import TaskStatus
 from app.tests.conftest import (
     API,
     AUTH,
@@ -7,6 +9,7 @@ from app.tests.conftest import (
     add_task,
     make_task,
     post_action,
+    set_status,
     task_status,
 )
 
@@ -36,10 +39,22 @@ def test_get_assigned_task(client):
     assert response.status_code == 200
     body = response.json()
     assert body["task_id"] == "TASK-001"
-    assert body["status"] == "ASSIGNED"
+    # This fixture starts in the accepted state for the execution workflow.
+    assert body["status"] == "ACCEPTED"
+    assert body["gps_accuracy_threshold_meters"] == (
+        settings.max_gps_accuracy_meters
+    )
+    assert body["arrival_location_accepted"] is False
+    assert body["completion_location_accepted"] is False
+    assert body["accepted_arrival_location"] is None
+    assert body["latest_arrival_location"] is None
+    assert body["latest_completion_location"] is None
     assert [s["step_id"] for s in body["checklist"]] == [
         "STEP-001", "STEP-002", "STEP-003",
     ]
+    assert {s["assigned_worker_id"] for s in body["checklist"]} == {
+        "worker-001",
+    }
 
 
 def test_get_nonexistent_task(client):
@@ -59,53 +74,95 @@ def test_get_other_workers_task_is_hidden(client):
     assert response.json() == {"detail": "Task not found."}
 
 
-@pytest.mark.parametrize(
-    "action", ["accept", "reject", "start", "resume", "pause"]
-)
+@pytest.mark.parametrize("action", ["start", "resume", "pause"])
 def test_actions_on_other_workers_task_are_rejected(client, action):
     add_task(client, make_task("OTHER-1", worker_id=OTHER_WORKER_ID))
 
     response = post_action(client, "OTHER-1", action)
 
     assert response.status_code == 404
-    assert task_status(client, "OTHER-1") == "ASSIGNED"
+    assert task_status(client, "OTHER-1") == "ACCEPTED"
 
 
-def test_accept_task(client):
-    response = post_action(client, "TASK-001", "accept")
+def test_worker_accepts_own_assigned_task(client):
+    set_status(client, "TASK-001", "ASSIGNED")
+
+    response = client.post(f"{API}/TASK-001/accept", headers=AUTH)
 
     assert response.status_code == 200
-    assert response.json()["message"] == "Task accepted."
     assert response.json()["task"]["status"] == "ACCEPTED"
     assert status_of(client) == "ACCEPTED"
 
 
-def test_reject_task(client):
-    response = post_action(client, "TASK-001", "reject")
+def test_worker_accepts_assigned_task_only_once(client):
+    set_status(client, "TASK-001", "ASSIGNED")
+    assert client.post(f"{API}/TASK-001/accept", headers=AUTH).status_code == 200
+
+    response = client.post(f"{API}/TASK-001/accept", headers=AUTH)
+
+    assert response.status_code == 409
+    assert status_of(client) == "ACCEPTED"
+
+
+def test_worker_cannot_accept_another_workers_task(client):
+    add_task(client, make_task("OTHER-1", worker_id=OTHER_WORKER_ID,
+                               status=TaskStatus.ASSIGNED))
+
+    response = client.post(f"{API}/OTHER-1/accept", headers=AUTH)
+
+    assert response.status_code == 404
+
+
+def test_worker_rejects_assigned_task_with_persisted_reason(client):
+    set_status(client, "TASK-001", "ASSIGNED")
+
+    response = client.post(
+        f"{API}/TASK-001/reject",
+        json={"reason": "Unsafe work area"},
+        headers=AUTH,
+    )
 
     assert response.status_code == 200
-    assert response.json()["task"]["status"] == "REJECTED"
+    body = response.json()
+    assert body["task"]["status"] == "REJECTED"
+    assert body["rejection"]["task_id"] == "TASK-001"
+    assert body["rejection"]["worker_id"] == "worker-001"
+    assert body["rejection"]["reason"] == "Unsafe work area"
+    assert body["rejection"]["rejected_at"]
     assert status_of(client) == "REJECTED"
 
 
-def test_reject_requires_reject_action(client):
+@pytest.mark.parametrize("reason", ["", " ", "x" * 501])
+def test_rejection_requires_valid_reason(client, reason):
+    set_status(client, "TASK-001", "ASSIGNED")
+
     response = client.post(
-        f"{API}/TASK-001/reject", json={"action": "ACCEPT"}, headers=AUTH
+        f"{API}/TASK-001/reject",
+        json={"reason": reason},
+        headers=AUTH,
     )
 
     assert response.status_code == 422
     assert status_of(client) == "ASSIGNED"
 
 
-def test_reject_requires_body(client):
-    response = client.post(f"{API}/TASK-001/reject", headers=AUTH)
+def test_worker_cannot_reject_another_workers_task(client):
+    add_task(client, make_task(
+        "OTHER-1",
+        worker_id=OTHER_WORKER_ID,
+        status=TaskStatus.ASSIGNED,
+    ))
 
-    assert response.status_code == 422
-    assert status_of(client) == "ASSIGNED"
+    response = client.post(
+        f"{API}/OTHER-1/reject",
+        json={"reason": "Not assigned to me"},
+        headers=AUTH,
+    )
+
+    assert response.status_code == 404
 
 
 def test_start_accepted_task(client):
-    post_action(client, "TASK-001", "accept")
 
     response = post_action(client, "TASK-001", "start")
 
@@ -115,7 +172,6 @@ def test_start_accepted_task(client):
 
 
 def test_pause_in_progress_task(client):
-    post_action(client, "TASK-001", "accept")
     post_action(client, "TASK-001", "start")
 
     response = post_action(client, "TASK-001", "pause")
@@ -126,7 +182,7 @@ def test_pause_in_progress_task(client):
 
 
 def test_resume_paused_task(client):
-    for action in ("accept", "start", "pause"):
+    for action in ("start", "pause"):
         post_action(client, "TASK-001", action)
 
     response = post_action(client, "TASK-001", "resume")
@@ -139,7 +195,7 @@ def test_resume_paused_task(client):
 
 def test_start_also_resumes_paused_task(client):
     # Existing behaviour of /start is preserved.
-    for action in ("accept", "start", "pause"):
+    for action in ("start", "pause"):
         post_action(client, "TASK-001", action)
 
     response = post_action(client, "TASK-001", "start")
@@ -149,7 +205,6 @@ def test_start_also_resumes_paused_task(client):
 
 
 def test_resume_does_not_start_an_accepted_task(client):
-    post_action(client, "TASK-001", "accept")
 
     response = post_action(client, "TASK-001", "resume")
 
@@ -161,7 +216,7 @@ def test_resume_does_not_start_an_accepted_task(client):
 def test_updated_at_changes_on_transition(client):
     before = client.get(f"{API}/TASK-001", headers=AUTH).json()["updated_at"]
 
-    after = post_action(client, "TASK-001", "accept").json()["task"]
+    after = post_action(client, "TASK-001", "start").json()["task"]
 
     assert after["updated_at"] > before
 
@@ -169,21 +224,11 @@ def test_updated_at_changes_on_transition(client):
 @pytest.mark.parametrize(
     ("setup", "action", "expected_status"),
     [
-        ([], "start", "ASSIGNED"),
-        ([], "pause", "ASSIGNED"),
-        ([], "resume", "ASSIGNED"),
-        (["accept"], "accept", "ACCEPTED"),
-        (["accept"], "reject", "ACCEPTED"),
-        (["accept"], "pause", "ACCEPTED"),
-        (["accept", "start"], "start", "IN_PROGRESS"),
-        (["accept", "start"], "accept", "IN_PROGRESS"),
-        (["accept", "start"], "reject", "IN_PROGRESS"),
-        (["accept", "start"], "resume", "IN_PROGRESS"),
-        (["accept", "start", "pause"], "pause", "PAUSED"),
-        (["accept", "start", "pause"], "reject", "PAUSED"),
-        (["reject"], "accept", "REJECTED"),
-        (["reject"], "start", "REJECTED"),
-        (["reject"], "reject", "REJECTED"),
+        ([], "pause", "ACCEPTED"),
+        ([], "resume", "ACCEPTED"),
+        (["start"], "start", "IN_PROGRESS"),
+        (["start"], "resume", "IN_PROGRESS"),
+        (["start", "pause"], "pause", "PAUSED"),
     ],
 )
 def test_invalid_transitions_return_409(client, setup, action,
@@ -198,9 +243,21 @@ def test_invalid_transitions_return_409(client, setup, action,
     assert status_of(client) == expected_status
 
 
-@pytest.mark.parametrize(
-    "action", ["accept", "reject", "start", "resume", "pause"]
-)
+@pytest.mark.parametrize("status", ["ASSIGNED", "REJECTED", "BLOCKED"])
+@pytest.mark.parametrize("action", ["start", "pause", "resume"])
+def test_no_worker_action_leaves_non_executable_states(client, status,
+                                                       action):
+    # Legacy ASSIGNED/REJECTED rows stay inert, and only Dispatch or a
+    # Supervisor can move a task out of BLOCKED.
+    set_status(client, "TASK-001", status)
+
+    response = post_action(client, "TASK-001", action)
+
+    assert response.status_code == 409, response.text
+    assert status_of(client) == status
+
+
+@pytest.mark.parametrize("action", ["start", "resume", "pause"])
 def test_actions_on_missing_task_return_404(client, action):
     response = post_action(client, "MISSING", action)
 

@@ -29,12 +29,12 @@ from app.tests.conftest import (
     API,
     AUTH,
     UnsafeTestDatabaseError,
+    assert_safe_server_database,
     assert_safe_test_database,
     count_rows,
     force_status,
     location_payload,
     make_image,
-    post_action,
     prepare_for_completion,
     table_count,
     upload,
@@ -101,9 +101,9 @@ def test_percent_encoded_password_is_decoded():
 
 def test_startup_fails_without_database_url():
     # isolated_settings sets database_url to None.
-    with pytest.raises(DatabaseConfigurationError, match="DATABASE_URL"):
-        with TestClient(app):
-            pass
+    with pytest.raises(DatabaseConfigurationError, match="DATABASE_URL"), \
+            TestClient(app):
+        pass
 
 
 def test_startup_fails_clearly_when_postgres_unreachable(monkeypatch):
@@ -113,9 +113,8 @@ def test_startup_fails_clearly_when_postgres_unreachable(monkeypatch):
     )
     monkeypatch.setattr(settings, "database_connect_timeout_seconds", 2.0)
 
-    with pytest.raises(DatabaseConfigurationError) as exc:
-        with TestClient(app):
-            pass
+    with pytest.raises(DatabaseConfigurationError) as exc, TestClient(app):
+        pass
 
     message = str(exc.value)
     assert "PostgreSQL is unavailable" in message
@@ -131,6 +130,9 @@ def test_startup_fails_clearly_when_postgres_unreachable(monkeypatch):
         ("postgresql://u@localhost/test", None),
         ("postgresql://u@localhost:5432/kavach_test",
          "postgresql://u@localhost:5432/kavach_test"),
+        # Different host spelling, possibly the same server.
+        ("postgresql://u@127.0.0.1:5432/kavach_test",
+         "postgresql://u@localhost:5432/kavach_test"),
     ],
 )
 def test_test_database_guard_refuses_unsafe_targets(test_url, app_url):
@@ -145,6 +147,30 @@ def test_test_database_guard_accepts_test_database():
     assert_safe_test_database(
         parse_database_url("postgresql://u@localhost/kavach_test"),
         parse_database_url("postgresql://u@localhost/kavach"),
+    )
+
+
+@pytest.mark.parametrize(
+    ("server_name", "app_url"),
+    [
+        ("kavach", "postgresql://u@localhost/kavach"),
+        ("kavach", None),
+        ("kavach_testing", None),
+        # The server reports the DATABASE_URL database.
+        ("shared_test", "postgresql://u@other-host/shared_test"),
+    ],
+)
+def test_server_database_guard_refuses_unsafe_targets(server_name, app_url):
+    with pytest.raises(UnsafeTestDatabaseError):
+        assert_safe_server_database(
+            server_name,
+            parse_database_url(app_url) if app_url else None,
+        )
+
+
+def test_server_database_guard_accepts_test_database():
+    assert_safe_server_database(
+        "kavach_test", parse_database_url("postgresql://u@localhost/kavach")
     )
 
 
@@ -256,7 +282,8 @@ def test_full_workflow_persists_across_restart(clean_database, upload_dir):
         assert step_1["note"] == "Bagged waste."
 
         assert count_rows(second, "evidence", task_id="TASK-001") == 2
-        assert count_rows(second, "location_events", task_id="TASK-001") == 2
+        # Arrival captured at start, the explicit arrival, completion.
+        assert count_rows(second, "location_events", task_id="TASK-001") == 3
         assert sorted(p.name for p in upload_dir.iterdir()) == files_before
 
         # Idempotency survives the restart.
@@ -278,7 +305,6 @@ def test_full_workflow_persists_across_restart(clean_database, upload_dir):
 def test_evidence_duplicate_detected_after_restart(clean_database,
                                                    upload_dir):
     with TestClient(app) as first:
-        post_action(first, "TASK-001", "accept")
         original = upload(first, "TASK-001").json()["evidence"]
 
     with TestClient(app) as second:
@@ -362,10 +388,10 @@ async def test_valid_location_row_is_accepted(database):
         ("UPDATE tasks SET completion_submission_id = :id", {"id": uuid4()}),
         ("UPDATE checklist_steps SET status = 'SKIPPED'", {}),
         ("UPDATE checklist_steps SET position = 0", {}),
-        ("INSERT INTO checklist_steps VALUES ('NOPE', 'S', 0, 't', true, "
-         "'PENDING', NULL, now())", {}),
-        ("INSERT INTO workers (worker_id, display_name) VALUES "
-         "('worker-001', 'Duplicate')", {}),
+        (("INSERT INTO checklist_steps VALUES ('NOPE', 'S', 0, 't', true, "
+          "'PENDING', NULL, now())"), {}),
+        (("INSERT INTO workers (worker_id, display_name) VALUES "
+          "('worker-001', 'Duplicate')"), {}),
         ("INSERT INTO workers (worker_id, display_name) VALUES ('', 'x')",
          {}),
     ],
@@ -380,7 +406,7 @@ async def test_task_and_checklist_constraints(database, sql, params):
     assert await table_count(database, "tasks") == 1
     async with database.unit_of_work() as uow:
         task = await uow.tasks.get_for_worker("TASK-001", "worker-001")
-    assert task.status == TaskStatus.ASSIGNED
+    assert task.status == TaskStatus.ACCEPTED
     assert task.location.latitude == 23.2599
 
 
@@ -457,9 +483,16 @@ def test_task_cannot_reference_another_tasks_location(client):
 
 
 def test_submission_cannot_link_another_tasks_evidence(client):
-    from app.tests.conftest import add_task, db_call, make_task
+    from app.tests.conftest import (
+        add_task,
+        complete_checklist,
+        db_call,
+        make_task,
+    )
 
-    add_task(client, make_task("MINE-2", status=TaskStatus.ACCEPTED))
+    # AFTER evidence needs started work with the required checklist done.
+    add_task(client, make_task("MINE-2", status=TaskStatus.IN_PROGRESS))
+    complete_checklist(client, "MINE-2")
     foreign = upload(client, "MINE-2", "AFTER").json()["evidence"]
     claim = prepare_for_completion(client)
     client.post(f"{API}/TASK-001/completion", json=claim,
@@ -486,7 +519,7 @@ def test_one_submission_per_task(client):
         await uow.session.execute(
             text("INSERT INTO completion_submissions VALUES "
                  "(:id, 'TASK-001', 'worker-001', NULL, NULL, "
-                 "'SUBMITTED_FOR_VERIFICATION', now())"),
+                 "'COMPLETION_SUBMITTED', now())"),
             {"id": uuid4()},
         )
 
@@ -516,7 +549,6 @@ async def test_blank_idempotency_key_rejected_by_database(database):
 def test_location_reference_failure_rolls_back_event(client, monkeypatch):
     from app.repositories.task_repository import TaskRepository
 
-    post_action(client, "TASK-001", "accept")
 
     async def failing_reference(self, *_args, **_kwargs):
         raise RuntimeError("simulated failure after event insert")
@@ -545,7 +577,6 @@ def test_failed_completion_validation_leaves_no_rows(client):
 
 
 def test_failed_location_save_leaves_task_unchanged(client, monkeypatch):
-    post_action(client, "TASK-001", "accept")
 
     async def failing_save(self, _record):
         raise RuntimeError("simulated insert failure")
@@ -655,10 +686,17 @@ def test_startup_seeding_follows_configuration(clean_database, monkeypatch):
             assert [t["task_id"] for t in tasks] == ["TASK-001"]
             assert count_rows(client, "checklist_steps") == 3
 
-    # Never seeds in production, even when enabled.
+    # Never seeds in production, even when enabled: production refuses
+    # to start at all until the shared authentication exists.
+    from app.main import AuthenticationConfigurationError
+
     with TestClient(app) as client:
         db_call(client, remove_demo_data)
     monkeypatch.setattr(settings, "app_env", "production")
+    with pytest.raises(AuthenticationConfigurationError), TestClient(app):
+        pass
+    monkeypatch.setattr(settings, "app_env", "test")
+    monkeypatch.setattr(settings, "seed_demo_data", False)
     with TestClient(app) as client:
         assert count_rows(client, "tasks") == 0
 

@@ -2,7 +2,7 @@ import pytest
 
 from app.config import settings
 from app.main import app
-from app.tests.conftest import API, AUTH, DEMO_TOKEN
+from app.tests.conftest import API, AUTH, DEMO_TOKEN, OPERATOR_AUTH
 
 
 def protected_routes() -> list[tuple[str, str]]:
@@ -87,7 +87,7 @@ def test_failed_auth_does_not_change_state(client, method, path):
     client.request(method, path, headers=BAD_HEADERS["wrong_token"])
 
     task = client.get(f"{API}/TASK-001", headers=AUTH).json()
-    assert task["status"] == "ASSIGNED"
+    assert task["status"] == "ACCEPTED"
 
 
 def test_demo_auth_disabled_in_production(client, monkeypatch):
@@ -122,12 +122,66 @@ def test_openapi_declares_bearer_security_scheme(client):
         "description": "Demo worker token (local development only).",
     }
 
+    assert schemes["OperatorBearer"] == {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Demo Dispatch/Supervisor token (local development "
+                       "only).",
+    }
+
     for path, operations in schema["paths"].items():
         if not path.startswith("/api/v1"):
             continue
 
+        expected = ("OperatorBearer" if path.startswith("/api/v1/operator")
+                    else "HTTPBearer")
+
         for operation in operations.values():
-            assert {"HTTPBearer": []} in operation["security"], path
+            assert operation["security"] == [{expected: []}], path
             # The old plain "authorization" header parameter is gone.
             names = [p["name"].lower() for p in operation.get("parameters", [])]
             assert "authorization" not in names, path
+
+
+OPERATOR_ROUTES = [(m, p) for m, p in PROTECTED if p.startswith("/api/v1/operator")]
+WORKER_ROUTES = [(m, p) for m, p in PROTECTED if p.startswith("/api/v1/worker")]
+
+
+def test_route_groups_are_discovered():
+    assert len(OPERATOR_ROUTES) == 2
+    assert len(WORKER_ROUTES) >= 13
+
+
+@pytest.mark.parametrize(("method", "path"), OPERATOR_ROUTES)
+def test_worker_token_cannot_call_operator_routes(client, method, path):
+    # A worker must never be able to unblock their own task.
+    assert client.request(method, path, headers=AUTH).status_code == 401
+
+
+@pytest.mark.parametrize(("method", "path"), WORKER_ROUTES)
+def test_operator_token_cannot_call_worker_routes(client, method, path):
+    response = client.request(method, path, headers=OPERATOR_AUTH)
+
+    assert response.status_code == 401
+
+
+def test_operator_demo_auth_disabled_in_production(client, monkeypatch):
+    monkeypatch.setattr(settings, "app_env", "production")
+
+    response = client.get("/api/v1/operator/blockers", headers=OPERATOR_AUTH)
+
+    assert response.status_code == 401
+    assert "disabled in production" in response.json()["detail"]
+
+
+def test_production_startup_is_refused_without_shared_auth(monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from app.main import AuthenticationConfigurationError
+
+    monkeypatch.setattr(settings, "app_env", "production")
+
+    # Refused before any database connection is attempted.
+    with pytest.raises(AuthenticationConfigurationError,
+                       match="shared KAVACH authentication"), TestClient(app):
+        pass

@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import LocationEventRow
 from app.repositories.task_repository import parse_uuid
-from app.schemas.location_event import LocationEventRecord
+from app.schemas.location_event import LocationEventRecord, LocationEventType
 
 locations_table = LocationEventRow.__table__
 
@@ -73,3 +73,24 @@ class LocationRepository:
         )
 
         return [_to_record(row) for row in rows]
+
+    async def latest_for_task(self, task_id: str) -> list[LocationEventRecord]:
+        latest = []
+        for event_type in LocationEventType:
+            row = (
+                await self.session.execute(
+                    select(locations_table)
+                    .where(
+                        locations_table.c.task_id == task_id,
+                        locations_table.c.event_type == event_type.value,
+                    )
+                    .order_by(
+                        locations_table.c.received_at_server.desc(),
+                        locations_table.c.location_event_id.desc(),
+                    )
+                    .limit(1)
+                )
+            ).first()
+            if row:
+                latest.append(_to_record(row))
+        return latest

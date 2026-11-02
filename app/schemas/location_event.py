@@ -75,3 +75,18 @@ class LocationEventRecord(BaseModel):
 
     captured_at_device: datetime | None = None
     received_at_server: datetime = Field(default_factory=utc_now)
+
+
+class LocationEventSummary(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    location_event_id: str
+    event_type: LocationEventType
+    capture_status: LocationCaptureStatus
+    latitude: float | None = Field(default=None, allow_inf_nan=False)
+    longitude: float | None = Field(default=None, allow_inf_nan=False)
+    accuracy_meters: float | None = Field(default=None, allow_inf_nan=False)
+    captured_at_device: datetime | None = None
+    received_at_server: datetime
+    accepted_for_progress: bool
+    rejection_reason: str | None = None

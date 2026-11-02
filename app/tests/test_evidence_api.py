@@ -10,12 +10,15 @@ from app.schemas.worker_task import TaskStatus
 from app.services.evidence_service import safe_display_filename
 from app.tests.conftest import (
     API,
+    AUTH,
     OTHER_WORKER_ID,
     add_task,
+    complete_checklist,
     evidence_records,
     make_image,
     make_task,
     post_action,
+    set_status,
     upload,
 )
 
@@ -24,7 +27,6 @@ STORAGE_KEY = re.compile(r"^[0-9a-f]{32}\.(jpg|png|webp)$")
 
 @pytest.fixture
 def accepted(client):
-    assert post_action(client, "TASK-001", "accept").status_code == 200
     return client
 
 
@@ -78,13 +80,18 @@ def test_valid_upload(accepted, upload_dir, fmt, mime, suffix):
     assert not any(f.name.startswith(".tmp-") for f in files)
 
 
-@pytest.mark.parametrize("state", [["accept", "start"],
-                                   ["accept", "start", "pause"]])
+@pytest.mark.parametrize("state", [["start"],
+                                   ["start", "pause"]])
 def test_upload_allowed_while_working(client, state):
     for action in state:
         post_action(client, "TASK-001", action)
 
-    assert upload(client, "TASK-001").status_code == 200
+    # Differs from the BEFORE image uploaded by the start helper, so this
+    # stores a new record instead of reusing a duplicate.
+    response = upload(client, "TASK-001", content=make_image(color="red"))
+
+    assert response.status_code == 200
+    assert response.json()["duplicate"] is False
 
 
 def test_file_larger_than_5_mb(accepted, upload_dir):
@@ -104,7 +111,9 @@ def test_size_limit_boundary(accepted, upload_dir, monkeypatch):
     assert upload(accepted, "TASK-001", content=content).status_code == 200
 
     monkeypatch.setattr(settings, "max_image_size_bytes", len(content) - 1)
-    response = upload(accepted, "TASK-001", "AFTER", content=content)
+    # The size limit is checked before duplicate detection, so re-sending
+    # the same image is rejected as oversized rather than reused.
+    response = upload(accepted, "TASK-001", "BEFORE", content=content)
     assert response.status_code == 413
     assert len(evidence_records(accepted)) == 1
 
@@ -249,10 +258,80 @@ def test_upload_to_other_workers_task(client, upload_dir):
     assert_nothing_stored(client, upload_dir)
 
 
-@pytest.mark.parametrize("setup", [[], ["reject"]])
-def test_upload_not_allowed_in_state(client, upload_dir, setup):
-    for action in setup:
-        post_action(client, "TASK-001", action)
+def test_evidence_history_requires_worker_authentication(client):
+    response = client.get(f"{API}/TASK-001/evidence")
+
+    assert response.status_code == 401
+
+
+def test_evidence_history_hides_other_workers_tasks(client):
+    add_task(client, make_task("OTHER-1", worker_id=OTHER_WORKER_ID))
+
+    response = client.get(f"{API}/OTHER-1/evidence",
+                          headers=AUTH)
+
+    assert response.status_code == 404
+
+
+def test_evidence_history_is_empty_for_task_without_evidence(client):
+    response = client.get(f"{API}/TASK-001/evidence",
+                          headers=AUTH)
+
+    assert response.status_code == 200
+    assert response.json() == {"task_id": "TASK-001", "evidence": []}
+
+
+def test_evidence_history_returns_all_records_without_storage_details(client):
+    start_before = upload(client, "TASK-001", "BEFORE").json()["evidence"]
+    before_one = upload(client, "TASK-001", "BEFORE",
+                        content=make_image(color="red")).json()["evidence"]
+    before_two = upload(client, "TASK-001", "BEFORE",
+                        content=make_image(color="blue")).json()["evidence"]
+    assert post_action(client, "TASK-001", "start").status_code == 200
+    complete_checklist(client, "TASK-001")
+    after_one = upload(client, "TASK-001", "AFTER",
+                       content=make_image(color="black")).json()["evidence"]
+    after_two = upload(client, "TASK-001", "AFTER",
+                       content=make_image(color="green")).json()["evidence"]
+
+    response = client.get(f"{API}/TASK-001/evidence",
+                          headers=AUTH)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["task_id"] == "TASK-001"
+    records = body["evidence"]
+    assert {record["evidence_id"] for record in records} == {
+        start_before["evidence_id"],
+        before_one["evidence_id"],
+        before_two["evidence_id"],
+        after_one["evidence_id"],
+        after_two["evidence_id"],
+    }
+    assert len(records) == 5
+    assert [record["evidence_type"] for record in records].count("BEFORE") == 3
+    assert [record["evidence_type"] for record in records].count("AFTER") == 2
+    ordering = [
+        (record["uploaded_at"], record["evidence_id"]) for record in records
+    ]
+    assert ordering == sorted(ordering)
+    assert all(record["status"] == "STORED" for record in records)
+    assert all(set(record) == {
+        "evidence_id",
+        "task_id",
+        "worker_id",
+        "evidence_type",
+        "original_filename",
+        "mime_type",
+        "size_bytes",
+        "status",
+        "uploaded_at",
+    } for record in records)
+
+
+@pytest.mark.parametrize("status", ["ASSIGNED", "REJECTED", "BLOCKED"])
+def test_upload_not_allowed_in_state(client, upload_dir, status):
+    set_status(client, "TASK-001", status)
 
     response = upload(client, "TASK-001")
 
@@ -308,6 +387,9 @@ def test_same_image_as_different_type_is_new_record(accepted, upload_dir):
     content = make_image("PNG")
 
     before = upload(accepted, "TASK-001", "BEFORE", content=content)
+    # AFTER evidence needs started work with the required checklist done.
+    assert post_action(accepted, "TASK-001", "start").status_code == 200
+    complete_checklist(accepted, "TASK-001")
     after = upload(accepted, "TASK-001", "AFTER", content=content)
 
     assert after.json()["duplicate"] is False

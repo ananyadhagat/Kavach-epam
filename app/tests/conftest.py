@@ -33,6 +33,9 @@ from app.schemas.worker_task import (
 
 DEMO_TOKEN = "dev-worker-token"
 AUTH = {"Authorization": f"Bearer {DEMO_TOKEN}"}
+OPERATOR_TOKEN = "dev-operator-token"
+OPERATOR_ID = "operator-demo"
+OPERATOR_AUTH = {"Authorization": f"Bearer {OPERATOR_TOKEN}"}
 WORKER_ID = "worker-001"
 OTHER_WORKER_ID = "worker-002"
 API = "/api/v1/worker/tasks"
@@ -60,14 +63,51 @@ def assert_safe_test_database(test_url: URL, app_url: URL | None) -> None:
             f"got '{test_url.database}'. Refusing to modify it."
         )
 
-    if app_url is not None and (
-        (test_url.host, test_url.port, test_url.database)
-        == (app_url.host, app_url.port, app_url.database)
-    ):
+    # Compared by name only: "localhost" and "127.0.0.1" can be the same
+    # server, so a host/port comparison could miss the same database.
+    if app_url is not None and test_url.database == app_url.database:
         raise UnsafeTestDatabaseError(
-            "TEST_DATABASE_URL points at the same database as DATABASE_URL. "
+            "TEST_DATABASE_URL names the same database as DATABASE_URL. "
             "Refusing to modify it."
         )
+
+
+def assert_safe_server_database(name: str, app_url: URL | None) -> None:
+    """Check the database name reported by the server itself."""
+    if not name.endswith("_test"):
+        raise UnsafeTestDatabaseError(
+            f"Connected database '{name}' is not a test database. "
+            "Refusing to modify it."
+        )
+
+    if app_url is not None and name == app_url.database:
+        raise UnsafeTestDatabaseError(
+            f"Connected database '{name}' is the DATABASE_URL database. "
+            "Refusing to modify it."
+        )
+
+
+def configured_app_url() -> URL | None:
+    if _CONFIGURED_APP_URL is None:
+        return None
+
+    return parse_database_url(_CONFIGURED_APP_URL.get_secret_value())
+
+
+async def verify_test_database_identity(connection) -> None:
+    name = await connection.scalar(text("SELECT current_database()"))
+    assert_safe_server_database(name, configured_app_url())
+
+
+async def _check_test_database_server(raw_url: str) -> None:
+    engine = create_async_engine(parse_database_url(raw_url),
+                                 poolclass=NullPool)
+
+    try:
+        async with engine.connect() as connection:
+            await verify_test_database_identity(connection)
+    finally:
+        await engine.dispose()
 
 
 def require_test_database_url() -> str:
@@ -80,13 +120,10 @@ def require_test_database_url() -> str:
         )
 
     raw = _CONFIGURED_TEST_URL.get_secret_value()
-    app_url = (
-        parse_database_url(_CONFIGURED_APP_URL.get_secret_value())
-        if _CONFIGURED_APP_URL is not None else None
-    )
 
     try:
-        assert_safe_test_database(parse_database_url(raw), app_url)
+        assert_safe_test_database(parse_database_url(raw),
+                                  configured_app_url())
     except UnsafeTestDatabaseError as exc:
         pytest.fail(str(exc), pytrace=False)
 
@@ -99,13 +136,8 @@ async def _reset_database(raw_url: str) -> None:
 
     try:
         async with engine.begin() as connection:
-            # Second, server-side check right before the destructive step.
-            name = await connection.scalar(text("SELECT current_database()"))
-
-            if not name.endswith("_test"):
-                raise UnsafeTestDatabaseError(
-                    f"Connected database '{name}' is not a test database."
-                )
+            # Server-side check again, right before the destructive step.
+            await verify_test_database_identity(connection)
 
             await connection.execute(
                 text(f"TRUNCATE TABLE {', '.join(APP_TABLES)} CASCADE")
@@ -130,7 +162,12 @@ def isolated_settings(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(settings, "app_env", "test")
     monkeypatch.setattr(settings, "demo_worker_token", SecretStr(DEMO_TOKEN))
     monkeypatch.setattr(settings, "demo_worker_id", WORKER_ID)
-    monkeypatch.setattr(settings, "require_arrival_location", False)
+    monkeypatch.setattr(settings, "demo_operator_token",
+                        SecretStr(OPERATOR_TOKEN))
+    monkeypatch.setattr(settings, "demo_operator_id", OPERATOR_ID)
+    # Keep the integration-test baseline empty; individual tests opt in.
+    monkeypatch.setattr(settings, "blocker_reason_codes", ())
+    monkeypatch.setattr(settings, "blocker_reason_codes_approved", False)
     monkeypatch.setattr(settings, "max_gps_accuracy_meters", 100.0)
     monkeypatch.setattr(settings, "max_image_size_bytes", 5 * 1024 * 1024)
     monkeypatch.setattr(settings, "seed_demo_data", False)
@@ -151,6 +188,13 @@ def migrated_test_database() -> str:
     from alembic.config import Config
 
     raw = require_test_database_url()
+
+    # Ask the server which database the URL reaches before migrating it.
+    try:
+        asyncio.run(_check_test_database_server(raw))
+    except UnsafeTestDatabaseError as exc:
+        pytest.fail(str(exc), pytrace=False)
+
     config = Config(str(BASE_DIR / "alembic.ini"))
     config.attributes["database_url"] = raw
     config.attributes["configure_logger"] = False
@@ -218,6 +262,18 @@ async def get_status(database: Database, task_id: str) -> TaskStatus:
             )
         )
     return TaskStatus(value)
+
+
+def set_status(client: TestClient, task_id: str, status: str) -> None:
+    """Test-only shortcut, e.g. for legacy ASSIGNED/REJECTED rows."""
+    async def operation(uow: UnitOfWork) -> None:
+        await uow.session.execute(
+            update(TaskRow.__table__)
+            .where(TaskRow.__table__.c.task_id == task_id)
+            .values(status=status)
+        )
+
+    db_call(client, operation)
 
 
 def task_status(client: TestClient, task_id: str) -> str:
@@ -316,7 +372,8 @@ def make_task(
     worker_id: str = WORKER_ID,
     steps: tuple[str, ...] = ("S1",),
     optional_steps: tuple[str, ...] = (),
-    status: TaskStatus = TaskStatus.ASSIGNED,
+    # Most workflow tests begin after assignment acceptance.
+    status: TaskStatus = TaskStatus.ACCEPTED,
 ) -> WorkerTask:
     checklist = [
         ChecklistDefinition(step_id=s, title=f"Step {s}") for s in steps
@@ -374,24 +431,29 @@ def location_payload(event_type: str = "ARRIVAL", **overrides) -> dict:
     return payload
 
 
+def capture_arrival(client: TestClient, task_id: str, **overrides):
+    return client.post(f"{API}/{task_id}/arrival",
+                       json=location_payload("ARRIVAL", **overrides),
+                       headers=AUTH)
+
+
 def post_action(client: TestClient, task_id: str, action: str):
-    if action == "reject":
-        return client.post(
-            f"{API}/{task_id}/reject", json={"action": "REJECT"}, headers=AUTH
-        )
+    if action == "start":
+        # Starting requires a stored BEFORE image and a captured arrival.
+        # Provide both (a duplicate image is reused; arrival is captured
+        # only if missing). Failures surface through the start call.
+        upload(client, task_id, "BEFORE")
+        task = client.get(f"{API}/{task_id}", headers=AUTH)
+
+        if (task.status_code == 200
+                and task.json()["arrival_location_event_id"] is None):
+            capture_arrival(client, task_id)
 
     return client.post(f"{API}/{task_id}/{action}", headers=AUTH)
 
 
-def prepare_for_completion(client: TestClient, task_id: str = "TASK-001",
-                           with_completion_location: bool = True) -> dict:
-    """Drive a task through the API to a state where completion is valid."""
-    assert post_action(client, task_id, "accept").status_code == 200
-
-    before = upload(client, task_id, "BEFORE")
-    assert before.status_code == 200, before.text
-    assert post_action(client, task_id, "start").status_code == 200
-
+def complete_checklist(client: TestClient, task_id: str) -> None:
+    """Mark every checklist step of an IN_PROGRESS task COMPLETED."""
     task = client.get(f"{API}/{task_id}", headers=AUTH).json()
 
     for step in task["checklist"]:
@@ -402,11 +464,18 @@ def prepare_for_completion(client: TestClient, task_id: str = "TASK-001",
         )
         assert response.status_code == 200, response.text
 
+
+def prepare_for_completion(client: TestClient, task_id: str = "TASK-001",
+                           with_completion_location: bool = True) -> dict:
+    """Drive a task through the API to a state where completion is valid."""
+    before = upload(client, task_id, "BEFORE")
+    assert before.status_code == 200, before.text
+    assert post_action(client, task_id, "start").status_code == 200
+
     after = upload(client, task_id, "AFTER")
     assert after.status_code == 200, after.text
 
     claim = {
-        "checklist_step_ids": [s["step_id"] for s in task["checklist"]],
         "evidence_ids": [
             before.json()["evidence"]["evidence_id"],
             after.json()["evidence"]["evidence_id"],

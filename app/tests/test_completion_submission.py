@@ -18,7 +18,6 @@ async def test_completion_rejected_when_task_not_in_progress(database):
     )
 
     claim = CompletionClaim(
-        checklist_step_ids=["STEP-001"],
         evidence_ids=["before-id", "after-id"],
     )
 
@@ -31,4 +30,4 @@ async def test_completion_rejected_when_task_not_in_progress(database):
         )
 
     assert exc.value.status_code == 409
-    assert await get_status(database, "TASK-001") == TaskStatus.ASSIGNED
+    assert await get_status(database, "TASK-001") == TaskStatus.ACCEPTED

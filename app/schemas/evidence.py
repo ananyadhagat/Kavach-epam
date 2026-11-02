@@ -40,3 +40,24 @@ class EvidenceUploadResponse(BaseModel):
     evidence: EvidenceRecord
     duplicate: bool = False
     message: str
+
+
+class EvidenceHistoryItem(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    evidence_id: str
+    task_id: str
+    worker_id: str
+    evidence_type: EvidenceType
+    original_filename: str
+    mime_type: str
+    size_bytes: int
+    status: EvidenceStatus
+    uploaded_at: datetime
+
+
+class EvidenceHistoryResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    task_id: str
+    evidence: list[EvidenceHistoryItem]

@@ -5,11 +5,12 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from app.schemas.checklist import ChecklistStepUpdate
 from app.schemas.completion import CompletionClaim
-from app.schemas.worker_task import TaskActionRequest, TaskAction
-from app.services.field_work_service import FieldWorkService
+from app.schemas.task_decision import TaskRejectionRequest
+from app.schemas.worker_task import WorkerTaskDetailsResponse
 from app.services.completion_submission_service import (
     CompletionSubmissionService,
 )
+from app.services.field_work_service import FieldWorkService
 
 router = APIRouter(prefix="/worker/tasks", tags=["Worker Tasks"])
 
@@ -71,7 +72,10 @@ async def list_worker_tasks(
     return {"tasks": await service.list_tasks(worker_id)}
 
 
-@router.get("/{task_id}")
+@router.get(
+    "/{task_id}",
+    response_model=WorkerTaskDetailsResponse,
+)
 async def get_worker_task(
     task_id: str,
     worker_id: str = Depends(get_worker_id),
@@ -93,15 +97,23 @@ async def accept_task(
 @router.post("/{task_id}/reject")
 async def reject_task(
     task_id: str,
-    payload: TaskActionRequest,
+    payload: TaskRejectionRequest,
     worker_id: str = Depends(get_worker_id),
     service: FieldWorkService = Depends(get_field_service),
 ):
-    if payload.action != TaskAction.REJECT:
-        raise HTTPException(422, "Action must be REJECT.")
-
-    task = await service.reject_task(task_id, worker_id)
-    return {"task": task, "message": "Task rejected."}
+    task, rejected_at = await service.reject_task(
+        task_id, worker_id, payload.reason
+    )
+    return {
+        "task": task,
+        "rejection": {
+            "task_id": task.task_id,
+            "worker_id": worker_id,
+            "reason": payload.reason,
+            "rejected_at": rejected_at,
+        },
+        "message": "Task rejected and recorded.",
+    }
 
 
 @router.post("/{task_id}/start")

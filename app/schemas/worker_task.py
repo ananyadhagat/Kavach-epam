@@ -9,6 +9,7 @@ from pydantic import (
     StringConstraints,
 )
 
+from app.schemas.location_event import LocationEventSummary
 
 TaskId = Annotated[
     str,
@@ -26,11 +27,13 @@ def utc_now() -> datetime:
 
 
 class TaskStatus(str, Enum):
+    # ASSIGNED tasks are offers awaiting the assigned worker's decision.
     ASSIGNED = "ASSIGNED"
     ACCEPTED = "ACCEPTED"
     REJECTED = "REJECTED"
     IN_PROGRESS = "IN_PROGRESS"
     PAUSED = "PAUSED"
+    BLOCKED = "BLOCKED"
     COMPLETION_SUBMITTED = "COMPLETION_SUBMITTED"
 
 
@@ -38,14 +41,6 @@ class TaskPriority(str, Enum):
     LOW = "LOW"
     MEDIUM = "MEDIUM"
     HIGH = "HIGH"
-
-
-class TaskAction(str, Enum):
-    ACCEPT = "ACCEPT"
-    REJECT = "REJECT"
-    START = "START"
-    PAUSE = "PAUSE"
-    RESUME = "RESUME"
 
 
 class TaskLocation(BaseModel):
@@ -62,6 +57,9 @@ class ChecklistDefinition(BaseModel):
     step_id: str = Field(min_length=1, max_length=100)
     title: str = Field(min_length=1, max_length=250)
     required: bool = True
+    # Only this worker may update the step. None when creating a task
+    # means the task's assigned worker.
+    assigned_worker_id: WorkerId | None = None
 
 
 class WorkerTask(BaseModel):
@@ -88,11 +86,15 @@ class WorkerTask(BaseModel):
     completion_submission_id: str | None = None
 
 
-class TaskActionRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    action: TaskAction
-    reason: str | None = Field(default=None, max_length=500)
+class WorkerTaskDetailsResponse(WorkerTask):
+    arrival_location_accepted: bool
+    completion_location_accepted: bool
+    accepted_arrival_location: LocationEventSummary | None = None
+    latest_arrival_location: LocationEventSummary | None = None
+    latest_completion_location: LocationEventSummary | None = None
+    gps_accuracy_threshold_meters: float = Field(
+        gt=0, allow_inf_nan=False
+    )
 
 
 class WorkerTaskResponse(BaseModel):

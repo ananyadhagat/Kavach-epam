@@ -26,10 +26,9 @@ def raw_location_body(field: str, token: str, event_type="ARRIVAL") -> str:
               "accuracy_meters": "10"}
     values[field] = token
     return (
-        '{"event_type":"%s","capture_status":"CAPTURED",'
-        '"latitude":%s,"longitude":%s,"accuracy_meters":%s}'
-        % (event_type, values["latitude"], values["longitude"],
-           values["accuracy_meters"])
+        f'{{"event_type":"{event_type}","capture_status":"CAPTURED",'
+        f'"latitude":{values["latitude"]},"longitude":{values["longitude"]},'
+        f'"accuracy_meters":{values["accuracy_meters"]}}}'
     )
 
 
@@ -39,7 +38,6 @@ def location_count(client) -> int:
 
 @pytest.fixture
 def in_progress(client):
-    post_action(client, "TASK-001", "accept")
     post_action(client, "TASK-001", "start")
     return client
 
@@ -50,6 +48,8 @@ def in_progress(client):
 def test_non_finite_location_values_return_422_json(in_progress, endpoint,
                                                     field, token):
     event_type = "ARRIVAL" if endpoint == "arrival" else "COMPLETION"
+    # Starting the task already recorded its arrival.
+    existing = location_count(in_progress)
 
     response = in_progress.post(
         f"{API}/TASK-001/{endpoint}",
@@ -63,7 +63,7 @@ def test_non_finite_location_values_return_422_json(in_progress, endpoint,
     assert error["loc"] == ["body", field]
     assert error["type"] == "finite_number"
     assert isinstance(error["input"], str)
-    assert location_count(in_progress) == 0
+    assert location_count(in_progress) == existing
 
 
 def test_non_finite_in_other_fields_returns_valid_json(in_progress):
@@ -81,8 +81,7 @@ def test_non_finite_in_other_fields_returns_valid_json(in_progress):
 def test_non_finite_completion_notes_returns_valid_json(in_progress):
     response = in_progress.post(
         f"{API}/TASK-001/completion",
-        content=b'{"checklist_step_ids":["STEP-001"],'
-                b'"evidence_ids":["a","b"],"notes":Infinity}',
+        content=b'{"evidence_ids":["a","b"],"notes":Infinity}',
         headers={**JSON_HEADERS, "Idempotency-Key": "k1"},
     )
 

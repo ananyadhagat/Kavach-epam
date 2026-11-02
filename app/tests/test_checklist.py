@@ -10,12 +10,12 @@ from app.tests.conftest import (
     count_rows,
     make_task,
     post_action,
+    set_status,
 )
 
 
 @pytest.fixture
 def in_progress(client):
-    post_action(client, "TASK-001", "accept")
     post_action(client, "TASK-001", "start")
     return client
 
@@ -122,11 +122,10 @@ def test_unauthorized_update(in_progress):
 
 
 @pytest.mark.parametrize(
-    "setup", [[], ["accept"], ["accept", "start", "pause"], ["reject"]]
+    "status", ["ACCEPTED", "PAUSED", "BLOCKED", "ASSIGNED", "REJECTED"]
 )
-def test_updates_require_in_progress(client, setup):
-    for action in setup:
-        post_action(client, "TASK-001", action)
+def test_updates_require_in_progress(client, status):
+    set_status(client, "TASK-001", status)
 
     response = patch_step(client)
 

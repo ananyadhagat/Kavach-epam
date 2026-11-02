@@ -1,0 +1,29 @@
+warning: in the working copy of '.env.example', LF will be replaced by CRLF the next time Git touches it
+[1mdiff --git a/.env.example b/.env.example[m
+[1mindex a311262..0e12292 100644[m
+[1m--- a/.env.example[m
+[1m+++ b/.env.example[m
+[36m@@ -25,8 +25,20 @@[m [mDEMO_WORKER_ID=worker-001[m
+ MAX_IMAGE_SIZE_BYTES=5242880[m
+ # IMAGE_STORAGE_DIR=./private_uploads[m
+ [m
+[32m+[m[32m# Demo Dispatch/Supervisor token for resolving blockers (local development[m
+[32m+[m[32m# only). Minimum 8 characters and must differ from DEMO_WORKER_TOKEN.[m
+[32m+[m[32mDEMO_OPERATOR_TOKEN=<choose-a-different-local-token>[m
+[32m+[m[32mDEMO_OPERATOR_ID=operator-demo[m
+[32m+[m
+ # --- Location -----------------------------------------------------------------[m
+[31m-# GPS fixes less accurate than this are stored as INACCURATE.[m
+[32m+[m[32m# GPS fixes less accurate than this are stored as INACCURATE. A captured[m
+[32m+[m[32m# arrival is required to start a task and a captured completion location[m
+[32m+[m[32m# to submit completion.[m
+ MAX_GPS_ACCURACY_METERS=100[m
+[31m-# When true, completion requires a recorded arrival location event.[m
+[31m-REQUIRE_ARRIVAL_LOCATION=false[m
+[32m+[m
+[32m+[m[32m# --- Blockers -----------------------------------------------------------------[m
+[32m+[m[32m# Development has built-in DEV_ACCESS and DEV_EQUIPMENT examples when this[m
+[32m+[m[32m# list is omitted. They are not mentor-approved and must not be used in[m
+[32m+[m[32m# production. Production requires the approved list and explicit approval.[m
+[32m+[m[32m# BLOCKER_REASON_CODES=["<APPROVED_CODE>"][m
+[32m+[m[32mBLOCKER_REASON_CODES_APPROVED=false[m

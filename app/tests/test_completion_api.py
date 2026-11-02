@@ -1,6 +1,5 @@
 import pytest
 
-from app.config import settings
 from app.schemas.worker_task import TaskStatus
 from app.tests.conftest import (
     API,
@@ -59,27 +58,49 @@ def test_valid_completion_claim(ready):
     submission = body["submission"]
     assert submission["task_id"] == "TASK-001"
     assert submission["worker_id"] == "worker-001"
-    assert submission["checklist_step_ids"] == claim["checklist_step_ids"]
+    assert submission["checklist_step_ids"] == []
     assert submission["evidence_ids"] == claim["evidence_ids"]
     assert submission["completion_location_event_id"] == (
         claim["completion_location_event_id"]
     )
     assert submission["notes"] == "All done."
     # A claim is not a verification result.
-    assert submission["status"] == "SUBMITTED_FOR_VERIFICATION"
+    assert submission["status"] == "COMPLETION_SUBMITTED"
 
     task = task_body(client)
     assert task["status"] == "COMPLETION_SUBMITTED"
     assert task["completion_submission_id"] == submission["submission_id"]
 
 
-def test_completion_location_is_optional(client):
+def test_completion_location_is_required(client):
     claim = prepare_for_completion(client, with_completion_location=False)
 
     response = submit(client, claim)
 
-    assert response.status_code == 200
-    assert response.json()["submission"]["completion_location_event_id"] is None
+    assert response.status_code == 422
+    assert "completion location is required" in response.json()["detail"]
+    assert_not_submitted(client)
+
+
+def test_unavailable_completion_location_is_rejected(client):
+    claim = prepare_for_completion(client, with_completion_location=False)
+    unavailable = client.post(
+        f"{API}/TASK-001/completion-location",
+        json=location_payload("COMPLETION", capture_status="UNAVAILABLE",
+                              latitude=None, longitude=None,
+                              accuracy_meters=None),
+        headers=AUTH,
+    )
+    claim["completion_location_event_id"] = (
+        unavailable.json()["location_event"]["location_event_id"]
+    )
+
+    response = submit(client, claim)
+
+    # No exception policy for unavailable GPS has been agreed.
+    assert response.status_code == 422
+    assert "unavailable" in response.json()["detail"]
+    assert_not_submitted(client)
 
 
 @pytest.mark.parametrize(
@@ -87,15 +108,12 @@ def test_completion_location_is_optional(client):
     [
         lambda c: c.update(evidence_ids=c["evidence_ids"][:1]),
         lambda c: c.update(evidence_ids=[c["evidence_ids"][0]] * 2),
-        lambda c: c.update(checklist_step_ids=[]),
-        lambda c: c.update(
-            checklist_step_ids=c["checklist_step_ids"] + ["STEP-001"]
-        ),
+        lambda c: c.update(checklist_step_ids=["STEP-001"]),
         lambda c: c.update(notes="x" * 2001),
         lambda c: c.update(verified=True),
         lambda c: c.update(evidence_ids="not-a-list"),
     ],
-    ids=["one-evidence", "duplicate-evidence", "no-steps", "duplicate-steps",
+    ids=["one-evidence", "duplicate-evidence", "legacy-checklist-field",
          "notes-too-long", "extra-field", "wrong-type"],
 )
 def test_invalid_claim_schema(ready, mutate):
@@ -108,10 +126,9 @@ def test_invalid_claim_schema(ready, mutate):
     assert_not_submitted(client)
 
 
-@pytest.mark.parametrize("field", ["checklist_step_ids", "evidence_ids"])
-def test_missing_required_fields(ready, field):
+def test_missing_evidence_ids(ready):
     client, claim = ready
-    del claim[field]
+    del claim["evidence_ids"]
 
     assert submit(client, claim).status_code == 422
     assert_not_submitted(client)
@@ -124,52 +141,18 @@ def test_empty_body(ready):
     assert_not_submitted(client)
 
 
-def test_incomplete_checklist(client):
-    claim = prepare_for_completion(client)
-    client.patch(f"{API}/TASK-001/checklist/STEP-002",
-                 json={"status": "BLOCKED"}, headers=AUTH)
+def test_required_steps_do_not_block_completion(client):
+    add_task(client, make_task("NO-STEP-REQUIREMENT", steps=("R1", "R2")))
+    claim = prepare_for_completion(client, "NO-STEP-REQUIREMENT")
 
-    response = submit(client, claim)
-
-    assert response.status_code == 422
-    assert "STEP-002 is not completed" in response.json()["detail"]
-    assert_not_submitted(client)
-
-
-def test_required_step_omitted_from_claim(ready):
-    client, claim = ready
-    claim["checklist_step_ids"] = ["STEP-001", "STEP-002"]
-
-    response = submit(client, claim)
-
-    assert response.status_code == 422
-    assert "STEP-003" in response.json()["detail"]
-    assert_not_submitted(client)
-
-
-def test_unknown_step_in_claim(ready):
-    client, claim = ready
-    claim["checklist_step_ids"].append("STEP-999")
-
-    response = submit(client, claim)
-
-    assert response.status_code == 422
-    assert "STEP-999" in response.json()["detail"]
-    assert_not_submitted(client)
-
-
-def test_optional_steps_need_not_be_completed(client):
-    add_task(client, make_task("OPT-1", steps=("R1",),
-                               optional_steps=("O1",)))
-    claim = prepare_for_completion(client, "OPT-1",
-                                   with_completion_location=False)
-    client.patch(f"{API}/OPT-1/checklist/O1", json={"status": "PENDING"},
-                 headers=AUTH)
-    claim["checklist_step_ids"] = ["R1"]
-
-    response = submit(client, claim, url=f"{API}/OPT-1/completion")
+    response = submit(
+        client,
+        claim,
+        url=f"{API}/NO-STEP-REQUIREMENT/completion",
+    )
 
     assert response.status_code == 200, response.text
+    assert response.json()["submission"]["checklist_step_ids"] == []
 
 
 def test_missing_after_evidence(client):
@@ -212,9 +195,10 @@ def test_unknown_evidence_id(ready):
 
 def test_evidence_from_another_task(client):
     add_task(client, make_task("MINE-2"))
-    post_action(client, "MINE-2", "accept")
+    post_action(client, "MINE-2", "start")
     foreign = upload(client, "MINE-2", "AFTER",
                      content=make_image("PNG", color="purple"))
+    assert foreign.status_code == 200, foreign.text
     claim = prepare_for_completion(client)
     claim["evidence_ids"][1] = foreign.json()["evidence"]["evidence_id"]
 
@@ -266,7 +250,6 @@ def test_nonexistent_completion_location(ready):
 
 def test_completion_location_from_another_task(client):
     add_task(client, make_task("MINE-2"))
-    post_action(client, "MINE-2", "accept")
     post_action(client, "MINE-2", "start")
     foreign = client.post(f"{API}/MINE-2/completion-location",
                           json=location_payload("COMPLETION"), headers=AUTH)
@@ -396,27 +379,32 @@ def test_paused_task_cannot_submit(ready):
     assert idempotency_records(client) == {}
 
 
-def test_arrival_required_by_configuration(ready, monkeypatch):
+def test_arrival_is_recorded_before_work_starts(ready):
     client, claim = ready
-    monkeypatch.setattr(settings, "require_arrival_location", True)
 
-    response = submit(client, claim)
+    assert task_body(client)["arrival_location_event_id"] is not None
+    assert submit(client, claim).status_code == 200
+
+
+def test_completion_requires_arrival(client):
+    # e.g. a task started before arrival became a start prerequisite
+    add_task(client, make_task("LEGACY-1", status=TaskStatus.IN_PROGRESS))
+    before = upload(client, "LEGACY-1", "BEFORE")
+    after = upload(client, "LEGACY-1", "AFTER")
+    location = client.post(f"{API}/LEGACY-1/completion-location",
+                           json=location_payload("COMPLETION"), headers=AUTH)
+    claim = {
+        "evidence_ids": [before.json()["evidence"]["evidence_id"],
+                         after.json()["evidence"]["evidence_id"]],
+        "completion_location_event_id":
+            location.json()["location_event"]["location_event_id"],
+    }
+
+    response = submit(client, claim, url=f"{API}/LEGACY-1/completion")
 
     assert response.status_code == 422
     assert "Arrival location is required" in response.json()["detail"]
-    assert_not_submitted(client)
-
-    client.post(f"{API}/TASK-001/arrival",
-                json=location_payload("ARRIVAL"), headers=AUTH)
-
-    assert submit(client, claim).status_code == 200
-
-
-def test_arrival_not_required_by_default(ready):
-    client, claim = ready
-
-    assert task_body(client)["arrival_location_event_id"] is None
-    assert submit(client, claim).status_code == 200
+    assert task_status(client, "LEGACY-1") == "IN_PROGRESS"
 
 
 def test_task_is_locked_after_submission(ready):

@@ -5,6 +5,15 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.exc import IntegrityError
 
+from app.api.blocker_routes import (
+    operator_router as operator_blocker_router,
+)
+from app.api.blocker_routes import (
+    reason_codes_router as blocker_reason_codes_router,
+)
+from app.api.blocker_routes import (
+    worker_router as worker_blocker_router,
+)
 from app.api.error_handlers import (
     DATABASE_UNAVAILABLE_ERRORS,
     database_unavailable_handler,
@@ -17,6 +26,7 @@ from app.api.worker_task_routes import router as worker_router
 from app.config import settings
 from app.db.database import Database
 from app.db.seed import seed_demo_data
+from app.services.blocker_service import BlockerService
 from app.services.completion_submission_service import (
     CompletionSubmissionService,
 )
@@ -27,8 +37,22 @@ from app.services.task_state_service import TaskStateService
 from app.storage.image_storage import ImageStorage
 
 
+class AuthenticationConfigurationError(RuntimeError):
+    """Raised when production starts without real authentication."""
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Only demo authentication exists until the shared KAVACH identity
+    # integration is available, and demo tokens are refused in production.
+    # Fail at startup instead of serving an API nobody can use securely.
+    if settings.app_env == "production":
+        raise AuthenticationConfigurationError(
+            "Production requires the shared KAVACH authentication "
+            "integration, which is not configured. Demo authentication is "
+            "for development and tests only."
+        )
+
     # PostgreSQL is required. Startup fails with a clear message when it
     # is not configured, unreachable or not migrated; there is no fallback.
     database = await Database.connect(settings)
@@ -61,6 +85,11 @@ async def lifespan(app: FastAPI):
             state_service,
         )
 
+        app.state.blocker_service = BlockerService(
+            unit_of_work,
+            state_service,
+        )
+
         yield
     finally:
         await database.dispose()
@@ -69,7 +98,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title=settings.app_name,
     version=settings.app_version,
-    description="KAVACH Field Worker Execution Agent API",
+    description="KAVACH Field Worker Execution Task API",
     lifespan=lifespan,
 )
 
@@ -98,6 +127,18 @@ app.include_router(
 )
 app.include_router(
     location_router,
+    prefix=settings.api_prefix,
+)
+app.include_router(
+    worker_blocker_router,
+    prefix=settings.api_prefix,
+)
+app.include_router(
+    blocker_reason_codes_router,
+    prefix=settings.api_prefix,
+)
+app.include_router(
+    operator_blocker_router,
     prefix=settings.api_prefix,
 )
 

@@ -6,7 +6,6 @@ from uuid import uuid4
 from fastapi import HTTPException
 from sqlalchemy.exc import IntegrityError
 
-from app.config import settings
 from app.db.database import UnitOfWork
 from app.schemas.completion import (
     CompletionClaim,
@@ -104,7 +103,6 @@ class CompletionSubmissionService:
                     "Task must be IN_PROGRESS before completion submission.",
                 )
 
-            checklist_states = await uow.tasks.get_checklist_states(task_id)
             evidence_records = await uow.evidence.list_for_task(task_id)
 
             location = None
@@ -123,12 +121,9 @@ class CompletionSubmissionService:
             try:
                 validate_completion(
                     task=task,
-                    checklist_states=checklist_states,
                     evidence_records=evidence_records,
                     completion_location=location,
-                    submitted_step_ids=claim.checklist_step_ids,
                     submitted_evidence_ids=claim.evidence_ids,
-                    require_arrival_location=settings.require_arrival_location,
                 )
             except CompletionValidationError as exc:
                 raise HTTPException(422, str(exc)) from exc
@@ -137,7 +132,7 @@ class CompletionSubmissionService:
                 submission_id=str(uuid4()),
                 task_id=task_id,
                 worker_id=worker_id,
-                checklist_step_ids=claim.checklist_step_ids,
+                checklist_step_ids=[],
                 evidence_ids=claim.evidence_ids,
                 completion_location_event_id=(
                     location.location_event_id if location else None

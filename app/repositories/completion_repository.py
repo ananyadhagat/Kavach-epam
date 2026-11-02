@@ -57,20 +57,23 @@ class CompletionRepository:
             ],
         )
 
-        await self.session.execute(
-            submission_steps_table.insert(),
-            [
-                {
-                    "submission_id": submission_id,
-                    "step_id": step_id,
-                    "task_id": submission.task_id,
-                    "position": position,
-                }
-                for position, step_id in enumerate(
-                    submission.checklist_step_ids
-                )
-            ],
-        )
+        # New submissions omit checklist links; retain support for historical
+        # records read from the compatibility response model.
+        if submission.checklist_step_ids:
+            await self.session.execute(
+                submission_steps_table.insert(),
+                [
+                    {
+                        "submission_id": submission_id,
+                        "step_id": step_id,
+                        "task_id": submission.task_id,
+                        "position": position,
+                    }
+                    for position, step_id in enumerate(
+                        submission.checklist_step_ids
+                    )
+                ],
+            )
 
         await self.session.execute(
             idempotency_table.insert().values(

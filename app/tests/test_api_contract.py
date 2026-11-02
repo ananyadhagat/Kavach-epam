@@ -1,6 +1,6 @@
 import pytest
 
-from app.tests.conftest import API, AUTH
+from app.tests.conftest import API, AUTH, post_action
 
 EXPECTED_OPERATIONS = {
     ("get", "/health"),
@@ -14,9 +14,15 @@ EXPECTED_OPERATIONS = {
     ("get", "/api/v1/worker/tasks/{task_id}/checklist"),
     ("patch", "/api/v1/worker/tasks/{task_id}/checklist/{step_id}"),
     ("post", "/api/v1/worker/tasks/{task_id}/completion"),
+    ("get", "/api/v1/worker/tasks/{task_id}/evidence"),
     ("post", "/api/v1/worker/tasks/{task_id}/evidence"),
     ("post", "/api/v1/worker/tasks/{task_id}/arrival"),
     ("post", "/api/v1/worker/tasks/{task_id}/completion-location"),
+    ("post", "/api/v1/worker/tasks/{task_id}/blockers"),
+    ("get", "/api/v1/worker/tasks/{task_id}/blockers"),
+    ("get", "/api/v1/worker/blockers/reason-codes"),
+    ("get", "/api/v1/operator/blockers"),
+    ("post", "/api/v1/operator/tasks/{task_id}/unblock"),
 }
 
 
@@ -48,7 +54,7 @@ def test_openapi_request_bodies(schema):
         return body["content"][content]["schema"]["$ref"].rsplit("/", 1)[-1]
 
     base = "/api/v1/worker/tasks/{task_id}"
-    assert body_ref(f"{base}/reject", "post") == "TaskActionRequest"
+    assert body_ref(f"{base}/blockers", "post") == "BlockerReport"
     assert body_ref(f"{base}/checklist/{{step_id}}", "patch") == (
         "ChecklistStepUpdate"
     )
@@ -60,6 +66,14 @@ def test_openapi_request_bodies(schema):
     assert "multipart/form-data" in (
         paths[f"{base}/evidence"]["post"]["requestBody"]["content"]
     )
+    evidence_response = paths[f"{base}/evidence"]["get"]["responses"]["200"][
+        "content"
+    ]["application/json"]["schema"]["$ref"].rsplit("/", 1)[-1]
+    assert evidence_response == "EvidenceHistoryResponse"
+    completion_claim = schema["components"]["schemas"]["CompletionClaim"]
+    assert set(completion_claim["properties"]) == {
+        "evidence_ids", "completion_location_event_id", "notes",
+    }
 
 
 def test_completion_requires_idempotency_header(schema):
@@ -81,7 +95,7 @@ def test_health_is_public(schema):
     [
         ("put", f"{API}/TASK-001"),
         ("delete", f"{API}/TASK-001"),
-        ("get", f"{API}/TASK-001/accept"),
+        ("get", f"{API}/TASK-001/start"),
         ("post", f"{API}/TASK-001/checklist/STEP-001"),
         ("get", f"{API}/TASK-001/completion"),
     ],
@@ -110,14 +124,14 @@ def test_list_response_structure(client):
 
 
 def test_action_response_structure(client):
-    body = client.post(f"{API}/TASK-001/accept", headers=AUTH).json()
+    body = post_action(client, "TASK-001", "start").json()
 
     assert set(body) == {"task", "message"}
 
 
 def test_validation_error_structure(client):
-    client.post(f"{API}/TASK-001/accept", headers=AUTH)
-    client.post(f"{API}/TASK-001/start", headers=AUTH)
+    # The helper provides the BEFORE image and arrival that start needs.
+    assert post_action(client, "TASK-001", "start").status_code == 200
 
     response = client.patch(f"{API}/TASK-001/checklist/STEP-001",
                             json={"status": "NOPE"}, headers=AUTH)
@@ -133,13 +147,13 @@ def test_business_error_structure(client):
 
     assert response.status_code == 409
     assert response.json() == {
-        "detail": "Transition ASSIGNED -> PAUSED is not allowed."
+        "detail": "Transition ACCEPTED -> PAUSED is not allowed."
     }
 
 
 def test_malformed_json_returns_422(client):
     response = client.post(
-        f"{API}/TASK-001/reject", content=b"{not json",
+        f"{API}/TASK-001/blockers", content=b"{not json",
         headers={**AUTH, "Content-Type": "application/json"},
     )
 

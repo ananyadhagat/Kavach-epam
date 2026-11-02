@@ -7,6 +7,7 @@ from fastapi import HTTPException, UploadFile
 from app.config import settings
 from app.db.database import UnitOfWork
 from app.schemas.evidence import (
+    EvidenceHistoryItem,
     EvidenceRecord,
     EvidenceType,
 )
@@ -17,7 +18,6 @@ from app.validators.image_validator import (
     validate_image,
 )
 
-
 MIME_SUFFIXES = {
     "image/jpeg": ".jpg",
     "image/png": ".png",
@@ -25,9 +25,15 @@ MIME_SUFFIXES = {
 }
 
 UPLOAD_STATES = {
-    TaskStatus.ACCEPTED,
-    TaskStatus.IN_PROGRESS,
-    TaskStatus.PAUSED,
+    EvidenceType.BEFORE: {
+        TaskStatus.ACCEPTED,
+        TaskStatus.IN_PROGRESS,
+        TaskStatus.PAUSED,
+    },
+    # AFTER evidence documents finished work, so only active work qualifies.
+    EvidenceType.AFTER: {
+        TaskStatus.IN_PROGRESS,
+    },
 }
 
 
@@ -42,14 +48,15 @@ def safe_display_filename(filename: str | None) -> str:
 
 
 async def _require_uploadable_task(uow: UnitOfWork, task_id: str,
-                                   worker_id: str, for_update: bool = False):
+                                   worker_id: str, evidence_type: EvidenceType,
+                                   for_update: bool = False):
     task = await uow.tasks.get_for_worker(task_id, worker_id,
                                           for_update=for_update)
 
     if task is None:
         raise HTTPException(404, "Task not found.")
 
-    if task.status not in UPLOAD_STATES:
+    if task.status not in UPLOAD_STATES[evidence_type]:
         raise HTTPException(
             409,
             "Evidence cannot be uploaded in this task state.",
@@ -67,6 +74,30 @@ class EvidenceService:
         self.unit_of_work = unit_of_work
         self.storage = storage
 
+    async def list_for_task(
+        self, task_id: str, worker_id: str
+    ) -> list[EvidenceHistoryItem]:
+        async with self.unit_of_work() as uow:
+            if await uow.tasks.get_for_worker(task_id, worker_id) is None:
+                raise HTTPException(404, "Task not found.")
+
+            records = await uow.evidence.list_for_task(task_id)
+
+        return [
+            EvidenceHistoryItem(
+                evidence_id=record.evidence_id,
+                task_id=record.task_id,
+                worker_id=record.worker_id,
+                evidence_type=record.evidence_type,
+                original_filename=record.original_filename,
+                mime_type=record.mime_type,
+                size_bytes=record.size_bytes,
+                status=record.status,
+                uploaded_at=record.uploaded_at,
+            )
+            for record in records
+        ]
+
     async def upload(
         self,
         task_id: str,
@@ -74,8 +105,11 @@ class EvidenceService:
         evidence_type: EvidenceType,
         file: UploadFile,
     ):
+        # Early check so a rejected upload is not read or validated. The
+        # checks are repeated under the task row lock below.
         async with self.unit_of_work() as uow:
-            await _require_uploadable_task(uow, task_id, worker_id)
+            await _require_uploadable_task(uow, task_id, worker_id,
+                                           evidence_type)
 
         # Read at most one byte past the limit so oversized uploads are
         # rejected without loading the whole body into memory.
@@ -95,8 +129,12 @@ class EvidenceService:
 
         digest = hashlib.sha256(content).hexdigest()
 
-        # Check for an exact duplicate before writing another file.
+        # Check for an exact duplicate before writing another file. The
+        # task-state check runs again under the row lock, so an identical
+        # image cannot bypass the current upload rules.
         async with self.unit_of_work() as uow:
+            await _require_uploadable_task(uow, task_id, worker_id,
+                                           evidence_type, for_update=True)
             existing = await uow.evidence.find_duplicate(
                 task_id, worker_id, digest, evidence_type
             )
@@ -128,7 +166,7 @@ class EvidenceService:
                 # Re-check under a row lock: the task may have changed
                 # state (e.g. completion submitted) since the first check.
                 await _require_uploadable_task(uow, task_id, worker_id,
-                                               for_update=True)
+                                               evidence_type, for_update=True)
                 saved, duplicate = await uow.evidence.save_or_get_duplicate(
                     record
                 )

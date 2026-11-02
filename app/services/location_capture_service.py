@@ -44,6 +44,17 @@ class LocationCaptureService:
                         "Arrival location cannot be recorded in this task state.",
                     )
 
+                if task.arrival_location_event_id:
+                    accepted_event = await uow.locations.get(
+                        task.arrival_location_event_id
+                    )
+                    if (
+                        accepted_event is not None
+                        and accepted_event.capture_status
+                        == LocationCaptureStatus.CAPTURED
+                    ):
+                        return accepted_event
+
             elif payload.event_type == LocationEventType.COMPLETION:
                 if task.status not in {
                     TaskStatus.IN_PROGRESS,
@@ -85,15 +96,16 @@ class LocationCaptureService:
 
             saved = await uow.locations.save(record)
 
-            if payload.event_type == LocationEventType.ARRIVAL:
-                await uow.tasks.set_task_references(
-                    task_id,
-                    arrival_location_event_id=saved.location_event_id,
-                )
-            else:
-                await uow.tasks.set_task_references(
-                    task_id,
-                    completion_location_event_id=saved.location_event_id,
-                )
+            if capture_status == LocationCaptureStatus.CAPTURED:
+                if payload.event_type == LocationEventType.ARRIVAL:
+                    await uow.tasks.set_task_references(
+                        task_id,
+                        arrival_location_event_id=saved.location_event_id,
+                    )
+                else:
+                    await uow.tasks.set_task_references(
+                        task_id,
+                        completion_location_event_id=saved.location_event_id,
+                    )
 
             return saved

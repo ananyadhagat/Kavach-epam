@@ -2,11 +2,16 @@ from collections import defaultdict
 from datetime import datetime, timezone
 from uuid import UUID
 
-from sqlalchemy import Row, select, update
+from sqlalchemy import Row, case, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models import ChecklistStepRow, TaskRow, WorkerRow
+from app.db.models import (
+    ChecklistStepRow,
+    TaskRejectionRow,
+    TaskRow,
+    WorkerRow,
+)
 from app.schemas.checklist import ChecklistStatus, ChecklistStepRecord
 from app.schemas.worker_task import (
     ChecklistDefinition,
@@ -18,6 +23,7 @@ from app.schemas.worker_task import (
 tasks_table = TaskRow.__table__
 steps_table = ChecklistStepRow.__table__
 workers_table = WorkerRow.__table__
+task_rejections_table = TaskRejectionRow.__table__
 
 
 def utc_now() -> datetime:
@@ -58,6 +64,7 @@ def _to_task(row: Row, steps: list[Row]) -> WorkerTask:
                 step_id=step.step_id,
                 title=step.title,
                 required=step.required,
+                assigned_worker_id=step.assigned_worker_id,
             )
             for step in steps
         ],
@@ -75,9 +82,11 @@ def _to_step_record(row: Row) -> ChecklistStepRecord:
     return ChecklistStepRecord(
         step_id=row.step_id,
         task_id=row.task_id,
+        assigned_worker_id=row.assigned_worker_id,
         status=row.status,
         note=row.note,
         updated_at=row.updated_at,
+        completed_at=row.completed_at,
     )
 
 
@@ -118,10 +127,15 @@ class TaskRepository:
         if await self.task_exists(task.task_id):
             raise ValueError(f"Task {task.task_id} already exists.")
 
-        if not await self.worker_exists(task.assigned_worker_id):
-            raise ValueError(
-                f"Worker {task.assigned_worker_id} does not exist."
-            )
+        # Steps without an explicit owner belong to the task's worker.
+        owners = {
+            step.step_id: step.assigned_worker_id or task.assigned_worker_id
+            for step in task.checklist
+        }
+
+        for worker_id in {task.assigned_worker_id, *owners.values()}:
+            if not await self.worker_exists(worker_id):
+                raise ValueError(f"Worker {worker_id} does not exist.")
 
         await self.session.execute(
             tasks_table.insert().values(
@@ -150,9 +164,11 @@ class TaskRepository:
                         "position": position,
                         "title": step.title,
                         "required": step.required,
+                        "assigned_worker_id": owners[step.step_id],
                         "status": ChecklistStatus.PENDING.value,
                         "note": None,
                         "updated_at": task.created_at,
+                        "completed_at": None,
                     }
                     for position, step in enumerate(task.checklist)
                 ],
@@ -188,6 +204,17 @@ class TaskRepository:
             )
         ).first()
 
+        return (await self._to_tasks([row]))[0] if row else None
+
+    async def get(self, task_id: str,
+                  for_update: bool = False) -> WorkerTask | None:
+        """Any task by ID. Worker-facing code must use get_for_worker."""
+        statement = select(tasks_table).where(tasks_table.c.task_id == task_id)
+
+        if for_update:
+            statement = statement.with_for_update()
+
+        row = (await self.session.execute(statement)).first()
         return (await self._to_tasks([row]))[0] if row else None
 
     async def list_for_worker(self, worker_id: str) -> list[WorkerTask]:
@@ -251,6 +278,20 @@ class TaskRepository:
 
         return (await self._to_tasks([row]))[0] if row else None
 
+    async def record_rejection(
+        self, task_id: str, worker_id: str, reason: str
+    ) -> datetime:
+        rejected_at = utc_now()
+        await self.session.execute(
+            task_rejections_table.insert().values(
+                task_id=task_id,
+                worker_id=worker_id,
+                reason=reason,
+                rejected_at=rejected_at,
+            )
+        )
+        return rejected_at
+
     async def update_checklist(
         self,
         task_id: str,
@@ -258,6 +299,23 @@ class TaskRepository:
         status: ChecklistStatus,
         note: str | None = None,
     ) -> ChecklistStepRecord | None:
+        now = utc_now()
+
+        # completed_at records when the step became COMPLETED. Re-saving a
+        # COMPLETED step (e.g. a new note) keeps the original time; leaving
+        # COMPLETED clears it.
+        if status == ChecklistStatus.COMPLETED:
+            completed_at = case(
+                (
+                    (steps_table.c.status == ChecklistStatus.COMPLETED.value)
+                    & steps_table.c.completed_at.is_not(None),
+                    steps_table.c.completed_at,
+                ),
+                else_=now,
+            )
+        else:
+            completed_at = None
+
         row = (
             await self.session.execute(
                 update(steps_table)
@@ -265,7 +323,8 @@ class TaskRepository:
                     steps_table.c.task_id == task_id,
                     steps_table.c.step_id == step_id,
                 )
-                .values(status=status.value, note=note, updated_at=utc_now())
+                .values(status=status.value, note=note, updated_at=now,
+                        completed_at=completed_at)
                 .returning(steps_table)
             )
         ).first()

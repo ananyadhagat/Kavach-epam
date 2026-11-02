@@ -38,11 +38,9 @@ from app.tests.conftest import (
     idempotency_records,
     make_image,
     make_task,
-    post_action,
     prepare_for_completion,
     table_count,
 )
-
 
 # ---------- TaskRepository ----------
 
@@ -132,7 +130,7 @@ async def test_returned_tasks_are_copies(database):
     async with database.unit_of_work() as uow:
         stored = await uow.tasks.get_for_worker("TASK-001", WORKER_ID)
 
-    assert stored.status == TaskStatus.ASSIGNED
+    assert stored.status == TaskStatus.ACCEPTED
     assert len(stored.checklist) == 3
 
 
@@ -140,22 +138,22 @@ async def test_returned_tasks_are_copies(database):
 async def test_update_status_compare_and_set(database):
     async with database.unit_of_work() as uow:
         assert await uow.tasks.update_status(
-            "TASK-001", WORKER_ID, TaskStatus.ACCEPTED, TaskStatus.IN_PROGRESS
+            "TASK-001", WORKER_ID, TaskStatus.PAUSED, TaskStatus.IN_PROGRESS
         ) is None
         assert await uow.tasks.update_status(
-            "TASK-001", OTHER_WORKER_ID, TaskStatus.ASSIGNED,
-            TaskStatus.ACCEPTED,
+            "TASK-001", OTHER_WORKER_ID, TaskStatus.ACCEPTED,
+            TaskStatus.IN_PROGRESS,
         ) is None
 
-    assert await get_status(database, "TASK-001") == TaskStatus.ASSIGNED
+    assert await get_status(database, "TASK-001") == TaskStatus.ACCEPTED
 
     async with database.unit_of_work() as uow:
         updated = await uow.tasks.update_status(
-            "TASK-001", WORKER_ID, TaskStatus.ASSIGNED, TaskStatus.ACCEPTED
+            "TASK-001", WORKER_ID, TaskStatus.ACCEPTED, TaskStatus.IN_PROGRESS
         )
 
-    assert updated.status == TaskStatus.ACCEPTED
-    assert await get_status(database, "TASK-001") == TaskStatus.ACCEPTED
+    assert updated.status == TaskStatus.IN_PROGRESS
+    assert await get_status(database, "TASK-001") == TaskStatus.IN_PROGRESS
 
 
 @pytest.mark.asyncio
@@ -283,7 +281,7 @@ async def test_state_service_detects_concurrent_change(database,
     async with database.unit_of_work() as uow:
         with pytest.raises(HTTPException) as exc:
             await TaskStateService().transition(
-                uow.tasks, "TASK-001", WORKER_ID, TaskStatus.ACCEPTED
+                uow.tasks, "TASK-001", WORKER_ID, TaskStatus.IN_PROGRESS
             )
 
     assert exc.value.status_code == 409
@@ -299,9 +297,11 @@ async def test_concurrent_transitions_only_one_wins(database):
                 uow.tasks, "TASK-001", WORKER_ID, new_status
             )
 
+    # The same transition twice: whichever order the transactions take,
+    # exactly one can succeed.
     results = await asyncio.gather(
-        attempt(TaskStatus.ACCEPTED),
-        attempt(TaskStatus.REJECTED),
+        attempt(TaskStatus.IN_PROGRESS),
+        attempt(TaskStatus.IN_PROGRESS),
         return_exceptions=True,
     )
 
@@ -364,22 +364,35 @@ def test_completion_transition_failure_leaves_no_record(client, monkeypatch):
 
 
 async def _ready_for_completion(database) -> CompletionClaim:
-    """TASK-001 in progress with all steps done and BEFORE/AFTER evidence."""
+    """TASK-001 in progress with BEFORE/AFTER evidence and completion location."""
     await force_status(database, "TASK-001", TaskStatus.IN_PROGRESS)
     before, after = str(uuid4()), str(uuid4())
 
+    arrival, completion = str(uuid4()), str(uuid4())
+
+    def location(event_id, event_type):
+        return LocationEventRecord(
+            location_event_id=event_id, task_id="TASK-001",
+            worker_id=WORKER_ID, event_type=event_type,
+            capture_status=LocationCaptureStatus.CAPTURED,
+            latitude=23.2599, longitude=77.4126, accuracy_meters=10.0,
+        )
+
     async with database.unit_of_work() as uow:
-        for step_id in ("STEP-001", "STEP-002", "STEP-003"):
-            await uow.tasks.update_checklist("TASK-001", step_id,
-                                             ChecklistStatus.COMPLETED)
+        await uow.locations.save(location(arrival, LocationEventType.ARRIVAL))
+        await uow.tasks.set_task_references(
+            "TASK-001", arrival_location_event_id=arrival
+        )
         await uow.evidence.save_or_get_duplicate(
             evidence_record(before, "b" * 64, EvidenceType.BEFORE))
         await uow.evidence.save_or_get_duplicate(
             evidence_record(after, "c" * 64, EvidenceType.AFTER))
+        await uow.locations.save(
+            location(completion, LocationEventType.COMPLETION))
 
     return CompletionClaim(
-        checklist_step_ids=["STEP-001", "STEP-002", "STEP-003"],
         evidence_ids=[before, after],
+        completion_location_event_id=completion,
     )
 
 
@@ -428,7 +441,6 @@ def test_data_persists_across_restarts(clean_database):
     # Reversed from the in-memory era: a new application start now reads
     # the same PostgreSQL data instead of starting empty.
     with TestClient(app) as first:
-        post_action(first, "TASK-001", "accept")
         assert first.get("/api/v1/worker/tasks/TASK-001",
                          headers=AUTH).json()["status"] == "ACCEPTED"
 

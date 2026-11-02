@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import (
 )
 
 from app.config import BASE_DIR, Settings
+from app.repositories.blocker_repository import BlockerRepository
 from app.repositories.completion_repository import CompletionRepository
 from app.repositories.evidence_repository import EvidenceRepository
 from app.repositories.location_repository import LocationRepository
@@ -107,6 +108,7 @@ class UnitOfWork:
         self.evidence = EvidenceRepository(self.session)
         self.locations = LocationRepository(self.session)
         self.completions = CompletionRepository(self.session)
+        self.blockers = BlockerRepository(self.session)
         return self
 
     async def __aexit__(self, exc_type, exc, traceback) -> None:
