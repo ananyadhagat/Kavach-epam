@@ -17,14 +17,21 @@ Boundaries and failure semantics
   :class:`~app.schemas.complaint.Complaint` model and returns the existing
   :class:`~app.schemas.duplicate_response.DuplicateDetectionResponse`. It does
   not define or change either contract.
-* It is transport-free: no FastAPI, HTTP, database or vector-store code.
+* It is transport-free: no FastAPI, HTTP, database or vector-store code. The
+  HTTP edge in :mod:`app.api` calls :meth:`check_detailed` and owns transport
+  mapping.
 * Candidate retrieval is delegated to
-  :class:`~app.repositories.base.ComplaintRepository`. A successful retrieval,
-  including an empty list, is treated as ``RetrievalStatus.COMPLETE``. A
-  :class:`~app.repositories.base.RepositoryError` is deliberately **not**
-  converted into a decision: retrieval failure is an infrastructure failure and
-  propagates to the caller (the future HTTP edge), where it can be mapped to an
-  error response. It is never ``NEW`` and never a fabricated review.
+  :class:`~app.repositories.base.ComplaintRepository`. ``check()`` uses
+  ``list_candidates()`` and treats a successful call as
+  ``RetrievalStatus.COMPLETE``. ``check_detailed()`` uses the
+  completeness-aware ``retrieve_candidates()`` and returns a
+  :class:`DetectionResult` carrying the retrieval outcome.
+* ``check()`` deliberately lets a
+  :class:`~app.repositories.base.RepositoryError` propagate to its caller.
+  ``check_detailed()`` converts a ``RepositoryError`` into ``FAILED`` retrieval
+  with a ``REVIEW_REQUIRED`` result, and lets an unexpected exception such as
+  ``TimeoutError`` propagate so the HTTP edge can return 5xx. Retrieval failure
+  is never ``NEW`` and never a fabricated match.
 * A comparator that raises unexpectedly is isolated as an ``ERROR`` signal with
   reason ``SIGNAL_ERROR_<NAME>``. The signal is excluded from scoring by the
   existing engine; it is never treated as a similarity of zero.
@@ -38,15 +45,24 @@ The service is synchronous because the repository contract is synchronous.
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
+from dataclasses import dataclass
 
 from app.comparators.base import Comparator, error_signal
 from app.comparators.factory import build_core_comparators
 from app.config.settings import DEFAULT_SETTINGS, Settings
-from app.repositories.base import ComplaintRepository, RepositoryError
+from app.repositories.base import (
+    INVALID_RETRIEVAL_RESULT,
+    CandidateRetrieval,
+    ComplaintRepository,
+    RepositoryError,
+    RetrievalFailure,
+    RetrievalOutcome,
+)
 from app.schemas.complaint import Complaint
 from app.schemas.duplicate_response import DuplicateDetectionResponse, SignalResult
 from app.scoring.decision_policy import (
     CandidateScore,
+    DecisionOutcome,
     DecisionPolicy,
     RetrievalStatus,
 )
@@ -61,6 +77,13 @@ SIGNAL_ERROR_PREFIX = "SIGNAL_ERROR_"
 #: Maximum number of characters of an exception message kept in signal details.
 _MAX_ERROR_DETAIL_CHARS = 300
 
+#: Repository completeness -> decision-policy retrieval status.
+_RETRIEVAL_STATUS_BY_OUTCOME: Mapping[RetrievalOutcome, RetrievalStatus] = {
+    RetrievalOutcome.COMPLETE: RetrievalStatus.COMPLETE,
+    RetrievalOutcome.PARTIAL: RetrievalStatus.INCOMPLETE,
+    RetrievalOutcome.FAILED: RetrievalStatus.FAILED,
+}
+
 
 def _short_error(exc: BaseException) -> str:
     """Return a single-line, bounded description of ``exc``."""
@@ -70,6 +93,25 @@ def _short_error(exc: BaseException) -> str:
     if len(message) > _MAX_ERROR_DETAIL_CHARS:
         return message[: _MAX_ERROR_DETAIL_CHARS - 3] + "..."
     return message
+
+
+@dataclass(frozen=True, slots=True)
+class DetectionResult:
+    """A decision plus the retrieval completeness that produced it.
+
+    :meth:`DuplicateDetectionService.check_detailed` returns this richer result
+    so the HTTP layer can distinguish a completed check from a partial or failed
+    one without reinterpreting the decision policy.
+    """
+
+    incident_id: str
+    outcome: DecisionOutcome
+    retrieval_status: RetrievalStatus
+    retrieval_failure: RetrievalFailure | None = None
+
+    def to_response(self) -> DuplicateDetectionResponse:
+        """Adapt the underlying policy outcome to the internal V1 response."""
+        return self.outcome.to_response(self.incident_id)
 
 
 class DuplicateDetectionService:
@@ -166,6 +208,76 @@ class DuplicateDetectionService:
             retrieval_status=RetrievalStatus.COMPLETE,
         )
         return outcome.to_response(complaint.complaint_id)
+
+    def check_detailed(self, complaint: Complaint) -> DetectionResult:
+        """Run detection while preserving retrieval completeness information.
+
+        This is the integration edge for the Agent 3 HTTP contract. Unlike
+        :meth:`check`, it does not assume a successful listing was exhaustive:
+        it asks the repository for an explicit :class:`CandidateRetrieval`.
+
+        A :class:`RepositoryError` becomes a ``FAILED`` retrieval result and is
+        handed to the unchanged decision policy, which returns
+        ``REVIEW_REQUIRED`` rather than ``NEW``. Unexpected exceptions (including
+        timeouts) propagate so the HTTP layer can return a 5xx/timeout instead of
+        fabricating a duplicate-check result.
+
+        Raises
+        ------
+        TypeError:
+            If ``complaint`` is not a :class:`Complaint`.
+        Exception:
+            Any unexpected infrastructure failure other than
+            :class:`RepositoryError` is deliberately propagated.
+        """
+
+        if not isinstance(complaint, Complaint):
+            raise TypeError("complaint must be a Complaint instance")
+
+        try:
+            retrieval = self._repository.retrieve_candidates(
+                exclude_complaint_id=complaint.complaint_id
+            )
+            if not isinstance(retrieval, CandidateRetrieval):
+                raise RepositoryError(
+                    "repository.retrieve_candidates() must return a "
+                    "CandidateRetrieval; got "
+                    f"{type(retrieval).__name__}",
+                    code=INVALID_RETRIEVAL_RESULT,
+                )
+            eligible = self._eligible_candidates(complaint, retrieval.candidates)
+        except RepositoryError as exc:
+            failure = RetrievalFailure(exc.code, _short_error(exc))
+            outcome = self._decision_policy.decide(
+                (),
+                retrieval_status=RetrievalStatus.FAILED,
+            )
+            return DetectionResult(
+                incident_id=complaint.complaint_id,
+                outcome=outcome,
+                retrieval_status=RetrievalStatus.FAILED,
+                retrieval_failure=failure,
+            )
+
+        candidate_scores = [
+            self._score_candidate(complaint, candidate)
+            for candidate in eligible
+        ]
+        retrieval_status = _RETRIEVAL_STATUS_BY_OUTCOME[retrieval.outcome]
+        outcome = self._decision_policy.decide(
+            candidate_scores,
+            retrieval_status=retrieval_status,
+        )
+        return DetectionResult(
+            incident_id=complaint.complaint_id,
+            outcome=outcome,
+            retrieval_status=retrieval_status,
+            retrieval_failure=(
+                retrieval.failures[0]
+                if retrieval.outcome is not RetrievalOutcome.COMPLETE
+                else None
+            ),
+        )
 
     # ------------------------------------------------------------------ #
     # Candidate selection
@@ -339,6 +451,7 @@ class DuplicateDetectionService:
 
 __all__ = [
     "CORE_SIGNAL_NAMES",
+    "DetectionResult",
     "DuplicateDetectionService",
     "SIGNAL_ERROR_PREFIX",
 ]

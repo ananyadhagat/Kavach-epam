@@ -17,7 +17,12 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 
-from app.repositories.base import ComplaintRepository, RepositoryError
+from app.repositories.base import (
+    CandidateRetrieval,
+    ComplaintRepository,
+    RepositoryError,
+    RetrievalOutcome,
+)
 from app.schemas.complaint import Complaint
 
 
@@ -56,6 +61,21 @@ class InMemoryComplaintRepository(ComplaintRepository):
                 continue
             candidates.append(self._records[complaint_id].model_copy(deep=True))
         return candidates
+
+    def retrieve_candidates(
+        self, exclude_complaint_id: str | None = None
+    ) -> CandidateRetrieval:
+        """Return every stored record, excluding the incoming complaint.
+
+        The in-memory store is the entire data set, so a successful listing is
+        exhaustive and can safely be reported as ``COMPLETE``.
+        """
+        return CandidateRetrieval(
+            candidates=tuple(
+                self.list_candidates(exclude_complaint_id=exclude_complaint_id)
+            ),
+            outcome=RetrievalOutcome.COMPLETE,
+        )
 
     def count(self) -> int:
         return len(self._records)

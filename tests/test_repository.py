@@ -4,7 +4,15 @@ from __future__ import annotations
 
 import pytest
 
-from app.repositories.base import ComplaintRepository, RepositoryError
+from app.repositories.base import (
+    RETRIEVAL_COMPLETENESS_UNKNOWN,
+    RETRIEVAL_FAILED,
+    CandidateRetrieval,
+    ComplaintRepository,
+    RepositoryError,
+    RetrievalFailure,
+    RetrievalOutcome,
+)
 from app.repositories.in_memory import InMemoryComplaintRepository
 from app.repositories.synthetic import synthetic_incidents
 from app.schemas.complaint import Complaint
@@ -133,3 +141,104 @@ def test_add_many_seeds_multiple_records():
     )
     assert repo.count() == 2
     assert {c.complaint_id for c in repo.list_candidates()} == {"CMP-A", "CMP-B"}
+
+
+# --------------------------------------------------------------------------- #
+# Retrieval completeness contract
+# --------------------------------------------------------------------------- #
+def test_in_memory_retrieve_candidates_reports_complete(seeded_repository):
+    retrieval = seeded_repository.retrieve_candidates()
+
+    assert isinstance(retrieval, CandidateRetrieval)
+    assert retrieval.outcome is RetrievalOutcome.COMPLETE
+    assert retrieval.failures == ()
+    assert [c.complaint_id for c in retrieval.candidates] == [
+        c.complaint_id for c in seeded_repository.list_candidates()
+    ]
+
+
+def test_in_memory_retrieve_candidates_excludes_self(seeded_repository):
+    retrieval = seeded_repository.retrieve_candidates(
+        exclude_complaint_id="CMP-2026-0101"
+    )
+
+    ids = {c.complaint_id for c in retrieval.candidates}
+    assert "CMP-2026-0101" not in ids
+    assert len(retrieval.candidates) == seeded_repository.count() - 1
+
+
+def test_default_retrieve_candidates_reports_partial_not_complete(
+    seeded_repository,
+):
+    # Invoke the base implementation explicitly: the in-memory repository
+    # overrides it because it can prove exhaustiveness. A generic repository
+    # that only implements list_candidates() must not claim COMPLETE.
+    retrieval = ComplaintRepository.retrieve_candidates(
+        seeded_repository, exclude_complaint_id="CMP-2026-0101"
+    )
+
+    assert retrieval.outcome is RetrievalOutcome.PARTIAL
+    assert len(retrieval.failures) == 1
+    assert retrieval.failures[0].code == RETRIEVAL_COMPLETENESS_UNKNOWN
+    assert retrieval.candidates
+    assert all(
+        candidate.complaint_id != "CMP-2026-0101"
+        for candidate in retrieval.candidates
+    )
+
+
+def test_candidate_retrieval_synthesises_a_failure_for_partial():
+    retrieval = CandidateRetrieval((), RetrievalOutcome.PARTIAL)
+
+    assert retrieval.failures[0].code == RETRIEVAL_COMPLETENESS_UNKNOWN
+
+
+def test_candidate_retrieval_synthesises_a_failure_for_failed():
+    retrieval = CandidateRetrieval((), RetrievalOutcome.FAILED)
+
+    assert retrieval.failures[0].code == RETRIEVAL_FAILED
+
+
+def test_complete_candidate_retrieval_rejects_failures():
+    with pytest.raises(ValueError, match="COMPLETE"):
+        CandidateRetrieval(
+            (),
+            RetrievalOutcome.COMPLETE,
+            (RetrievalFailure(RETRIEVAL_FAILED, "boom"),),
+        )
+
+
+def test_candidate_retrieval_rejects_non_complaint_candidates():
+    with pytest.raises(TypeError, match="Complaint"):
+        CandidateRetrieval(
+            ("not-a-complaint",),  # type: ignore[arg-type]
+            RetrievalOutcome.COMPLETE,
+        )
+
+
+def test_candidate_retrieval_rejects_non_retrieval_outcome():
+    with pytest.raises(TypeError, match="RetrievalOutcome"):
+        CandidateRetrieval((), "COMPLETE")  # type: ignore[arg-type]
+
+
+def test_repository_error_defaults_to_retrieval_failed_code():
+    error = RepositoryError("store unavailable")
+
+    assert error.code == RETRIEVAL_FAILED
+    assert str(error) == "store unavailable"
+
+
+def test_repository_error_accepts_a_machine_readable_code():
+    error = RepositoryError("timed out", code="RETRIEVAL_TIMEOUT")
+
+    assert error.code == "RETRIEVAL_TIMEOUT"
+
+
+def test_repository_error_rejects_a_malformed_code():
+    with pytest.raises(ValueError, match="repository error code"):
+        RepositoryError("boom", code="lowercase-code")
+
+
+def test_retrieval_failure_rejects_a_malformed_code():
+    with pytest.raises(ValueError, match="retrieval failure code"):
+        RetrievalFailure("bad-code", "boom")

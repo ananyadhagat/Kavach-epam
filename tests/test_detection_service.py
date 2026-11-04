@@ -8,9 +8,11 @@ an embedding model or touching the HTTP layer.
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable, Mapping
+from typing import Any
 
 import pytest
 
+from app.adapters.incident_payload import to_complaint
 from app.comparators.base import (
     Comparator,
     available_signal,
@@ -477,6 +479,56 @@ def test_comparator_exception_becomes_error_signal() -> None:
     assert response.signals["text"].details is not None
     assert response.signals["text"].details["error_type"] == "RuntimeError"
     assert response.signals["text"].details["error"] == "inference exploded"
+
+
+# --------------------------------------------------------------------------- #
+# Agent 1 handoff -> service integration
+# --------------------------------------------------------------------------- #
+@pytest.mark.parametrize(
+    "fixture_name",
+    ["complete_contract_payload", "minimal_contract_payload"],
+)
+def test_contract_payload_reaches_service_and_empty_retrieval_is_new(
+    request: pytest.FixtureRequest,
+    fixture_name: str,
+) -> None:
+    payload = request.getfixturevalue(fixture_name)
+    complaint = to_complaint(payload)
+    comparators = _mapping_comparators({})
+    service, repository = _service([], comparators)
+
+    response = service.check(complaint)
+
+    assert response.complaint_id == complaint.complaint_id
+    assert response.decision is Decision.NEW
+    assert response.matched_incident_id is None
+    assert response.score is None
+    assert response.signals == {}
+    assert response.reasons == [REASON_NO_ELIGIBLE_CANDIDATES]
+    assert repository.exclude_calls == [complaint.complaint_id]
+    assert all(comparator.calls == [] for comparator in comparators.values())
+
+
+def test_contract_payload_can_match_an_existing_candidate(
+    complete_contract_payload: dict[str, Any],
+) -> None:
+    complaint = to_complaint(complete_contract_payload)
+    comparators = _mapping_comparators({"CMP-EXISTING": _strong_signals()})
+    service, repository = _service(
+        [_complaint("CMP-EXISTING")],
+        comparators,
+    )
+
+    response = service.check(complaint)
+
+    assert response.complaint_id == "INC-2026-001"
+    assert response.decision is Decision.DUPLICATE
+    assert response.matched_incident_id == "CMP-EXISTING"
+    assert response.score is not None
+    assert response.score >= service.settings.thresholds.high
+    assert response.reasons == [REASON_SCORE_ABOVE_HIGH]
+    assert repository.exclude_calls == ["INC-2026-001"]
+    assert all(len(comparator.calls) == 1 for comparator in comparators.values())
 
 
 # --------------------------------------------------------------------------- #

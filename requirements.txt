@@ -1,12 +1,23 @@
 # KAVACH Duplicate Detection Agent — dependencies.
-# Kept intentionally minimal: no FastAPI (no routes yet), no vector database.
-# scikit-learn provides the lexical TF-IDF baseline; sentence-transformers
-# provides the local semantic embedding text comparator (see
-# docs/duplicate_detection/embedding_comparator.md). The embedding model is
-# downloaded on first use unless already cached; unit tests mock it.
+# FastAPI provides the M3 HTTP edge; uvicorn is the ASGI server. httpx is the
+# test client used by FastAPI's TestClient. scikit-learn provides the lexical
+# TF-IDF baseline; sentence-transformers provides the local semantic embedding
+# text comparator (see docs/duplicate_detection/embedding_comparator.md). The
+# embedding model is downloaded on first use unless already cached; unit tests
+# mock it.
+#
+# SQLAlchemy and Alembic back the optional consolidation service. psycopg2 is
+# the PostgreSQL driver used by the default "postgresql+psycopg2://" URL;
+# SQLite works without it for local demos and tests.
 
 pydantic>=2.6,<3
 pytest>=8.0,<9
+fastapi>=0.115,<1
+httpx>=0.27,<1
+uvicorn>=0.30,<1
 scikit-learn>=1.4,<2
 sentence-transformers>=3.0,<6
 numpy>=1.24,<3
+SQLAlchemy>=2.0,<3
+alembic>=1.13,<2
+psycopg2-binary>=2.9,<3

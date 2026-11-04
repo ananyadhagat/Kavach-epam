@@ -8,7 +8,7 @@ model. It does not re-implement Agent 1's upstream field mapping.
 from __future__ import annotations
 
 from copy import deepcopy
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import pytest
 from pydantic import ValidationError
@@ -51,6 +51,103 @@ def handoff_payload(**overrides):
     }
     payload.update(overrides)
     return payload
+
+
+# --------------------------------------------------------------------------- #
+# Published Agent 1 contract payloads (a1-to-a2-draft-1)
+# --------------------------------------------------------------------------- #
+
+
+def test_complete_contract_payload_maps_to_complaint(
+    complete_contract_payload,
+):
+    complaint = to_complaint(complete_contract_payload)
+
+    assert isinstance(complaint, Complaint)
+    assert complaint.complaint_id == "INC-2026-001"
+    assert complaint.description == (
+        "Garbage is overflowing near the public park entrance."
+    )
+    assert complaint.category == "WASTE_OVERFLOW"
+    assert complaint.location is not None
+    assert complaint.location.facility_id is None
+    assert complaint.location.location_id is None
+    assert complaint.location.latitude == 23.2599
+    assert complaint.location.longitude == 77.4126
+    assert complaint.reported_at == datetime(
+        2026, 10, 31, 18, 30, tzinfo=timezone(timedelta(hours=5, minutes=30))
+    )
+    assert complaint.reported_at.utcoffset() == timedelta(
+        hours=5, minutes=30
+    )
+    assert complaint.image_hash == "a1b2c3d4e5f6"
+    assert not hasattr(complaint, "kavach_agent1")
+
+
+def test_minimal_contract_payload_maps_to_complaint(
+    minimal_contract_payload,
+):
+    complaint = to_complaint(minimal_contract_payload)
+
+    assert isinstance(complaint, Complaint)
+    assert complaint.complaint_id == "INC-2026-002"
+    assert complaint.description == "Streetlight is not working."
+    assert complaint.category == "BROKEN_STREETLIGHT"
+    assert complaint.location is not None
+    assert complaint.location.facility_id is None
+    assert complaint.location.location_id is None
+    assert complaint.location.latitude is None
+    assert complaint.location.longitude is None
+    assert complaint.reported_at == datetime(
+        2026, 10, 31, 19, 0, tzinfo=timezone(timedelta(hours=5, minutes=30))
+    )
+    assert complaint.reported_at.utcoffset() == timedelta(
+        hours=5, minutes=30
+    )
+    assert complaint.image_hash is None
+
+
+def test_complete_contract_payload_is_not_mutated(complete_contract_payload):
+    original = deepcopy(complete_contract_payload)
+
+    to_complaint(complete_contract_payload)
+
+    assert complete_contract_payload == original
+
+
+def test_unknown_nested_kavach_agent1_fields_are_ignored(
+    complete_contract_payload,
+):
+    complete_contract_payload["kavach_agent1"]["future_nested_field"] = {
+        "anything": True,
+    }
+
+    complaint = to_complaint(complete_contract_payload)
+
+    assert complaint.complaint_id == "INC-2026-001"
+
+
+def test_contract_version_is_not_enforced(complete_contract_payload):
+    # Current receiver policy ignores kavach_agent1 wholesale. Whether a
+    # version must be enforced is open question A1-7 in the adapter document.
+    complete_contract_payload["kavach_agent1"]["contract_version"] = (
+        "a1-to-a2-future-version"
+    )
+
+    complaint = to_complaint(complete_contract_payload)
+
+    assert complaint.complaint_id == "INC-2026-001"
+
+
+def test_unknown_top_level_field_on_contract_payload_is_rejected(
+    complete_contract_payload,
+):
+    complete_contract_payload["future_top_level"] = {"nested": True}
+
+    with pytest.raises(IncidentPayloadError) as excinfo:
+        to_complaint(complete_contract_payload)
+
+    assert excinfo.value.unsupported_fields == ("future_top_level",)
 
 
 # --------------------------------------------------------------------------- #
@@ -228,6 +325,25 @@ def test_lone_coordinate_is_rejected():
 )
 def test_invalid_location_is_rejected(location):
     with pytest.raises(ValidationError):
+        to_complaint(handoff_payload(location=location))
+
+
+@pytest.mark.parametrize("axis", ["latitude", "longitude"])
+@pytest.mark.parametrize(
+    "value",
+    [float("nan"), float("inf"), float("-inf")],
+    ids=["nan", "inf", "negative-inf"],
+)
+def test_non_finite_coordinate_is_rejected(axis, value):
+    location = {
+        "facility_id": None,
+        "location_id": None,
+        "latitude": 23.25,
+        "longitude": 77.4,
+    }
+    location[axis] = value
+
+    with pytest.raises(ValidationError, match="finite"):
         to_complaint(handoff_payload(location=location))
 
 

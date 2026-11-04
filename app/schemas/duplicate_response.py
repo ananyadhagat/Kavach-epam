@@ -102,10 +102,12 @@ class SignalResult(BaseModel):
 
 
 class DuplicateDetectionResponse(BaseModel):
-    """Response contract for ``POST /api/v1/duplicate-detection/check`` (V1).
+    """Internal six-field response for ``check()``.
 
-    Additional blocks from Phase 1 (``candidates``, ``search``, ``policy``,
-    ``request_id``) are intentionally deferred to a later phase.
+    Additional Phase 1 blocks (``candidates``, ``search``, ``policy``,
+    ``request_id``) are not part of this internal response. The separate Agent 3
+    wire schema (:mod:`app.schemas.m3_response`) exposes candidates and
+    ``policy_version`` through the M3 HTTP edge.
     """
 
     model_config = ConfigDict(extra="forbid")
