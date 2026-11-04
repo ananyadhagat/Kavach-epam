@@ -178,8 +178,8 @@ class DecisionOutcome:
 
     This is a domain object. :meth:`to_response` adapts it to the Phase 2
     :class:`~app.schemas.duplicate_response.DuplicateDetectionResponse`;
-    the richer per-candidate data stays here (it maps to the deferred
-    ``candidates`` response block from ``api_contract.md``).
+    the richer per-candidate data stays here and is mapped by the Agent 3 HTTP
+    edge (``app/api/mapper.py``) into the wire ``candidates`` array.
 
     ``score`` is the *ranking* score of the leading candidate (``None`` for
     ``NEW`` and for retrieval-blocked reviews). It is never a probability.
