@@ -15,11 +15,12 @@ Implemented and wired at the comparator-construction layer:
   `ComparatorSettings.text_backend` and `ComparatorSettings.embedding_model`.
 
 The weighted scoring engine, decision policy, response schemas and public
-request/response contracts are unchanged. The internal service layer now exists
-at [`app/services/detection_service.py`](../../app/services/detection_service.py)
-and uses the factory for its default comparator wiring; there is still no HTTP
-endpoint. See [`service_orchestration.md`](./service_orchestration.md) for the
-service flow and the known embedding-`ERROR` policy limitation.
+request/response contracts are unchanged. The internal service layer lives at
+[`app/services/detection_service.py`](../../app/services/detection_service.py)
+and uses the factory for its default comparator wiring; the Agent 3 HTTP edge is
+[`app/api/`](../../app/api/). See [`service_orchestration.md`](./service_orchestration.md)
+and [`m3_http_contract.md`](./m3_http_contract.md) for the service flow, the
+endpoint and the known embedding-`ERROR` policy limitation.
 
 ## Architecture boundary: one `text` signal
 

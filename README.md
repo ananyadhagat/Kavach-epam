@@ -1,6 +1,6 @@
 # KAVACH — Duplicate Detection Agent (standalone prototype)
 
-> **This is a prototype in progress, not yet a functioning duplicate detector.**
+> **This is a working prototype, not a production duplicate detector.**
 > Phase 2 implemented the schema, repository and configuration foundation.
 > Phase 3 added the four core **comparators** (category, time, location, text),
 > which produce individual, advisory evidence signals only. The `text` signal
@@ -9,10 +9,20 @@
 > comparison. Phase 4 adds both the **weighted scoring engine** (M3), which
 > combines those signals into a ranking score, and the **decision policy** (M4),
 > which turns the scored evidence into `DUPLICATE` / `REVIEW_REQUIRED` / `NEW`.
+> The Agent 1 input adapter (M2), the orchestration service and the Agent 3 M3
+> HTTP endpoint are also implemented.
 >
-> The scoring engine and decision policy are implemented. The FastAPI endpoint,
-> candidate retrieval, service wiring and image similarity remain **not**
-> implemented.
+> An optional **consolidation service** now persists complaints in a relational
+> database and groups M3-confirmed duplicates under one canonical primary while
+> preserving every original complaint. It is enabled only when
+> `KAVACH_DATABASE_URL` or `DATABASE_URL` is configured; without either variable
+> the original in-memory app is unchanged. PostgreSQL migration and concurrency
+> behaviour are not yet verified in this environment.
+>
+> Image similarity, review/group lifecycle endpoints, authentication and
+> deployment hardening remain **not** implemented. The default HTTP app starts
+> with an empty in-memory repository, so valid checks return `NEW` until a seeded
+> or database-backed service is configured.
 
 This component is owned by one member of a 10-member KAVACH group project. It is
 built as a **standalone Python package** so it can be developed independently and
@@ -108,37 +118,156 @@ The policy **never** computes similarities, combines signals into a score,
 retrieves candidates, touches storage/network/HTTP, or merges complaints. See
 "Phase 4 (M4) — decision policy" below.
 
+## M3 HTTP endpoint and Agent 3 response (what is implemented)
+
+The FastAPI edge is implemented under `app/api/`, with the ASGI entry point at
+`app/main.py`.
+
+```text
+POST /internal/v1/duplicate-detection/check
+```
+
+Processing flow:
+
+```text
+Agent 1 handoff JSON
+  → to_complaint()                      (Agent 1 input adapter)
+  → DuplicateDetectionService.check_detailed()
+  → retrieval → comparators → weighted scoring → decision policy
+  → app.api.mapper.to_m3_response()
+  → Agent 3 eleven-field JSON response
+```
+
+The response always contains exactly:
+
+`check_id`, `incident_id`, `decision`, `processing_status`, `policy_version`,
+`checked_at`, `matched_incident_id`, `score`, `reason_codes`, `candidates`,
+`error`.
+
+Key semantics:
+
+- `decision` is `NEW`, `DUPLICATE`, or `REVIEW_REQUIRED`; `processing_status` is
+  `COMPLETED`, `PARTIAL`, or `FAILED`.
+- `score` and candidate `similarity_score` are similarity/ranking values in
+  `[0, 1]`, **not** confidence or probability.
+- Candidates are ordered by descending `similarity_score`; only candidates that
+  completed retrieval and scoring are returned.
+- `NEW` always has `matched_incident_id=null` and `score=null`. Other decisions
+  repeat the leading candidate, including `REVIEW_REQUIRED`.
+- Partial or failed retrieval never produces `NEW`. It is reported as
+  `REVIEW_REQUIRED` with the matching `processing_status`, a retrieval reason
+  code, an `error` object, and any valid candidates that were scored.
+- Completed, partial and failed duplicate checks return HTTP `200`. Invalid
+  Agent 1 payloads return `422`; a timeout returns `504`; an unexpected failure
+  with no trustworthy result returns `500`. A timeout/outage is never converted
+  into a fabricated business result.
+- The base repository defaults `retrieve_candidates()` to `PARTIAL`, so a new
+  adapter cannot accidentally claim exhaustive retrieval.
+  `InMemoryComplaintRepository` attests `COMPLETE`.
+
+The full wire contract, invariants, examples and known deviations are in
+[`m3_http_contract.md`](./docs/duplicate_detection/m3_http_contract.md). The
+internal `check()` method still returns the original six-field
+`DuplicateDetectionResponse`; `check_detailed()` is the M3 path.
+
+Run the service locally:
+
+```powershell
+uvicorn app.main:app --host 0.0.0.0 --port 8000
+```
+
+The default app uses an empty in-memory repository, so a valid request returns
+`NEW` with `NO_ELIGIBLE_CANDIDATES`. Inject a seeded
+`DuplicateDetectionService` into `create_app(service=...)` for real or demo
+candidates.
+
+## Consolidation service (what is implemented)
+
+When a database URL is configured, `app.main` builds a persistent runtime and
+mounts five additive routes under `/internal/v1/consolidation`:
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `POST` | `/complaints` | Store a complaint, run M3, and consolidate or queue a review. Requires `Idempotency-Key`. |
+| `GET` | `/complaints/{complaint_id}` | Complaint plus its group or review state. |
+| `GET` | `/groups` | Paginated group summaries; optional `status` filter. |
+| `GET` | `/groups/{group_id}` | Group summary, canonical primary and duplicate members with link evidence. |
+| `GET` | `/review-queue` | Paginated `REVIEW_REQUIRED` complaints; defaults to `OPEN`. |
+
+Decision mapping:
+
+- `NEW` → complaint becomes the primary of a new `OPEN` group (`PRIMARY` link).
+- `DUPLICATE` → complaint joins the matched incident's group as a `DUPLICATE`
+  link; `active_duplicate_count` and `historical_duplicate_count` increment
+  atomically. If M3 matched an existing duplicate, the group's canonical
+  primary is still used in responses.
+- `REVIEW_REQUIRED` → a pending review is created. No link, no counter change,
+  and the complaint is excluded from M3's candidate pool until resolved.
+
+Every complaint remains stored; consolidation never deletes or merges records.
+Successful ingestion returns `201`, including idempotent replays, which add
+`Idempotent-Replay: true`. Reusing a key with a different payload returns `409
+IDEMPOTENCY_KEY_REUSED`; reusing a complaint id with a different key returns
+`409 COMPLAINT_ALREADY_EXISTS`.
+
+The in-memory app remains the default: without `KAVACH_DATABASE_URL` or
+`DATABASE_URL`, the consolidation routes are not mounted and `/check` keeps its
+empty in-memory behaviour. `/check` is read-only in both modes.
+
+Full design, data model, examples and limitations:
+[`consolidation_service.md`](./docs/duplicate_detection/consolidation_service.md).
+
 ## Explicitly NOT implemented yet
 
-- Candidate retrieval/search, candidate ranking across real records, and the
-  service that wires retrieval → comparison → scoring → decision.
+- A shared-KAVACH repository adapter (the database is consolidated locally; it
+  is not yet the team's system of record), blocking filters, or a retrieval
+  window.
+- Review resolution and group close/reopen endpoints. Pending reviews and
+  `CLOSED` groups are modelled, but nothing transitions them yet.
+- Verified PostgreSQL migration/concurrency behaviour. The migration and tests
+  have only run against SQLite here; see the consolidation documentation.
 - Image similarity (the `image_hash` signal) — no image hashing or image weight.
-- FastAPI routes, `main.py`, or any HTTP layer.
-- Frontend, database, PostGIS, external LLM APIs, a vector database/store, and
-  response caching.
+- Authentication, authorization, rate limiting, `/health`, timeouts and the
+  production deployment topology for the HTTP edge.
+- Frontend, PostGIS, external LLM APIs, a vector database/store, and response
+  caching.
 - Automatic runtime fallback from embeddings to TF-IDF. The backend is selected
   by configuration; model or inference failures return `ERROR` rather than
   silently switching algorithms.
-- `candidates` / `search` / `policy` / `request_id` response blocks from Phase 1
-  (deferred), and the decision-engine cross-field invariants (documented, not
-  enforced).
+- The Phase 1 six-field internal `candidates` / `search` / `policy` /
+  `request_id` blocks. The Agent 3 wire response does expose `candidates` and
+  `policy_version` through its own schema; the two contracts are intentionally
+  separate.
+- Calibration of thresholds, weights, embeddings and category/location maps
+  against real labelled data.
 
 ## Folder structure
 
 ```
 app/
   __init__.py
+  main.py                   # ASGI entry point (uvicorn app.main:app)
   schemas/
     __init__.py
     complaint.py            # Complaint + Location input schemas and validation
     duplicate_response.py   # Decision/SignalStatus enums, SignalResult, response
+    m3_response.py          # Agent 3 eleven-field wire schema and invariants
   repositories/
     __init__.py
-    base.py                 # ComplaintRepository interface + RepositoryError
-    in_memory.py            # InMemoryComplaintRepository (list/dict-backed)
+    base.py                 # ComplaintRepository, RetrievalOutcome/CandidateRetrieval,
+                            # RepositoryError, safe PARTIAL retrieval default
+    in_memory.py            # InMemoryComplaintRepository (list/dict-backed, COMPLETE)
     synthetic.py            # deterministic synthetic fixtures
+    consolidation.py        # group/link/review/request persistence + atomic counter update
+    sql_complaint.py        # SQLAlchemy ComplaintRepository adapters
+  db/
+    __init__.py
+    base.py                 # SQLAlchemy declarative Base
+    models.py               # complaints, groups, links, reviews, idempotency requests
+    session.py              # engine/session factory, SQLite foreign-key pragma
   config/
     __init__.py
+    database.py             # KAVACH_DATABASE_URL / DATABASE_URL selection
     settings.py             # MatchingWeights, DecisionThresholds, ComparatorSettings,
                             # DecisionPolicySettings, Settings
   comparators/
@@ -158,9 +287,29 @@ app/
   adapters/
     __init__.py
     incident_payload.py     # Agent 1 handoff envelope -> existing Complaint model
+  services/
+    __init__.py             # exports DuplicateDetectionService, DetectionResult
+    detection_service.py    # check() orchestration + check_detailed() M3 edge
+    consolidation_errors.py # domain error codes and HTTP status hints
+    consolidation_service.py # ingestion, idempotency, decision mapping, reads
+  api/
+    __init__.py
+    app.py                  # create_app(service=..., consolidation_service=...),
+                            # exception handlers, optional router mounting
+    dependencies.py         # service dependency + DetailedDetectionService protocol
+    consolidation_dependencies.py
+    consolidation_router.py # /internal/v1/consolidation/*
+    mapper.py               # DecisionOutcome -> Agent 3 wire response
+    router.py               # POST /internal/v1/duplicate-detection/check
+alembic/
+  env.py                    # env-first URL resolution + metadata registration
+  script.py.mako
+  versions/0001_consolidation.py
+alembic.ini
 tests/
+  conftest.py               # exact Agent 1 contract payload fixtures
   test_schemas.py           # schema, response and configuration tests
-  test_repository.py        # repository behaviour tests
+  test_repository.py        # repository + retrieval-completeness tests
   test_category_comparator.py
   test_time_comparator.py
   test_location_comparator.py
@@ -168,8 +317,15 @@ tests/
   test_embedding_text_comparator.py  # offline fake-encoder tests
   test_comparator_factory.py         # factory + embedding-to-scoring integration
   test_comparator_contract.py  # cross-comparator contract tests
+  test_incident_payload_adapter.py   # Agent 1 adapter contract tests
+  test_detection_service.py          # in-process check() orchestration tests
+  test_detection_service_detailed.py # check_detailed() + retrieval-completeness tests
   test_scoring_engine.py     # M3 weighted-scoring tests
   test_decision_policy.py    # M4 decision-policy tests
+  test_m3_http.py            # Agent 3 HTTP contract tests
+  test_consolidation.py      # consolidation service semantics/idempotency
+  test_consolidation_api.py  # consolidation HTTP contract
+  test_consolidation_migration.py # Alembic upgrade/downgrade/schema tests
 scripts/
   evaluate_text_similarity.py  # illustrative TF-IDF vs embedding evaluation
 conftest.py                 # adds project root to sys.path for pytest
@@ -215,6 +371,7 @@ add(complaint)                      # raises RepositoryError on duplicate id
 add_many(complaints)
 get_by_id(complaint_id) -> Complaint | None
 list_candidates(exclude_complaint_id=None) -> list[Complaint]
+retrieve_candidates(exclude_complaint_id=None) -> CandidateRetrieval
 count() -> int
 ```
 
@@ -234,6 +391,19 @@ count() -> int
 returns **deep copies** so callers cannot mutate internal state, excludes the
 incoming complaint id from `list_candidates`, and returns records sorted by
 `complaint_id` for deterministic tests.
+
+`retrieve_candidates()` is the completeness-aware path used by the M3 edge. It
+returns a `CandidateRetrieval` carrying a `RetrievalOutcome`:
+
+- `COMPLETE` — the repository guarantees the candidate set is exhaustive.
+- `PARTIAL` — candidates were returned but completeness is not guaranteed.
+- `FAILED` — retrieval failed; the result carries a `RetrievalFailure`.
+
+The base implementation defaults to `PARTIAL` with
+`RETRIEVAL_COMPLETENESS_UNKNOWN`, so a new adapter cannot accidentally claim
+exhaustive retrieval. `InMemoryComplaintRepository` overrides it to `COMPLETE`.
+`check()` still uses `list_candidates()`; `check_detailed()` uses
+`retrieve_candidates()` for the Agent 3 path.
 
 ## Synthetic data
 
@@ -463,11 +633,13 @@ download the model or require network access.
 
 ### What remains after Phase 4
 
-The M3 scoring engine and M4 decision policy are implemented, and the text signal
-now has selectable embedding and TF-IDF backends. Remaining work is candidate
-retrieval/service wiring, the optional image signal and its weight, the FastAPI
-endpoint, and calibration/validation of the embedding backend and thresholds on
-real labelled data. The retrieval/wiring/image work does not change the scoring
+The M3 scoring engine, M4 decision policy, Agent 1 input adapter, orchestration
+service and Agent 3 M3 HTTP endpoint are implemented, and the text signal now has
+selectable embedding and TF-IDF backends. Remaining work is the production
+candidate repository (and its completeness attestation), the optional image
+signal and its weight, HTTP hardening (auth, rate limits, `/health`, timeouts,
+deployment), and calibration/validation of the embedding backend and thresholds
+on real labelled data. The repository/image work does not change the scoring
 formula or the policy gates; threshold calibration is a separate, explicit task.
 
 ## Phase 4 (M3) — weighted scoring engine
@@ -696,6 +868,81 @@ The unit tests (including the embedding-comparator suite) inject fake encoders
 and do **not** download the model or require network access. The optional model
 download is only needed for real comparisons and the evaluation script.
 
+Run the M3 HTTP service:
+
+```powershell
+uvicorn app.main:app --host 0.0.0.0 --port 8000
+```
+
+```powershell
+$body = @'
+{
+  "complaint_id": "INC-2026-001",
+  "description": "Garbage is overflowing near the public park entrance.",
+  "category": "WASTE_OVERFLOW",
+  "location": {
+    "facility_id": null,
+    "location_id": null,
+    "latitude": 23.2599,
+    "longitude": 77.4126
+  },
+  "reported_at": "2026-10-31T18:30:00+05:30",
+  "image_hash": "a1b2c3d4e5f6"
+}
+'@
+Invoke-RestMethod -Method Post `
+  -Uri "http://127.0.0.1:8000/internal/v1/duplicate-detection/check" `
+  -ContentType "application/json" `
+  -Body $body
+```
+
+The default app has an empty in-memory repository, so a valid request returns
+`NEW` with `NO_ELIGIBLE_CANDIDATES`. Build `create_app(service=...)` with a
+seeded `DuplicateDetectionService` for demo candidates.
+
+### Database-backed consolidation runtime
+
+Configure a database and apply the migration before starting the service:
+
+```powershell
+$env:KAVACH_DATABASE_URL = "postgresql+psycopg2://kavach:secret@localhost:5432/kavach"
+alembic upgrade head
+uvicorn app.main:app --host 0.0.0.0 --port 8000
+```
+
+For a throwaway local demo, SQLite works too:
+
+```powershell
+$env:KAVACH_DATABASE_URL = "sqlite:///./kavach_local.db"
+alembic upgrade head
+uvicorn app.main:app --host 0.0.0.0 --port 8000
+```
+
+Ingest a complaint (the body is the same Agent 1 handoff envelope used by
+`/check`):
+
+```powershell
+$headers = @{ "Idempotency-Key" = "req-2026-001" }
+Invoke-RestMethod -Method Post `
+  -Uri "http://127.0.0.1:8000/internal/v1/consolidation/complaints" `
+  -Headers $headers `
+  -ContentType "application/json" `
+  -Body $body
+```
+
+Inspect the resulting group and review queue:
+
+```powershell
+Invoke-RestMethod "http://127.0.0.1:8000/internal/v1/consolidation/groups"
+Invoke-RestMethod "http://127.0.0.1:8000/internal/v1/consolidation/review-queue"
+```
+
+The same `Idempotency-Key` with the same payload replays the stored response
+and sets `Idempotent-Replay: true`. Reusing it with different content returns
+`409 IDEMPOTENCY_KEY_REUSED`. See
+[`consolidation_service.md`](./docs/duplicate_detection/consolidation_service.md)
+for the full API and known limitations.
+
 After the model is cached, compare the two text backends on the synthetic
 evaluation set:
 
@@ -733,8 +980,8 @@ instead of activating.
 - **The embedding text backend is implemented** in
   `app/comparators/embedding_text_comparator.py` and selected by default through
   `build_core_comparators()`; TF-IDF remains selectable as the baseline/fallback.
-  It is integrated at the comparator/factory layer only — no HTTP service exists.
-  Its model, thresholds and evaluation are not production-validated. See
+  It is integrated through the comparator factory and the M3 HTTP service; model,
+  thresholds and evaluation are not production-validated. See
   [`embedding_comparator.md`](./docs/duplicate_detection/embedding_comparator.md).
 - **Known time-decay discrepancy:** `matching_policy.md` §4.4 specifies a
   `0.10` decay floor, but `app/comparators/time_comparator.py` uses a plain
@@ -748,3 +995,16 @@ instead of activating.
   (`CategoryCompatibilityMap`); the canonical category and location vocabularies
   remain team decisions to be substituted into configuration.
 - Field names are V1 placeholders pending team agreement.
+- **Consolidation defaults are approved but unvalidated at scale:** pending
+  `REVIEW_REQUIRED` complaints are excluded from M3's candidate pool until a
+  human resolves them; no review-resolution or group close/reopen endpoints
+  exist yet, so ownership of that lifecycle is unresolved.
+- **PostgreSQL behaviour is unverified.** The consolidation migration and
+  concurrency tests ran against SQLite only; the atomic counter SQL is portable
+  but row-locking/isolation must be verified on the target PostgreSQL version.
+- **ID formats differ.** Group, link, review and idempotency ids are generated
+  UUID4 strings while complaint ids stay the opaque 1–64 character string from
+  the Agent 1 contract. Agent 3's UUID preference is still a team decision.
+- **Idempotency records grow without bound.** `consolidation_requests` has no
+  retention or cleanup policy yet.
+- Agent 1's receiver-side policy remains provisional under `[A1-SIGNOFF]`.

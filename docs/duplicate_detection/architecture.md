@@ -7,11 +7,15 @@
 >
 > **Current implementation status.** The schema, repository, four core
 > comparators (including the optional embedding text backend), weighted scoring
-> engine, decision policy and internal `DuplicateDetectionService` are
-> implemented. The FastAPI edge (M5) and the optional image signal (M7) remain
-> deferred. Names and paths in the Phase 1 tables below are conceptual; the
-> current code lives in `app/services/`, `app/comparators/`, `app/scoring/`,
-> `app/repositories/`, `app/schemas/` and `app/config/`.
+> engine, decision policy, internal `DuplicateDetectionService`, Agent 1 input
+> adapter and Agent 3 M3 HTTP edge are implemented. An optional **consolidation
+> service** (see the addendum in §8) now persists complaints and records the M3
+> outcome as group/link/review state without changing the advisory contract of
+> the DDA itself. The optional image signal (M7) remains deferred. Names and
+> paths in the Phase 1 tables below are conceptual; the current code lives in
+> `app/services/`, `app/api/`, `app/adapters/`, `app/comparators/`,
+> `app/scoring/`, `app/repositories/`, `app/db/`, `app/schemas/` and
+> `app/config/`.
 
 ## 1. Purpose and scope
 
@@ -167,18 +171,26 @@ project brief; where a different name is clearer, it is noted.
 5. Edge maps it to the response contract (HTTP 200 for every business outcome)
 ```
 
-> **Current implementation.** The service currently returns the existing
-> `DuplicateDetectionResponse` directly rather than a separate domain
-> `DetectionResult`; the future edge would only need transport/error mapping.
-> There is no `CandidateRetriever` object: the service calls
-> `repository.list_candidates(exclude_complaint_id=...)` directly and defensively
+> **Current implementation.** `check()` returns the existing internal six-field
+> `DuplicateDetectionResponse` directly. `check_detailed()` returns a
+> `DetectionResult` with retrieval status, and the HTTP edge maps it to the Agent
+> 3 eleven-field response (`app/api/mapper.py`). There is no `CandidateRetriever`
+> object: the service calls `repository.retrieve_candidates(...)` (M3 path) or
+> `repository.list_candidates(...)` (internal path) directly and defensively
 > skips self/duplicate ids. See
-> [`service_orchestration.md`](./service_orchestration.md).
+> [`service_orchestration.md`](./service_orchestration.md) and
+> [`m3_http_contract.md`](./m3_http_contract.md).
 
 ### Failure paths (distinct, never conflated)
 - **Invalid request** → transport layer returns `422`; business logic not invoked.
-- **No eligible candidates** → `200` with `decision = NEW`, reason `NO_ELIGIBLE_CANDIDATES`.
-- **Repository failure** → `500` (or `503`) with a structured error body; *not* `NEW`.
+- **No eligible candidates** → `200` with `decision = NEW`, reason `NO_ELIGIBLE_CANDIDATES`,
+  provided retrieval attests `COMPLETE`.
+- **Repository failure** → `check()` propagates `RepositoryError`; `check_detailed()`
+  reports `200` with `processing_status=FAILED`, `decision=REVIEW_REQUIRED`, a
+  retrieval reason code and an error object. A raw timeout/outage at the HTTP edge
+  becomes `504`/`500`; *not* `NEW` and never a fabricated match.
+- **Partial retrieval** → `200` with `processing_status=PARTIAL`,
+  `decision=REVIEW_REQUIRED`; never `NEW`.
 - **Single comparator failure** → that signal is `ERROR`, excluded from scoring and the
   remaining weights are renormalised. The outcome depends on the evidence gates: it may
   still be `NEW`, `REVIEW_REQUIRED` or `DUPLICATE` (see
@@ -190,8 +202,10 @@ project brief; where a different name is clearer, it is noted.
 `CandidateRetriever` is responsible for *eligibility*, not similarity:
 
 > **Current implementation.** No separate `CandidateRetriever` exists yet. The
-> service calls `repository.list_candidates(exclude_complaint_id=...)` directly,
-> then defensively skips the incoming id and duplicate candidate ids. No coarse
+> service calls `repository.retrieve_candidates(exclude_complaint_id=...)` for
+> the M3 path (which reports `COMPLETE`, `PARTIAL` or `FAILED`) and
+> `repository.list_candidates(...)` for the internal `check()` path, then
+> defensively skips the incoming id and duplicate candidate ids. No coarse
 > blocking filters or retrieval window are applied in the current prototype.
 
 - Always excludes records whose `complaint_id` equals the request `complaint_id`.
@@ -206,10 +220,12 @@ project brief; where a different name is clearer, it is noted.
   repository exception, which propagates as `RepositoryError`.
 
 Blocking is a performance optimisation only; it must never be the *reason* a true
-duplicate is missed silently — when blocking is active, the response should record
-which filters were applied (see `api_contract.md`). The current six-field
-`DuplicateDetectionResponse` has no field for that metadata, so this remains
-deferred with the HTTP/API work.
+duplicate is missed silently. When blocking is active, the production adapter
+must report `RetrievalOutcome.PARTIAL` unless it can guarantee completeness, and
+the Agent 3 wire response records the matching `processing_status` plus a
+retrieval reason code. The current six-field internal
+`DuplicateDetectionResponse` has no field for retrieval metadata; the Agent 3
+M3 response carries `processing_status`, `reason_codes` and `error`.
 
 ## 7. Assumptions and open items
 
@@ -223,3 +239,59 @@ deferred with the HTTP/API work.
 | D2 | `TEAM-DECISION` | Where operative complaint data physically lives, and how the DDA reads it (shared DB, API, batch export). |
 | D3 | `TEAM-DECISION` | Canonical category identifier vocabulary and location identifier scheme. |
 | D4 | `TEAM-DECISION` | Whether DDA is invoked synchronously on submission or asynchronously. |
+
+## 8. Addendum — consolidation layer (implemented)
+
+The Phase 1 statement that the DDA "never mutates any complaint" still holds:
+the scoring engine and decision policy remain read-only. Consolidation is a
+**separate, additive service** wrapping the M3 check; it owns persistence and
+records the DDA's advisory outcome. It does not change M3 scoring, thresholds,
+the decision policy, or the `POST /internal/v1/duplicate-detection/check` wire
+contract.
+
+```
+Agent 1 complaint
+      │
+      ▼
+ConsolidationService.ingest()
+      │  store complaint
+      │  DuplicateDetectionService.check_detailed()   (unchanged M3)
+      │  persist decision:
+      │     NEW             -> group + PRIMARY link
+      │     DUPLICATE       -> DUPLICATE link to canonical primary
+      │     REVIEW_REQUIRED -> pending review (no link)
+      ▼
+201 ConsolidationResult
+```
+
+Boundaries that preserve the original design:
+
+- **Business logic is still transport-independent.** The consolidation service
+  is a plain-Python service; the FastAPI router only validates and translates
+  errors.
+- **The repository abstraction is reused.** `SessionComplaintRepository`
+  implements the existing `ComplaintRepository` interface, so M3 needs no
+  knowledge of the database.
+- **Every complaint is preserved.** Consolidation stores links and a primary
+  pointer; it never merges, overwrites or deletes complaint records.
+- **The DDA remains advisory.** `DUPLICATE` and `NEW` are recorded as
+  consolidation state; human resolution of `REVIEW_REQUIRED` is still out of
+  scope and has no endpoint.
+- **`/check` stays read-only.** When a database is configured it reads
+  persisted, consolidated complaints; it never writes.
+
+Runtime shape: `app.main` mounts the consolidation router only when
+`KAVACH_DATABASE_URL` or `DATABASE_URL` is set. Without either variable the
+original in-memory application is unchanged. Schema, API examples and the
+migration are documented in
+[`consolidation_service.md`](./consolidation_service.md).
+
+Open items introduced by this layer (also in the README):
+
+- PostgreSQL migration and concurrent-ingestion behaviour are unverified; only
+  SQLite has been exercised.
+- Review resolution and group close/reopen lifecycles are unimplemented, so
+  pending-review complaints stay invisible to M3 indefinitely.
+- Idempotency records have no retention policy.
+- Generated group/link/review ids are UUID4 strings; complaint ids remain the
+  opaque contract ids pending a team decision (Agent 3 prefers UUIDs).

@@ -1,33 +1,43 @@
 # Duplicate Detection Agent — Internal Service Orchestration
 
 Implementation note for the transport-free service that composes the existing
-building blocks. It documents the code as it exists today; it does **not** change
-the Phase 1 API contract or matching policy.
+building blocks, plus the M3 HTTP edge that consumes it. It documents the code as
+it exists today; it does **not** change the Phase 1 API design, matching policy,
+comparators or scoring formula.
 
 ## Status and scope
 
 Implemented:
 
 - [`app/services/detection_service.py`](../../app/services/detection_service.py)
-  — `DuplicateDetectionService`.
-- [`app/services/__init__.py`](../../app/services/__init__.py) — package export.
-- [`tests/test_detection_service.py`](../../tests/test_detection_service.py) —
-  service-level tests using fake repositories/comparators and the real scoring
-  engine and decision policy.
+  — `DuplicateDetectionService`, `check()` and `check_detailed()`, and
+  `DetectionResult`.
+- [`app/services/__init__.py`](../../app/services/__init__.py) — package exports.
+- [`app/repositories/base.py`](../../app/repositories/base.py) — retrieval
+  completeness contract: `RetrievalOutcome`, `RetrievalFailure`,
+  `CandidateRetrieval` and `retrieve_candidates()`.
+- [`app/api/`](../../app/api) — FastAPI app factory, route, dependency and the
+  internal-result → Agent 3 mapper.
+- [`app/schemas/m3_response.py`](../../app/schemas/m3_response.py) — Agent 3 wire
+  schema and cross-field invariants.
+- [`app/main.py`](../../app/main.py) — ASGI entry point.
+- Service, repository and HTTP tests listed in §Tests.
 
 Not implemented here:
 
-- No FastAPI app, router, HTTP request model or endpoint.
-- No database or vector-store adapter.
-- No async repository contract.
+- No production database, vector-store or remote KAVACH repository adapter.
+- No async repository/service contract.
+- No authentication, rate limiting or deployment topology.
 - No candidate blocking/retrieval filters beyond self-exclusion.
-- No expansion of the public `DuplicateDetectionResponse` schema.
+- No expansion of the internal `DuplicateDetectionResponse` schema.
 
-The HTTP edge remains deferred (M5 in
-[`implementation_plan.md`](./implementation_plan.md)). This service is the
-in-process seam that a future edge can call.
+The M3 HTTP contract is documented in
+[`m3_http_contract.md`](./m3_http_contract.md). The endpoint wraps this service;
+it does not duplicate its scoring or decision logic.
 
 ## Composition flow
+
+`check()` — the original transport-free path:
 
 ```text
 Complaint
@@ -55,11 +65,38 @@ DecisionOutcome.to_response(complaint.complaint_id)
 DuplicateDetectionResponse
 ```
 
-The service contains no similarity maths, scoring formula or decision rules. It
-only retrieves, invokes collaborators, adapts contracts and returns the existing
-response.
+`check_detailed()` — the M3/Agent 3 path:
 
-## Construction and `check()` interface
+```text
+Complaint
+   │
+   ▼
+ComplaintRepository.retrieve_candidates(exclude_complaint_id=...)
+   │  -> CandidateRetrieval(candidates, outcome, failures)
+   │
+   ▼
+RepositoryError? ──► FAILED DecisionOutcome (no comparison)
+   │
+   ▼
+defensive candidate filter
+   │
+   ▼
+comparators → WeightedScoringEngine → CandidateScore list
+   │
+   ▼
+DecisionPolicy.decide(candidate_scores, retrieval_status=mapped_status)
+   │
+   ▼
+DetectionResult(incident_id, outcome, retrieval_status, retrieval_failure)
+   │
+   ▼
+app.api.mapper.to_m3_response() → M3DuplicateCheckResponse
+```
+
+Both methods share the same candidate filtering, comparator isolation and scoring
+helpers. Neither contains similarity maths, a scoring formula or decision rules.
+
+## Construction and interfaces
 
 ```python
 DuplicateDetectionService(
@@ -72,10 +109,11 @@ DuplicateDetectionService(
 )
 ```
 
-`check()`:
+Public methods:
 
 ```python
 check(complaint: Complaint) -> DuplicateDetectionResponse
+check_detailed(complaint: Complaint) -> DetectionResult
 ```
 
 Construction rules:
@@ -98,14 +136,30 @@ Construction rules:
 - The argument must be a `Complaint`; otherwise `TypeError`.
 - Candidate retrieval is called exactly once per `check()`.
 - Each configured comparator is called once per eligible candidate.
-- The service always passes `RetrievalStatus.COMPLETE` because a successful
-  repository call, including an empty result, is complete retrieval.
+- The service always passes `RetrievalStatus.COMPLETE` because it calls
+  `list_candidates()`, whose contract has no completeness channel. This method
+  does not claim to be the M3 retrieval edge.
 - The returned object is the existing six-field response; no new public fields
   are added.
 
+`check_detailed()` rules:
+
+- The argument must be a `Complaint`; otherwise `TypeError`.
+- Candidate retrieval is called exactly once via `retrieve_candidates()`.
+- A `RepositoryError` becomes a `FAILED` retrieval result with the error's `code`
+  and a bounded message; the decision policy is then called with `FAILED` and an
+  empty candidate list. It returns `REVIEW_REQUIRED`, never `NEW`.
+- An unexpected exception (including `TimeoutError`) is **not** caught. It
+  propagates so the HTTP edge can return 5xx/504 instead of a fabricated result.
+- The result preserves candidate evidence even when retrieval is partial.
+- `DetectionResult.to_response()` adapts it to the internal six-field response
+  when needed; the HTTP layer uses the Agent 3 mapper instead.
+
 ## Candidate retrieval and de-duplication
 
-The repository contract is:
+### `check()` path
+
+`check()` uses:
 
 ```python
 list_candidates(exclude_complaint_id: str | None = None) -> list[Complaint]
@@ -119,13 +173,61 @@ accepted even if the repository ignores the exclusion argument. The service then
 3. Skips a candidate whose id equals the incoming complaint id.
 4. Keeps the first occurrence of a repeated candidate id and ignores later ones.
 
-An empty result is a legitimate `COMPLETE` retrieval, not an error. The decision
-policy then returns `NEW` with `NO_ELIGIBLE_CANDIDATES`.
+An empty result is treated as a legitimate `COMPLETE` retrieval, not an error.
+The decision policy then returns `NEW` with `NO_ELIGIBLE_CANDIDATES`.
 
-There is currently no `CandidateRetriever`, no blocking filter, no retrieval
-window and no candidate limit in this path. The in-memory repository already
-excludes and sorts records; the service filter is a defensive guard for other
-repository implementations and test doubles.
+### `check_detailed()` path and the completeness gap
+
+The original repository interface could not distinguish "the repository returned
+everything" from "the repository returned what it could find". Treating every
+successful call as `COMPLETE` would silently produce `NEW` from a partial search.
+The smallest safe interface change was therefore a new optional method:
+
+```python
+retrieve_candidates(
+    exclude_complaint_id: str | None = None,
+) -> CandidateRetrieval
+```
+
+```python
+CandidateRetrieval(
+    candidates: tuple[Complaint, ...],
+    outcome: RetrievalOutcome,        # COMPLETE | PARTIAL | FAILED
+    failures: tuple[RetrievalFailure, ...] = (),
+)
+```
+
+Rules:
+
+- `COMPLETE` means the repository **guarantees** every eligible candidate was
+  returned, and forbids `failures`.
+- `PARTIAL` means the returned candidates are valid but the set may be
+  incomplete. A failure is required (or synthesised).
+- `FAILED` means retrieval did not produce a trustworthy candidate set. A failure
+  is required (or synthesised).
+- The base implementation of `retrieve_candidates()` defaults to **`PARTIAL`**
+  with `RETRIEVAL_COMPLETENESS_UNKNOWN`. A repository that cannot attest to
+  completeness therefore cannot cause an unqualified `NEW`.
+- `InMemoryComplaintRepository` overrides it to `COMPLETE`, because its full
+  in-memory set is exhaustive.
+- `RepositoryError` carries an optional `code` (default `RETRIEVAL_FAILED`).
+  `INVALID_RETRIEVAL_RESULT` is used when `check_detailed()` receives something
+  other than a `CandidateRetrieval`.
+
+The repository layer deliberately defines its own `RetrievalOutcome` rather than
+importing the decision policy's `RetrievalStatus`; the repository must not depend
+on scoring. `check_detailed()` maps:
+
+| `RetrievalOutcome` | `RetrievalStatus` | `processing_status` |
+| --- | --- | --- |
+| `COMPLETE` | `COMPLETE` | `COMPLETED` |
+| `PARTIAL` | `INCOMPLETE` | `PARTIAL` |
+| `FAILED` | `FAILED` | `FAILED` |
+
+There is still no `CandidateRetriever`, blocking filter, retrieval window or
+candidate limit in this path. The in-memory repository already excludes and sorts
+records; the service filter is a defensive guard for other repository
+implementations and test doubles.
 
 ## Comparator and scoring semantics
 
@@ -149,14 +251,25 @@ available signals.
 
 `ScoringError` is not caught by the service. It indicates malformed evidence or
 invalid configuration and propagates as a programming/configuration failure.
+The HTTP route's broad exception handler converts an uncaught `ScoringError`
+into HTTP `500`; it never becomes a fabricated business decision.
 
 ## Decision and response mapping
 
 The service passes the adapted `CandidateScore` list to `DecisionPolicy.decide()`
-with `RetrievalStatus.COMPLETE`, then calls
-`DecisionOutcome.to_response(complaint_id)`.
+with the mapped retrieval status, then wraps the outcome in `DetectionResult`.
 
-The existing response contains exactly:
+`DetectionResult` contains:
+
+| Field | Meaning |
+| --- | --- |
+| `incident_id` | Incoming complaint id. |
+| `outcome` | Unchanged `DecisionOutcome` from the policy. |
+| `retrieval_status` | `COMPLETE`, `INCOMPLETE` or `FAILED`. |
+| `retrieval_failure` | First `RetrievalFailure` for incomplete/failed retrieval; otherwise `None`. |
+
+The internal six-field response (`check()` / `DetectionResult.to_response()`)
+contains exactly:
 
 - `complaint_id`
 - `decision`
@@ -165,32 +278,45 @@ The existing response contains exactly:
 - `signals`
 - `reasons`
 
-The decision policy's richer outcome remains internal. In particular,
-`DecisionOutcome.candidates` (including the leading candidate for a review),
-`policy_version`, retrieval/search details and any request identifier are **not**
-exposed by `DuplicateDetectionResponse`. For `REVIEW_REQUIRED`, the response does
-not identify which candidate should be reviewed even though the outcome retains
-that information.
+The Agent 3 HTTP response instead contains the eleven fields documented in
+[`m3_http_contract.md`](./m3_http_contract.md). The mapper applies only
+contract-level rules:
 
-`score` is the leading candidate's ranking score when the policy exposes one. It
-is `None` for `NEW` and for retrieval-blocked reviews, and it is never a
-calibrated probability.
+- `processing_status` comes from `retrieval_status`.
+- `PARTIAL`/`FAILED` force `REVIEW_REQUIRED` even if the policy returned
+  `DUPLICATE`.
+- Top-level `matched_incident_id`/`score` repeat the leading candidate for a
+  non-`NEW` decision; `NEW` forces both to `null`.
+- `CANDIDATE_RETRIEVAL_INCOMPLETE` or `CANDIDATE_RETRIEVAL_FAILED` is added for
+  incomplete/failed retrieval, plus the contract `error` object.
+- Candidates are emitted in descending `similarity_score` order; candidates with
+  a `None` score are omitted because the wire contract requires a numeric score.
+
+The policy's `DecisionOutcome` remains the sole source of the decision, reason
+codes and candidate ranking. `DecisionOutcome.matched_incident_id` is `None` for
+`REVIEW_REQUIRED`; the mapper derives the wire match from `candidates[0]`.
+
+`score` is the leading candidate's ranking/similarity score when the policy
+exposes one. It is `None` for `NEW` and for retrieval-blocked reviews with no
+scored candidate, and it is never a calibrated probability.
 
 ## Failure semantics
 
-| Condition | Service behavior | Caller sees |
-| --- | --- | --- |
-| Repository raises `RepositoryError` | Propagated unchanged; no decision is fabricated | `RepositoryError` |
-| Repository returns a non-iterable | Converted to `RepositoryError` | `RepositoryError` |
-| Repository returns a non-`Complaint` element | Converted to `RepositoryError` | `RepositoryError` |
-| Repository returns an empty iterable | Treated as complete retrieval | `NEW` + `NO_ELIGIBLE_CANDIDATES` |
-| Comparator raises an exception | Converted to `ERROR` signal `SIGNAL_ERROR_<NAME>` | Candidate is still scored on remaining signals |
-| Comparator returns a non-`SignalResult` | Converted to `ERROR` signal `SIGNAL_ERROR_<NAME>` with `InvalidComparatorResult` | Candidate is still scored on remaining signals |
-| Comparator returns its own `ERROR` | Preserved | Candidate is still scored on remaining signals |
-| Comparator returns `UNAVAILABLE`/`INVALID` | Preserved | Excluded from scoring; evidence gates may force review |
-| Scoring engine rejects evidence/configuration | `ScoringError` propagates | `ScoringError` |
-| Explicit contradiction | Policy returns `REVIEW_REQUIRED` | Review response with contradiction reasons |
-| Retrieval is incomplete | Not producible by this service; it always reports `COMPLETE` | No `INCOMPLETE` response path |
+| Condition | Service behavior | `check()` caller sees | `check_detailed()` / HTTP |
+| --- | --- | --- | --- |
+| Repository raises `RepositoryError` | `check()` propagates; `check_detailed()` converts to `FAILED` | `RepositoryError` | `200` + `REVIEW_REQUIRED` + `FAILED` + error object |
+| Repository returns a non-iterable | Converted to `RepositoryError` | `RepositoryError` | Same `FAILED` path |
+| Repository returns a non-`Complaint` element | Converted to `RepositoryError` | `RepositoryError` | Same `FAILED` path |
+| Repository returns an empty iterable | Complete retrieval if the repository attests `COMPLETE` | `NEW` + `NO_ELIGIBLE_CANDIDATES` | `200`, `COMPLETED`, `NEW` |
+| Repository defaults to `PARTIAL` | Returned candidates are still scored | n/a | `200` + `REVIEW_REQUIRED` + `PARTIAL` |
+| Unexpected repository exception / timeout | Propagated unchanged | Exception | HTTP `500` / `504`; no Agent 3 body |
+| Comparator raises an exception | Converted to `ERROR` signal `SIGNAL_ERROR_<NAME>` | Candidate still scored on remaining signals | Preserved in the result |
+| Comparator returns a non-`SignalResult` | Converted to `ERROR` signal with `InvalidComparatorResult` | Candidate still scored | Preserved |
+| Comparator returns its own `ERROR` | Preserved | Candidate still scored | Preserved |
+| Comparator returns `UNAVAILABLE`/`INVALID` | Preserved | Excluded from scoring; evidence gates may force review | Preserved |
+| Scoring engine rejects evidence/configuration | `ScoringError` propagates | `ScoringError` | HTTP `500`; no fabricated decision |
+| Explicit contradiction | Policy returns `REVIEW_REQUIRED` | Review response with contradiction reasons | `200`; leading candidate exposed |
+| Retrieval is incomplete | `check()` cannot produce it; `check_detailed()` can | n/a | `200` + `REVIEW_REQUIRED` + `PARTIAL` + error |
 
 A comparator failure is isolated per candidate. It does not abort the whole
 request, and it does not automatically produce `REVIEW_REQUIRED`. Whether the
@@ -218,8 +344,9 @@ backend is selected at construction time.
 
 ### M2 / shared input and candidate contract
 
-- The shared `Complaint` model is the service input. Field renames or a mapping
-  layer from the upstream complaint service are still a team decision.
+- The shared `Complaint` model is the service input. Agent 1 handoff JSON is
+  adapted by [`to_complaint()`](../../app/adapters/incident_payload.py); see
+  [`m2_input_adapter.md`](./m2_input_adapter.md).
 - The repository must supply eligible existing complaints. The current prototype
   uses `InMemoryComplaintRepository`; the production source (shared DB, API or
   batch export) is unresolved.
@@ -244,40 +371,50 @@ backend is selected at construction time.
 
 - The service consumes `DecisionPolicy` and `DecisionOutcome`; thresholds,
   evidence gates, contradiction rules and tie handling remain policy-owned.
-- The public response cannot carry `candidates`, `policy_version`, retrieval
-  status, search details or `request_id`. Expanding it is a contract change and
-  requires team agreement.
-- `REVIEW_REQUIRED` currently loses the leading candidate in the public response.
-  If reviewers need a candidate to inspect, the response contract must be
-  extended.
-- `INCOMPLETE` retrieval is supported by the policy but cannot be produced by
-  this service. A future retriever must pass the actual status through rather
-  than hard-coding `COMPLETE`.
+- The internal six-field response cannot carry `candidates`, `policy_version`,
+  retrieval status, search details or `request_id`. The Agent 3 wire response
+  carries the agreed subset through a separate adapter.
+- `REVIEW_REQUIRED` loses the leading candidate in the internal six-field
+  response. The M3 HTTP response does expose the highest-scoring candidate, as
+  required by Agent 3.
+- `INCOMPLETE`/`FAILED` retrieval is now supported by `check_detailed()`. A future
+  retriever must pass its actual status through `retrieve_candidates()` rather
+  than claiming completeness.
 
-### Deferred edge work
+### Edge and deployment work
 
-- FastAPI app, routes, dependency wiring, `/health`, request validation and
-  HTTP error mapping (M5).
-- Contract tests for `POST /api/v1/duplicate-detection/check`.
+- The M3 route, dependency wiring, request validation and HTTP error mapping are
+  implemented in [`app/api/`](../../app/api).
+- No `/health` endpoint yet.
 - Authentication, deployment model (in-process vs standalone) and sync/async
   invocation remain team decisions in [`integration.md`](./integration.md).
+- The default application uses an empty in-memory repository. Real candidates
+  require injecting a seeded or production-backed service.
 
 ## Tests
 
-Run the focused service suite:
+Run the focused service and HTTP suites:
 
-```bash
-python -m pytest tests/test_detection_service.py -q
+```powershell
+python -m pytest tests\test_detection_service.py tests\test_detection_service_detailed.py tests\test_m3_http.py -q
 ```
 
 Run the full suite:
 
-```bash
+```powershell
 python -m pytest -q
 ```
 
-The service tests cover: clear duplicate, empty repository, low score, multiple
-candidates, self-exclusion, duplicate candidate ids, missing/invalid signal
-preservation, explicit contradiction, embedding `ERROR` with strong evidence,
-embedding `ERROR` with weak evidence, comparator exceptions, repository failure
-propagation, response mapping with `COMPLETE` retrieval, and default wiring.
+Coverage:
+
+- `tests/test_detection_service.py` — clear duplicate, empty repository, low
+  score, multiple candidates, self-exclusion, duplicate candidate ids,
+  missing/invalid signal preservation, explicit contradiction, embedding
+  `ERROR`, comparator exceptions, repository failure propagation, response
+  mapping and default wiring.
+- `tests/test_detection_service_detailed.py` — complete/partial/failed retrieval,
+  safe default `PARTIAL`, malformed retrieval, and propagation of unexpected
+  exceptions.
+- `tests/test_m3_http.py` — exact eleven-field response, all three decisions,
+  partial/failed `200`, candidate ordering, null-score omission, `422` validation,
+  `504` timeout, `500` unexpected failure and default-app behavior.

@@ -1,8 +1,15 @@
-# Duplicate Detection Agent — API Contract (V1)
+# Duplicate Detection Agent — API Contract (V1 design)
 
-> Phase 1 design document. Field names here are the **proposed V1 contract**
-> (`ASSUMPTION A1`) and may be mapped/renamed during KAVACH integration.
-> All examples are synthetic.
+> **Status:** Phase 1 design document. Field names here are the **proposed V1
+> contract** (`ASSUMPTION A1`) and may be mapped/renamed during KAVACH
+> integration. All examples are synthetic.
+>
+> **This is not the implemented endpoint.** The implemented M3/Agent 3 edge is
+> `POST /internal/v1/duplicate-detection/check`, documented in
+> [`m3_http_contract.md`](./m3_http_contract.md). Its request is the Agent 1
+> handoff envelope, and its response is the exact eleven-field Agent 3 schema.
+> The six-field `DuplicateDetectionResponse` described here is the internal
+> domain response used by `check()`, not the M3 wire response.
 
 ## 1. Endpoint
 
@@ -10,6 +17,10 @@
 POST /api/v1/duplicate-detection/check
 Content-Type: application/json
 ```
+
+> **Not implemented.** This path is the Phase 1 proposal. The live M3 endpoint is
+> `POST /internal/v1/duplicate-detection/check`; see
+> [`m3_http_contract.md`](./m3_http_contract.md).
 
 - **Versioning:** the path embeds `v1`. Breaking field changes require `v2`.
 - **Synchronous by default** (`ASSUMPTION A4/D4`): the call returns a decision in one
@@ -208,6 +219,14 @@ Absent or unparseable `image_hash` → image signal `status = UNAVAILABLE` (abse
 comparator is disabled (default in V1). Image evidence never blocks a response.
 
 ## 6. Error behaviour (transport-level)
+
+> **Implemented M3 edge differs.** The live endpoint distinguishes a
+> *retrieval failure that still produces a trustworthy Agent 3 result* (HTTP
+> `200`, `processing_status = FAILED`, `decision = REVIEW_REQUIRED`, with an
+> `error` object) from a duplicate-check service outage/timeout (HTTP `5xx`/`504`).
+> It also returns `422` with a `detail` envelope for invalid payloads. See
+> [`m3_http_contract.md`](./m3_http_contract.md) §4. The table below remains the
+> Phase 1 design proposal.
 
 | Condition | HTTP | Body shape |
 | --- | --- | --- |

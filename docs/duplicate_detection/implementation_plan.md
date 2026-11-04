@@ -193,9 +193,10 @@ tolerable. **No numeric results are reported in Phase 1** — they require label
 - No production database design.
 - No automatic progression to Phase 2 without the user's go-ahead.
 
-The current prototype now includes the core Python pipeline and the internal
-service; the FastAPI edge, production database and image signal remain deferred.
-See [`service_orchestration.md`](./service_orchestration.md).
+The current prototype now includes the core Python pipeline, the internal
+service and the Agent 3 HTTP edge; the production database and image signal
+remain deferred. See [`service_orchestration.md`](./service_orchestration.md)
+and [`m3_http_contract.md`](./m3_http_contract.md).
 
 ## 9. Original first coding task for Phase 2 (historical)
 
