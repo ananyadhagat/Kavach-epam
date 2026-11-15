@@ -38,7 +38,7 @@ const INCIDENT_FILTERS = ["category", "priority", "status", "assignment"];
 
 /* Live map | Dispatch board: two views of the same work, one menu item. */
 export const viewSwitch = (current) => h("div", { class: "seg", role: "tablist", "aria-label": "Dashboard view" },
-  h("a", { href: "#/", role: "tab", "aria-selected": String(current === "map") }, "Live map"),
+  h("a", { href: "#/live", role: "tab", "aria-selected": String(current === "map") }, "Live map"),
   h("a", { href: "#/board", role: "tab", "aria-selected": String(current === "board") }, "Dispatch board"));
 
 function loadFilters() {
@@ -176,7 +176,7 @@ export async function renderLiveDashboard({ main, onCleanup }) {
         if (t.route?.geometry?.length) map.line("route", t.route.geometry, "#2563EB");
         else map.line("route", [here, [inc.latitude, inc.longitude]], "#64748B", true);
       }
-      for (const id of map.ids()) if (!keep.has(id)) map.remove(id);
+      for (const id of map.ids()) if (!keep.has(id) && !id.startsWith("zone:")) map.remove(id);  // workspace zones stay
       if (!fitted) {
         // Zoom to what's active: open incidents and workers with a live position (a stale one far away shouldn't zoom out the city).
         const pts = [...incidents.map((i) => [i.latitude, i.longitude]),
@@ -230,7 +230,15 @@ export async function renderLiveDashboard({ main, onCleanup }) {
       syncLiveTimer();
     } catch (err) { clear(attention, banner("fail", err.code === "NETWORK" ? "Can't reach the server: the map is not updating." : err.message)); }
   };
-  map = await createMap(mapEl, { center: [23.2599, 77.4126], zoom: 13 });
+  // KAVACH: an organization's service area or an event's venue and zones.
+  const ws = session.ctx?.workspace;
+  const wsCenter = ws?.center ? [ws.center.latitude, ws.center.longitude] : null;
+  map = await createMap(mapEl, { center: wsCenter || [23.2599, 77.4126], zoom: ws?.kind === "EVENT" ? 15 : 13 });
+  if (wsCenter && ws.radius_m) map.circle("zone:area", wsCenter, ws.radius_m, "area");
+  for (const z of ws?.zones || []) {
+    map.circle(`zone:${z.zone_id}`, [z.latitude, z.longitude], z.radius_m, "zone");
+    map.html(`zone:${z.zone_id}:label`, [z.latitude, z.longitude], `<span class="zlabel">${esc(z.name)}</span>`, z.name, null, 1);
+  }
   await load();
   timer = setInterval(load, POLL_MS);
   onCleanup(() => { clearInterval(timer); clearInterval(liveTimer); map?.destroy(); });

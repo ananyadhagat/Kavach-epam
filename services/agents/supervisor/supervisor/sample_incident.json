@@ -1,0 +1,17 @@
+{
+  "incident_id": "3f2b7c1e-8a41-4d55-9b0e-6a1f0c2d9e11",
+  "description": "Garbage bin is overflowing near the main road and waste is spilling onto the footpath.",
+  "category": "SANITATION",
+  "incident_type": "WASTE_OVERFLOW",
+  "severity": "HIGH",
+  "reported_at": "2026-10-28T06:30:00Z",
+  "location_metadata": {
+    "latitude": 23.2599,
+    "longitude": 77.4650,
+    "locality": "Indrapuri Sector C, Bhopal",
+    "verification_status": "VERIFIED"
+  },
+  "evidence": [
+    {"media_reference": "s3://kavach-evidence/inc-001/photo1.jpg", "evidence_type": "IMAGE"}
+  ]
+}

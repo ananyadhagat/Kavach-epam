@@ -9,6 +9,7 @@ from sqlalchemy import func, select
 from geosatya.models import (
     CompletionRow, DispatchRow, IncidentRow, IntelligenceRow, LocationPingRow, TaskProgressRow, TaskRow, UserRow, WorkerProfileRow,
 )
+from geosatya.scope import incident_ids_in, incident_in, is_active, user_in
 from geosatya.services import estimates
 from geosatya.services.dispatch import acceptance_overdue
 from geosatya.services.intelligence import priority_of
@@ -22,11 +23,12 @@ def _mins(a, b):
     return round((as_utc(b) - as_utc(a)).total_seconds() / 60, 1) if a and b else None
 
 
-def board(session, settings, categories, *, include_resolved: int = 5) -> dict:
+def board(session, settings, categories, *, include_resolved: int = 5, workspace_id: str | None = None) -> dict:
     now = utcnow()
     rows = []
-    incidents = list(session.scalars(select(IncidentRow).where(IncidentRow.status != "RESOLVED").order_by(IncidentRow.created_at)))
-    incidents += list(session.scalars(select(IncidentRow).where(IncidentRow.status == "RESOLVED")
+    scope = incident_in(workspace_id)
+    incidents = list(session.scalars(select(IncidentRow).where(IncidentRow.status != "RESOLVED", scope).order_by(IncidentRow.created_at)))
+    incidents += list(session.scalars(select(IncidentRow).where(IncidentRow.status == "RESOLVED", scope)
                                       .order_by(IncidentRow.updated_at.desc()).limit(include_resolved)))
     for inc in incidents:
         task = session.scalar(select(TaskRow).where(TaskRow.incident_id == inc.incident_id))
@@ -90,14 +92,14 @@ def board(session, settings, categories, *, include_resolved: int = 5) -> dict:
     return {"generated_at": iso(now), "acceptance_timeout_min": settings.acceptance_timeout_min, "counts": counts, "incidents": rows}
 
 
-def live_overview(session, settings, categories) -> dict:
+def live_overview(session, settings, categories, *, workspace_id: str | None = None) -> dict:
     """Supervisor live map. Worker positions are included only while recent:
     LIVE (≤ TRACKING_STALE_S), STALE (≤ DISPATCH_LOCATION_MAX_AGE_S, labelled),
     otherwise OFFLINE with no coordinates."""
     from datetime import datetime, time as dtime
 
     now = utcnow()
-    b = board(session, settings, categories, include_resolved=0)
+    b = board(session, settings, categories, include_resolved=0, workspace_id=workspace_id)
     by_id = {r["incident_id"]: r for r in b["incidents"]}
     incidents = []
     for inc in session.scalars(select(IncidentRow).where(IncidentRow.incident_id.in_(list(by_id)))):
@@ -108,13 +110,17 @@ def live_overview(session, settings, categories) -> dict:
                                                 "verification_outcome", "reported_at")},
                           "icon": cat.get("icon", "dots"), "latitude": inc.latitude, "longitude": inc.longitude})
 
-    tasks = list(session.scalars(select(TaskRow).where(TaskRow.status.in_(("ASSIGNED", "IN_PROGRESS", "AWAITING_VERIFICATION")))))
+    in_scope = incident_ids_in(workspace_id)
+    tasks = list(session.scalars(select(TaskRow).where(TaskRow.status.in_(("ASSIGNED", "IN_PROGRESS", "AWAITING_VERIFICATION")),
+                                                       TaskRow.incident_id.in_(in_scope))))
     progress = {t.task_id: session.get(TaskProgressRow, t.task_id) for t in tasks}
     last_ping = {tid: as_utc(at).timestamp() for tid, at in session.execute(
         select(LocationPingRow.task_id, func.max(LocationPingRow.received_at)).group_by(LocationPingRow.task_id))}
     workers = []
     for user, prof in session.execute(select(UserRow, WorkerProfileRow).join(WorkerProfileRow, WorkerProfileRow.user_id == UserRow.user_id)
-                                      .where(UserRow.role == "WORKER").order_by(UserRow.display_name)):
+                                      .where(UserRow.role == "WORKER", user_in(workspace_id)).order_by(UserRow.display_name)):
+        if not is_active(user):
+            continue
         mine = [t for t in tasks if t.worker_id == user.user_id]
         # The job the worker is on now: the one they last sent a position for, then work in
         # progress, then the newest assignment. Their status follows that job.
@@ -147,12 +153,14 @@ def live_overview(session, settings, categories) -> dict:
         })
 
     local_midnight = datetime.combine(datetime.now().astimezone().date(), dtime.min).astimezone()
-    resolved_today = session.scalar(select(func.count()).select_from(TaskProgressRow)
-                                    .where(TaskProgressRow.resolved_at >= local_midnight.astimezone(now.tzinfo)))
+    resolved_today = session.scalar(select(func.count()).select_from(TaskProgressRow).join(TaskRow, TaskRow.task_id == TaskProgressRow.task_id)
+                                    .where(TaskProgressRow.resolved_at >= local_midnight.astimezone(now.tzinfo),
+                                           TaskRow.incident_id.in_(in_scope)))
     flags = b["counts"]
     kpis = {
-        "total_reported": session.scalar(select(func.count()).select_from(IncidentRow)) or 0,
-        "resolved_total": session.scalar(select(func.count()).select_from(IncidentRow).where(IncidentRow.status == "RESOLVED")) or 0,
+        "total_reported": session.scalar(select(func.count()).select_from(IncidentRow).where(incident_in(workspace_id))) or 0,
+        "resolved_total": session.scalar(select(func.count()).select_from(IncidentRow)
+                                         .where(IncidentRow.status == "RESOLVED", incident_in(workspace_id))) or 0,
         "work_in_progress": sum(i["phase"] in ("ARRIVED", "IN_PROGRESS") for i in incidents),
         "open_incidents": len(incidents),
         "available_workers": sum(w["status"] == "AVAILABLE" for w in workers),

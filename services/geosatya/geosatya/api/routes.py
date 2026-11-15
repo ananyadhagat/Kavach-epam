@@ -8,7 +8,8 @@ from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from geosatya.api.deps import get_actor, get_session, load_incident, load_task, require_role, task_of
+from geosatya.api.deps import get_actor, get_session, load_incident, load_task, require_civic_supervisor, require_role, task_of
+from geosatya.scope import incident_ids_in, incident_in, same_workspace
 from geosatya.api.schemas import (
     ArrivalRequest, AssignRequest, CheckInRequest, CompletionCreate, CorrectionRequest, DeclineRequest, DeviceLocation,
     IncidentCreate, ProgressUpdateRequest, ReleaseRequest, ReviewRequest, SettingsUpdate,
@@ -26,6 +27,7 @@ from geosatya.services import tasks as task_service
 from geosatya.services import tracking as tracking_service
 from geosatya.services.common import Actor, ServiceError, audit, get_limits, set_limits
 from geosatya.services.intelligence import run_intelligence
+from geosatya.kavach.agents import run_team_agents, run_verification
 from geosatya.timeutil import iso, utcnow
 
 router = APIRouter()
@@ -92,12 +94,14 @@ def demo_users(request: Request, session: Session = Depends(get_session)):
     if _app(request).settings.auth_mode != "demo":
         raise HTTPException(404, "Demo identities are only available in demo mode.")
     users = session.scalars(select(UserRow).where(UserRow.is_demo.is_(True)).order_by(UserRow.role, UserRow.user_id)).all()
-    return [{"user_id": u.user_id, "display_name": u.display_name, "role": u.role} for u in users]
+    return [{"user_id": u.user_id, "display_name": u.display_name, "role": u.role, "workspace_id": u.workspace_id,
+             "platform_role": u.platform_role} for u in users if u.is_active is not False]
 
 
 @router.get("/me", tags=["App"])
 def me(actor: Actor = Depends(get_actor)):
-    return {"user_id": actor.user_id, "role": actor.role, "display_name": actor.display_name}
+    return {"user_id": actor.user_id, "role": actor.role, "display_name": actor.display_name,
+            "workspace_id": actor.workspace_id, "platform_role": actor.platform_role}
 
 
 @router.get("/dashboard", tags=["App"])
@@ -107,6 +111,8 @@ def dashboard(request: Request, actor: Actor = Depends(get_actor), session: Sess
         q = q.where(IncidentRow.reporter_id == actor.user_id)
     elif actor.role == "WORKER":
         q = q.where(IncidentRow.incident_id.in_(select(TaskRow.incident_id).where(TaskRow.worker_id == actor.user_id)))
+    else:
+        q = q.where(incident_in(actor.workspace_id))
     rows = session.scalars(q).all()
     counts = Counter(i.status for i in rows)
     cats = _app(request).categories
@@ -121,7 +127,7 @@ def read_settings(request: Request, _: Actor = Depends(get_actor), session: Sess
 
 
 @router.put("/settings", tags=["Settings"])
-def update_settings(body: SettingsUpdate, request: Request, actor: Actor = Depends(supervisor_only),
+def update_settings(body: SettingsUpdate, request: Request, actor: Actor = Depends(require_civic_supervisor),
                     session: Session = Depends(get_session)):
     limits = set_limits(session, _app(request).settings, actor, body.geofence_radius_m, body.max_accuracy_m)
     session.commit()
@@ -161,6 +167,9 @@ def create_incident(request: Request, payload: str = Form(...), photos: list[Upl
         if task is not None:
             incident_service.refresh_etr(session, app.settings, app.categories, task, incident, "ASSIGNED")
         session.commit()
+    # KAVACH team agents (advisory; after the report and its dispatch are safe).
+    run_team_agents(session, app.agents, incident)
+    session.commit()
     return incident_detail(session, app.categories, incident, task_of(session, incident.incident_id), actor)
 
 
@@ -220,6 +229,8 @@ def list_incidents(request: Request, actor: Actor = Depends(get_actor), session:
         q = q.where(IncidentRow.reporter_id == actor.user_id)
     elif actor.role == "WORKER":
         q = q.where(IncidentRow.incident_id.in_(select(TaskRow.incident_id).where(TaskRow.worker_id == actor.user_id)))
+    else:
+        q = q.where(incident_in(actor.workspace_id))
     cats = _app(request).categories
     return [incident_summary(session, cats, i, task_of(session, i.incident_id)) for i in session.scalars(q)]
 
@@ -249,6 +260,8 @@ def list_tasks(request: Request, actor: Actor = Depends(require_role("WORKER", "
     q = select(TaskRow).order_by(TaskRow.updated_at.desc())
     if actor.role == "WORKER":
         q = q.where(TaskRow.worker_id == actor.user_id)
+    else:
+        q = q.where(TaskRow.incident_id.in_(incident_ids_in(actor.workspace_id)))
     cats, out = _app(request).categories, []
     for t in session.scalars(q):
         out.append({**task_view(session, t), "incident": incident_summary(session, cats, session.get(IncidentRow, t.incident_id), t)})
@@ -316,9 +329,9 @@ def release_task(task_id: str, body: ReleaseRequest, request: Request, actor: Ac
 
 
 @router.get("/dispatch/board", tags=["Integration"])
-def dispatch_board(request: Request, _: Actor = Depends(supervisor_only), session: Session = Depends(get_session)):
+def dispatch_board(request: Request, actor: Actor = Depends(supervisor_only), session: Session = Depends(get_session)):
     app = _app(request)
-    return board_service.board(session, app.settings, app.categories)
+    return board_service.board(session, app.settings, app.categories, workspace_id=actor.workspace_id)
 
 
 @router.post("/tasks/{task_id}/location", tags=["Tracking"])
@@ -359,10 +372,10 @@ def progress_update(task_id: str, body: ProgressUpdateRequest, request: Request,
 
 
 @router.get("/dashboard/live", tags=["Integration"])
-def live_dashboard(request: Request, _: Actor = Depends(supervisor_only), session: Session = Depends(get_session)):
-    """Supervisor live map: KPIs, open incidents and workers (positions only while recent)."""
+def live_dashboard(request: Request, actor: Actor = Depends(supervisor_only), session: Session = Depends(get_session)):
+    """Supervisor live map: KPIs, open incidents and workers (positions only while recent), for the supervisor's workspace."""
     app = _app(request)
-    return board_service.live_overview(session, app.settings, app.categories)
+    return board_service.live_overview(session, app.settings, app.categories, workspace_id=actor.workspace_id)
 
 
 @router.post("/tasks/{task_id}/tracking/stop", tags=["Tracking"])
@@ -400,11 +413,11 @@ def reassign(task_id: str, body: AssignRequest, request: Request, actor: Actor =
 
 # ------------------------------------------------------------ workers
 @router.get("/workers", tags=["Workers"])
-def workers(request: Request, _: Actor = Depends(supervisor_only), session: Session = Depends(get_session)):
+def workers(request: Request, actor: Actor = Depends(supervisor_only), session: Session = Depends(get_session)):
     """Dispatch view of the workforce: skills, load, and how old their shared location is."""
     settings, now = _app(request).settings, utcnow()
     out = []
-    for w in dispatch_service.worker_pool(session):
+    for w in dispatch_service.worker_pool(session, workspace_id=actor.workspace_id):
         updated = w.pop("location_updated_at")
         age = int((now - updated).total_seconds()) if updated else None
         out.append({**w, "location_age_s": age, "location_fresh": age is not None and age <= settings.dispatch_location_max_age_s})
@@ -450,6 +463,10 @@ def completion(task_id: str, request: Request, payload: str = Form(...), photo: 
         categories=app.categories)
     _remember_key(session, actor, "completion", idempotency_key, incident.incident_id, row.completion_id)
     session.commit()
+    # KAVACH: the team's Verification agent looks at the photo too (advisory, never changes the outcome).
+    if row.media_id:
+        run_verification(session, app.settings, app.categories, app.verifier, row)
+        session.commit()
     return {"completion": completion_view(session, row, detail=False), "task": task_view(session, task),
             "incident_status": incident.status}
 
@@ -466,9 +483,11 @@ def _remember_key(session, actor: Actor, kind: str, key: str | None, incident_id
 
 # ------------------------------------------------------- supervisor
 @router.get("/verification-queue", tags=["Supervisor"])
-def verification_queue(request: Request, _: Actor = Depends(supervisor_only), session: Session = Depends(get_session)):
+def verification_queue(request: Request, actor: Actor = Depends(supervisor_only), session: Session = Depends(get_session)):
     cats, out = _app(request).categories, []
-    for c in session.scalars(select(CompletionRow).where(CompletionRow.accepted.is_(True)).order_by(CompletionRow.submitted_at.desc())):
+    for c in session.scalars(select(CompletionRow).where(CompletionRow.accepted.is_(True),
+                                                         CompletionRow.incident_id.in_(incident_ids_in(actor.workspace_id)))
+                             .order_by(CompletionRow.submitted_at.desc())):
         task = session.get(TaskRow, c.task_id)
         inc = session.get(IncidentRow, c.incident_id)
         pending = c.reviewed_at is None and c.attempt == task.attempt and task.status == "AWAITING_VERIFICATION"
@@ -481,9 +500,7 @@ def verification_queue(request: Request, _: Actor = Depends(supervisor_only), se
 @router.get("/completions/{completion_id}", tags=["Supervisor"])
 def get_completion(completion_id: str, request: Request, actor: Actor = Depends(supervisor_only),
                    session: Session = Depends(get_session)):
-    c = session.get(CompletionRow, completion_id)
-    if c is None:
-        raise HTTPException(404, "Not found")
+    c = _completion_in_scope(session, completion_id, actor)
     task = session.get(TaskRow, c.task_id)
     incident = session.get(IncidentRow, c.incident_id)
     pending = c.reviewed_at is None and c.accepted and c.attempt == task.attempt and task.status == "AWAITING_VERIFICATION"
@@ -496,9 +513,7 @@ def get_completion(completion_id: str, request: Request, actor: Actor = Depends(
 def review(completion_id: str, body: ReviewRequest, request: Request, actor: Actor = Depends(supervisor_only),
            session: Session = Depends(get_session)):
     app = _app(request)
-    c = session.get(CompletionRow, completion_id)
-    if c is None:
-        raise HTTPException(404, "Not found")
+    c = _completion_in_scope(session, completion_id, actor)
     task = session.get(TaskRow, c.task_id)
     task_service.review(session, c, task, session.get(IncidentRow, c.incident_id), actor, body.decision, body.reason,
                         settings=app.settings, categories=app.categories)
@@ -507,13 +522,17 @@ def review(completion_id: str, body: ReviewRequest, request: Request, actor: Act
 
 
 @router.get("/evidence-history", tags=["Supervisor"])
-def evidence_history(incident_id: str | None = None, _: Actor = Depends(supervisor_only),
+def evidence_history(incident_id: str | None = None, actor: Actor = Depends(supervisor_only),
                      session: Session = Depends(get_session)):
-    q = select(AuditRow).order_by(AuditRow.event_time.desc()).limit(300)
+    scope = AuditRow.incident_id.in_(incident_ids_in(actor.workspace_id))
+    if actor.workspace_id is None:  # platform events with no incident (settings changes) stay with the civic platform
+        scope = scope | AuditRow.incident_id.is_(None)
+    q = select(AuditRow).where(scope).order_by(AuditRow.event_time.desc()).limit(300)
     if incident_id:
         q = q.where(AuditRow.incident_id == incident_id.strip().upper())
     events = [audit_view(session, e) for e in session.scalars(q)]
-    sources = Counter(e.source_type for e in session.scalars(select(EvidenceRow)))
+    sources = Counter(e.source_type for e in session.scalars(select(EvidenceRow).where(
+        EvidenceRow.incident_id.in_(incident_ids_in(actor.workspace_id)))))
     return {"events": events, "evidence_counts": dict(sources)}
 
 
@@ -533,13 +552,21 @@ def get_media(media_id: str, request: Request, actor: Actor = Depends(get_actor)
 
 
 @router.post("/demo/reset", tags=["Demo"])
-def demo_reset(request: Request, actor: Actor = Depends(supervisor_only)):
+def demo_reset(request: Request, actor: Actor = Depends(require_civic_supervisor)):
     state = _app(request)
     if state.settings.auth_mode != "demo" or state.settings.app_env == "production":
         raise HTTPException(404, "Not available")
     client = request.headers.get("cf-connecting-ip") or (request.client.host if request.client else "unknown")
     backup = state.reset_demo(by=f"{actor.user_id}@{client}")
     return {"reset": True, "backup": Path(backup).name if backup else None}
+
+
+def _completion_in_scope(session, completion_id: str, actor: Actor) -> CompletionRow:
+    c = session.get(CompletionRow, completion_id)
+    incident = session.get(IncidentRow, c.incident_id) if c is not None else None
+    if c is None or incident is None or not same_workspace(actor.workspace_id, incident.workspace_id):
+        raise HTTPException(404, "Not found")
+    return c
 
 
 def register_error_handlers(app) -> None:

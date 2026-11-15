@@ -32,6 +32,9 @@ class Actor:
     user_id: str
     role: str
     display_name: str = ""
+    # KAVACH tenancy: None = the open civic workspace (GeoSatya's original scope).
+    workspace_id: str | None = None
+    platform_role: str | None = None
 
 
 def new_id(prefix: str, nbytes: int = 4) -> str:

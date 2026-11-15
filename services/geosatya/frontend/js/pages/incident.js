@@ -4,6 +4,7 @@ import { api, session } from "../api.js";
 import { categoryIcon, dots, flagChips, locationSource, photo } from "../components.js";
 import { dispatchCard, intelligenceCard, progressCard } from "../live.js";
 import { createMap, legend, mapProviderName } from "../maps.js";
+import { teamAgentsCard } from "../kavach/agents-ui.js";
 import { banner, button, card, chip, clear, demoTag, emptyState, fmtAgo, fmtCoord, fmtTime, h, icon, kv, label, pageHead, toast } from "../ui.js";
 
 export async function renderMyReports({ main }) {
@@ -62,7 +63,7 @@ export async function renderIncident(ctx) {
         card({}, h("h2", {}, "Report photos: capture details"), evidenceDetails(inc.photos, true) || h("p", { class: "muted" }, "No photo metadata.")),
         (inc.completions || []).length ? attempts(inc) : card({}, h("h2", {}, "Completion attempts"), h("p", { class: "muted" }, "None yet.")),
         task ? correctionCard(inc, ctx) : null]],
-      ["Dispatch & AI", () => [h("div", { class: "grid halves" }, intelligenceCard(inc, ctx), dispatchCard(inc, ctx))]],
+      ["Dispatch & AI", () => [h("div", { class: "grid halves" }, intelligenceCard(inc, ctx), dispatchCard(inc, ctx)), teamAgentsCard(inc)]],
       ["History", () => [card({}, h("h2", {}, "Audit trail"), h("div", { class: "timeline" }, inc.timeline.map((e) => h("div", {},
         h("span", { class: "muted" }, fmtTime(e.time)), h("span", {}, h("strong", {}, e.details?.to_status ? label(e.details.to_status) : label(e.action)),
           e.actor ? ` · ${e.actor}` : "", e.details?.reason ? h("div", { class: "muted" }, e.details.reason) : null)))))]],

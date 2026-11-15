@@ -16,7 +16,25 @@ from geosatya.categories import load_categories
 from geosatya.config import BASE_DIR, Settings, get_settings
 from geosatya.db import init_schema, make_engine, make_session_factory
 from geosatya.integrations.intelligence import IntelligenceClient
+from geosatya.integrations.agents import make_team_agents
+
+
+def make_verifier(settings, log):
+    """The Verification agent in-process, or None (logged) if it can't load."""
+    mode = (settings.verification_agent or "off").strip().lower()
+    if mode == "off":
+        return None
+    try:
+        from geosatya.integrations.verification import VerificationAgent
+        audit_db = Path(settings.database_url.split("///", 1)[-1]).parent / "verification_audit.db"             if settings.database_url.startswith("sqlite") else Path(settings.storage_dir).parent / "verification_audit.db"
+        return VerificationAgent(storage_root=Path(settings.storage_dir), audit_db=audit_db, vision_provider=mode)
+    except Exception as exc:
+        log.warning("Verification agent not available: %s", exc)
+        return None
 from geosatya.integrations.routing import make_router
+from geosatya.kavach.api import router as kavach_router
+from geosatya.kavach.seed import seed_kavach_demo
+from geosatya.kavach.service import ensure_plans
 from geosatya.ratelimit import SlidingWindowLimiter
 from geosatya.media.storage import LocalImageStorage
 from geosatya.models import Base
@@ -57,8 +75,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     def seed() -> None:
         with session_factory() as session:
             ensure_users(session)
+            ensure_plans(session)
             if settings.seed_demo_data and settings.app_env != "production":
                 seed_demo_data(session, storage, settings, categories)
+                seed_kavach_demo(session)
             session.commit()
 
     def reset_demo(by: str = "unknown") -> str | None:
@@ -98,11 +118,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                               if settings.intelligence_url else None)
     # Road routing is optional; None means straight-line estimates everywhere.
     app.state.router = make_router(settings)
+    # Team agents after Intelligence (Duplicate Detection, Supervisor, Sanitation); each optional.
+    app.state.agents = make_team_agents(settings)
+    app.state.verifier = make_verifier(settings, log)
     app.state.report_limiter = SlidingWindowLimiter(settings.report_rate_limit_per_min)
 
     if settings.cors_list():
         app.add_middleware(CORSMiddleware, allow_origins=settings.cors_list(), allow_credentials=False,
-                           allow_methods=["GET", "POST", "PUT"],
+                           allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
                            allow_headers=["Content-Type", "Authorization", "X-GeoSatya-Demo-User", "Idempotency-Key"])
     if settings.access_code.get_secret_value():
         if len(settings.access_code.get_secret_value()) < 6:
@@ -110,6 +133,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         install_access_gate(app, settings.access_code.get_secret_value(), settings.access_cookie_hours)
     register_error_handlers(app)
     app.include_router(router, prefix=settings.api_prefix)
+    app.include_router(kavach_router, prefix=settings.api_prefix)
 
     @app.get("/health", tags=["App"])
     def health():

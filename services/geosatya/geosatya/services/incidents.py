@@ -16,11 +16,15 @@ from geosatya.timeutil import utcnow
 
 
 def create_incident(session, storage, settings, categories, actor: Actor, payload: dict, photos: list[tuple[bytes, dict]],
-                    *, is_demo: bool = False) -> IncidentRow:
+                    *, is_demo: bool = False, require_photo: bool = True, workspace_id: str | None = None,
+                    channel: str | None = None) -> IncidentRow:
+    """require_photo=False is used only by the KAVACH public portal and
+    workspace reporting, which collect no photographs. Location capture and
+    verification are identical on every channel."""
     category = categories.get(payload["category"])
     if category is None:
         raise ServiceError("Unknown category.", 422, "UNKNOWN_CATEGORY")
-    if not photos:
+    if require_photo and not photos:
         raise ServiceError("Add a photograph of the issue.", 422, "PHOTO_REQUIRED")
     device, pin = payload.get("device_location"), payload.get("user_location")
 
@@ -46,7 +50,8 @@ def create_incident(session, storage, settings, categories, actor: Actor, payloa
         description=payload["description"].strip(), asset_identifier=payload.get("asset_identifier"),
         status="SUBMITTED", reporter_id=actor.user_id, latitude=lat, longitude=lon, location_source=source,
         location_accuracy_m=accuracy, location_observed_at=observed, location_mode=mode, location_flags=[],
-        created_at=now, updated_at=now, is_demo=is_demo)
+        created_at=now, updated_at=now, is_demo=is_demo, workspace_id=workspace_id, channel=channel,
+        zone_id=payload.get("zone_id"), road_type=payload.get("road_type"), landmark=payload.get("landmark"))
     session.add(incident)
     session.flush()
 
@@ -61,7 +66,8 @@ def create_incident(session, storage, settings, categories, actor: Actor, payloa
         sources.append(media.capture_source)
     # The device fix, or the reason there isn't one, is always recorded.
     device_evidence(session, incident=incident.incident_id, task=None, attempt=None, actor=actor, device=device,
-                    error=payload.get("device_location_error"), settings=settings, media_id=first_media.media_id)
+                    error=payload.get("device_location_error"), settings=settings,
+                    media_id=first_media.media_id if first_media else None)
     if pin:
         session.add(EvidenceRow(evidence_id=new_id("LOC", 5), incident_id=incident.incident_id, source_type="USER_SELECTED_PIN",
                                 latitude=pin["latitude"], longitude=pin["longitude"], received_at=now, mode="USER_PIN",

@@ -35,6 +35,17 @@ class UserRow(Base):
     display_name: Mapped[str] = mapped_column(String(120))
     role: Mapped[str] = mapped_column(String(20))
     is_demo: Mapped[bool] = mapped_column(Boolean, default=True)
+    # KAVACH tenancy (all nullable: an existing GeoSatya user has none of these
+    # and keeps behaving exactly as before, in the open civic workspace).
+    # workspace_id: the organization or event this user works in (an event
+    # organizer's is the event they currently have open).
+    workspace_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    # ORG_ADMIN | EVENT_ORGANIZER | PLATFORM_ADMIN. Such users act with the
+    # SUPERVISOR role inside their own workspace only.
+    platform_role: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    department_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    is_active: Mapped[bool | None] = mapped_column(Boolean, nullable=True)  # None = active
+    phone: Mapped[str | None] = mapped_column(String(20), nullable=True)
 
     __table_args__ = (CheckConstraint(_in("role", ROLES), name="ck_user_role"),)
 
@@ -71,6 +82,17 @@ class IncidentRow(Base):
     created_at: Mapped[datetime] = mapped_column(Timestamp)  # server receipt
     updated_at: Mapped[datetime] = mapped_column(Timestamp)
     is_demo: Mapped[bool] = mapped_column(Boolean, default=False)
+    # KAVACH: which workspace owns the incident (None = open civic reporting),
+    # how it arrived, and the suggested public authority. The suggestion is
+    # advisory; nothing is sent to an external authority.
+    workspace_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    channel: Mapped[str | None] = mapped_column(String(20), nullable=True)  # None/GEOSATYA | PUBLIC_PORTAL | WORKSPACE
+    zone_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    road_type: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    landmark: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    authority_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    authority_reason: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    forwarding_status: Mapped[str | None] = mapped_column(String(24), nullable=True)  # NOT_FORWARDED | ROUTED_IN_KAVACH | FORWARDED_MANUALLY
 
     __table_args__ = (
         CheckConstraint(_in("status", INCIDENT_STATUSES), name="ck_incident_status"),

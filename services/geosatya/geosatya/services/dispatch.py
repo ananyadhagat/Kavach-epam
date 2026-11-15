@@ -14,6 +14,7 @@ import threading
 from sqlalchemy import func, select
 
 from geosatya.dispatch.ranking import LOCATION_STALE, LOCATION_UNAVAILABLE, dispatch_task
+from geosatya.scope import is_active, same_workspace, user_in
 from geosatya.models import DispatchRow, IncidentRow, IntelligenceRow, TaskProgressRow, TaskRow, UserRow, WorkerProfileRow
 from geosatya.services.common import Actor, ServiceError, audit, move_incident, new_id
 from geosatya.services.intelligence import priority_of
@@ -34,16 +35,19 @@ def open_task_counts(session) -> dict[str, int]:
                                 .group_by(TaskRow.worker_id)).all())
 
 
-def worker_pool(session, settings=None) -> list[dict]:
+def worker_pool(session, settings=None, workspace_id: str | None = None) -> list[dict]:
     """Workers in the shape the Dispatch Agent's ranking expects. A location
     less accurate than DISPATCH_MAX_LOCATION_ACCURACY_M is withheld from the
-    ranking (it can't support a distance comparison) and labelled as such."""
+    ranking (it can't support a distance comparison) and labelled as such.
+    Only active workers of the given workspace (None = open civic) are included."""
     load = open_task_counts(session)
     pool = []
     max_acc = settings.dispatch_max_location_accuracy_m if settings is not None else None
     for user, prof in session.execute(select(UserRow, WorkerProfileRow)
                                       .join(WorkerProfileRow, WorkerProfileRow.user_id == UserRow.user_id)
-                                      .where(UserRow.role == "WORKER").order_by(UserRow.user_id)):
+                                      .where(UserRow.role == "WORKER", user_in(workspace_id)).order_by(UserRow.user_id)):
+        if not is_active(user):
+            continue
         inaccurate = max_acc is not None and prof.last_accuracy_m is not None and prof.last_accuracy_m > max_acc
         pool.append({"worker_id": user.user_id, "name": user.display_name,
                      "latitude": None if inaccurate else prof.last_latitude,
@@ -109,7 +113,7 @@ def dispatch_incident(session, settings, categories, incident: IncidentRow, *, a
     job = {"latitude": incident.latitude, "longitude": incident.longitude, "max_radius_km": settings.dispatch_max_radius_km,
            **req}
     excluded = released_workers(session, incident.incident_id)
-    pool = [w for w in worker_pool(session, settings) if w["worker_id"] not in excluded]
+    pool = [w for w in worker_pool(session, settings, incident.workspace_id) if w["worker_id"] not in excluded]
     result = dispatch_task(job, pool, max_location_age_s=settings.dispatch_location_max_age_s)
     ranking, rejected = result["candidates"], result["rejected_workers"]
     notes = {w["worker_id"]: w["location_note"] for w in pool if w.get("location_note")}
@@ -151,12 +155,18 @@ def dispatch_incident(session, settings, categories, incident: IncidentRow, *, a
     return create_task(session, incident, worker_id, actor, f"Assigned to {worker_id}: {reason}")
 
 
-def _check_worker(session, worker_id: str, *, override: bool = False, reason: str = "") -> UserRow:
+def _check_worker(session, worker_id: str, *, override: bool = False, reason: str = "",
+                  incident: IncidentRow | None = None) -> UserRow:
     """A supervisor may not give work to an unavailable or full worker by
     accident; doing it deliberately needs override=true and a reason."""
     worker = session.get(UserRow, worker_id)
     if worker is None or worker.role != "WORKER":
         raise ServiceError("Choose a field worker.", 422, "NOT_A_WORKER")
+    # Tenancy is never overridable: a worker only works in their own workspace.
+    if incident is not None and not same_workspace(worker.workspace_id, incident.workspace_id):
+        raise ServiceError("Choose a field worker.", 422, "NOT_A_WORKER")
+    if not is_active(worker):
+        raise ServiceError(f"{worker.display_name}'s account is deactivated.", 409, "WORKER_INACTIVE")
     prof = session.get(WorkerProfileRow, worker_id)
     busy = []
     if prof is not None and not prof.available:
@@ -176,7 +186,7 @@ def assign_manually(session, settings, categories, incident: IncidentRow, worker
     """Supervisor assignment of an escalated (unassigned) incident."""
     if session.scalar(select(TaskRow).where(TaskRow.incident_id == incident.incident_id)) is not None:
         raise ServiceError("This incident already has a field task. Use reassign instead.", 409, "ALREADY_ASSIGNED")
-    _check_worker(session, worker_id, override=override, reason=reason)
+    _check_worker(session, worker_id, override=override, reason=reason, incident=incident)
     reason = (reason or "").strip() or "Assigned by supervisor"
     if override:
         audit(session, actor, "ASSIGNMENT_OVERRIDE", incident.incident_id, worker_id=worker_id, reason=reason[:300])
@@ -289,7 +299,7 @@ def reassign(session, settings, categories, incident: IncidentRow, task: TaskRow
         raise ServiceError(f"A task that is {task.status} cannot be reassigned.", 409, "TASK_LOCKED")
     if worker_id == task.worker_id:
         raise ServiceError("The task is already assigned to this worker.", 409, "SAME_WORKER")
-    _check_worker(session, worker_id, override=override, reason=reason)
+    _check_worker(session, worker_id, override=override, reason=reason, incident=incident)
     if override:
         audit(session, actor, "ASSIGNMENT_OVERRIDE", incident.incident_id, worker_id=worker_id, reason=reason[:300])
     previous = task.worker_id

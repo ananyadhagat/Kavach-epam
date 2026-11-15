@@ -10,6 +10,8 @@ export const KINDS = {
   exif: { color: "#0E7490", label: "Photo's own GPS" },
   pin: { color: "#EA580C", label: "User-selected location" },
   worker: { color: "#16A34A", label: "Field worker (shared location)" },
+  area: { color: "#0E7C6E", label: "Workspace area" },
+  zone: { color: "#D97706", label: "Operational zone" },
 };
 let googlePromise = null;
 let fallbackReason = null;
@@ -65,8 +67,8 @@ function leafletMap(el, center, zoom, onClick) {
     },
     circle(id, ll, radius, kind) {
       drop(id);
-      layers.set(id, L.circle(ll, { radius, color: KINDS[kind].color, weight: 2, dashArray: kind === "target" ? "6 5" : null,
-        fillOpacity: kind === "target" ? 0.1 : 0.12 }).addTo(map));
+      layers.set(id, L.circle(ll, { radius, color: KINDS[kind].color, weight: 2, dashArray: kind === "target" || kind === "area" ? "6 5" : null,
+        fillOpacity: kind === "area" ? 0.04 : kind === "target" ? 0.1 : 0.12, interactive: kind !== "area" }).addTo(map));
     },
     /* A custom marker. `html` must be built from escaped text (see esc()). */
     html(id, ll, html, label, onClick, size = 34) {

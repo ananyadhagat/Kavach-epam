@@ -1,4 +1,4 @@
-/* GeoSatya service worker: lets the installed app open without a signal.
+/* KAVACH (GeoSatya worker app) service worker: lets the installed app open without a signal.
 
    - App files (HTML, CSS, JS, icons, Leaflet): network first, cached copy when offline.
    - Map tiles: cached as they are viewed (capped), so a job's map still shows offline.
@@ -6,14 +6,16 @@
      keeps its own per-user snapshot of the worker's tasks (js/outbox.js) and queues
      actions taken offline, sending them when the connection returns. */
 
-const VERSION = "geosatya-v1";
+const VERSION = "kavach-v4";
 const SHELL = `${VERSION}-shell`, TILES = `${VERSION}-tiles`, MAX_TILES = 400;
 const SHELL_FILES = [
-  "/", "/index.html", "/styles.css", "/config.js", "/manifest.webmanifest",
+  "/", "/index.html", "/styles.css", "/kavach.css", "/icons/kavach-mark.svg", "/config.js", "/manifest.webmanifest",
   "/icons/icon-192.png", "/icons/icon-512.png", "/icons/maskable-512.png", "/icons/apple-touch-icon.png",
   "/js/app.js", "/js/api.js", "/js/capture.js", "/js/components.js", "/js/live.js", "/js/maps.js", "/js/ui.js", "/js/outbox.js",
   "/js/pages/board.js", "/js/pages/dashboard.js", "/js/pages/history.js", "/js/pages/incident.js", "/js/pages/livemap.js",
   "/js/pages/report.js", "/js/pages/review.js", "/js/pages/settings.js", "/js/pages/tasks.js",
+  "/js/kavach/brand.js", "/js/kavach/public.js", "/js/kavach/access.js", "/js/kavach/report.js", "/js/kavach/widgets.js",
+  "/js/kavach/workspace.js", "/js/kavach/admin.js", "/js/kavach/agents-ui.js", "/js/kavach/workcheck-ui.js",
   "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css", "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js",
 ];
 

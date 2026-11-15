@@ -56,6 +56,41 @@
       "description_placeholder": "Describe the issue in your own words.",
       "asset_label": null, "asset_hint": null,
       "instructions": ["Go to the pin on the map.", "Resolve the issue.", "Take a photo of the result."]
+    },
+    {
+      "id": "medical_assistance", "scope": "event", "dispatch": {"required_skills": ["first_aid"], "required_equipment": [], "work_minutes": 20}, "label": "Medical Assistance", "icon": "medical",
+      "title_placeholder": "Person feeling unwell near Gate 2",
+      "description_placeholder": "What happened, how many people, are they conscious?",
+      "asset_label": null, "asset_hint": null,
+      "instructions": ["Go to the pin on the map.", "Give first aid and call the medical team if needed.", "Record what was done."]
+    },
+    {
+      "id": "crowd_management", "scope": "event", "dispatch": {"required_skills": ["crowd_control"], "required_equipment": [], "work_minutes": 30}, "label": "Crowd Management", "icon": "users",
+      "title_placeholder": "Crowd building up at the food court exit",
+      "description_placeholder": "Where is the crowd, how dense is it, is anyone at risk?",
+      "asset_label": null, "asset_hint": null,
+      "instructions": ["Go to the pin on the map.", "Open alternate routes and guide people.", "Report when the area is clear."]
+    },
+    {
+      "id": "security_concern", "scope": "event", "dispatch": {"required_skills": ["security"], "required_equipment": [], "work_minutes": 30}, "label": "Security Concern", "icon": "shield",
+      "title_placeholder": "Unattended bag near the main stage",
+      "description_placeholder": "Describe what you saw. Do not approach anything dangerous.",
+      "asset_label": null, "asset_hint": null,
+      "instructions": ["Go to the pin on the map.", "Secure the area and follow the security protocol.", "Record the outcome."]
+    },
+    {
+      "id": "missing_person", "scope": "event", "dispatch": {"required_skills": ["security"], "required_equipment": [], "work_minutes": 45}, "label": "Missing Person", "icon": "search",
+      "title_placeholder": "Child separated from parents near Zone B",
+      "description_placeholder": "Age, clothing and where the person was last seen.",
+      "asset_label": null, "asset_hint": null,
+      "instructions": ["Go to the last-seen location.", "Search the nearby area and alert the help desk.", "Record when the person is found."]
+    },
+    {
+      "id": "event_operations", "scope": "event", "dispatch": {"required_skills": ["general_maintenance"], "required_equipment": [], "work_minutes": 30}, "label": "Operational / Maintenance Issue", "icon": "tasks",
+      "title_placeholder": "Power out at the ticket counter",
+      "description_placeholder": "What is not working and how it affects the event.",
+      "asset_label": null, "asset_hint": null,
+      "instructions": ["Go to the pin on the map.", "Fix the issue or call the right vendor.", "Record the result."]
     }
   ]
 }

@@ -40,17 +40,17 @@ def _client(request: Request) -> str:
 def _page(message: str = "", status: int = 401) -> HTMLResponse:
     note = f'<p class="err">{html.escape(message)}</p>' if message else ""
     body = f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1"><title>GeoSatya · access code</title>
+<meta name="viewport" content="width=device-width, initial-scale=1"><title>KAVACH · access code</title>
 <style>
- body{{margin:0;min-height:100vh;display:grid;place-items:center;background:#F2F5FB;font:16px system-ui,sans-serif;color:#0E1A33}}
+ body{{margin:0;min-height:100vh;display:grid;place-items:center;background:linear-gradient(120deg,#D4E98A,#7CC59A 48%,#2A9C8E);font:16px system-ui,sans-serif;color:#0E2422}}
  form{{background:#fff;padding:28px 24px;border-radius:16px;box-shadow:0 6px 24px rgba(14,26,51,.1);width:min(340px,88vw);display:grid;gap:14px}}
  h1{{margin:0;font-size:20px}} p{{margin:0;color:#4A5872;font-size:14px;line-height:1.45}}
  input{{font:inherit;padding:12px;border:1px solid #C9D3E6;border-radius:10px}}
- button{{font:600 16px system-ui,sans-serif;padding:12px;border:0;border-radius:10px;background:#2F6BFF;color:#fff}}
+ button{{font:600 16px system-ui,sans-serif;padding:12px;border:0;border-radius:10px;background:#0B7466;color:#fff}}
  .err{{color:#B91C1C}}
 </style></head><body>
 <form method="post" action="/access">
- <h1>GeoSatya</h1><p>This is a private development link. Enter the access code you were given.</p>{note}
+ <h1>KAVACH</h1><p>This is a private demo link. Enter the access code you were given.</p>{note}
  <input name="code" type="password" autocomplete="current-password" required autofocus aria-label="Access code">
  <button type="submit">Continue</button>
 </form></body></html>"""

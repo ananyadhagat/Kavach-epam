@@ -8,7 +8,9 @@ export function h(tag, attrs, ...children) {
     else if (key.startsWith("on") && typeof value === "function") el.addEventListener(key.slice(2), value);
     else if (key === "value") el.value = value;
     else if (key === "checked") el.checked = !!value;
-    else if (key === "style" && typeof value === "object") Object.assign(el.style, value);
+    else if (key === "style" && typeof value === "object") {
+      for (const [k, v] of Object.entries(value)) { if (k.startsWith("--")) el.style.setProperty(k, v); else el.style[k] = v; }
+    }
     else if (value === true) el.setAttribute(key, "");
     else el.setAttribute(key, String(value));
   }
@@ -59,6 +61,24 @@ const PATHS = {
   bench: "M3 10h18M5 10V7h14v3M4 14h16M6 14v5M18 14v5",
   alert: "M12 3 2 20h20L12 3zM12 10v4M12 17h.01",
   dots: "M5 12h.01M12 12h.01M19 12h.01",
+  // KAVACH
+  medical: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 8v8M8 12h8",
+  users: "M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM2 21c.8-3.5 3.5-5.5 7-5.5s6.2 2 7 5.5M16 3.5a4 4 0 0 1 0 7.5M18 15.6c2 .8 3.4 2.6 4 5.4",
+  shield: "M12 3l8 3v6c0 5-3.5 8.5-8 9.5-4.5-1-8-4.5-8-9.5V6z",
+  search: "M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM21 21l-5-5",
+  building: "M4 21V5l8-3v19M12 9l8 3v9M8 8h.01M8 12h.01M8 16h.01M16 14h.01M16 17h.01M2 21h20",
+  calendar: "M4 6h16v15H4zM4 10h16M9 3v5M15 3v5",
+  chart: "M4 20V10M10 20V4M16 20v-7M22 20H2",
+  zone: "M12 21s-7-6.5-7-12a7 7 0 0 1 14 0c0 5.5-7 12-7 12zM9 9h6M12 6v6",
+  logout: "M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10",
+  map: "M9 4 3 6v14l6-2 6 2 6-2V4l-6 2zM9 4v14M15 6v14",
+  live: "M12 14a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM7.8 16.2a6 6 0 0 1 0-8.4M16.2 7.8a6 6 0 0 1 0 8.4M5 19a10 10 0 0 1 0-14M19 5a10 10 0 0 1 0 14",
+  key: "M15 9a4 4 0 1 1-3.5 6L4 22M8 18l2 2M6 20l2 2",
+  globe: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM3 12h18M12 3c2.5 2.5 3.8 5.5 3.8 9s-1.3 6.5-3.8 9c-2.5-2.5-3.8-5.5-3.8-9S9.5 5.5 12 3z",
+  clock: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 7v5l3 2",
+  menu: "M4 7h16M4 12h16M4 17h16",
+  copy: "M8 8h12v12H8zM4 16V4h12",
+  route: "M6 19a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM18 9a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM8 17h7a3 3 0 0 0 0-6H9a3 3 0 0 1 0-6h7",
 };
 
 export function icon(name, size = 18) {

@@ -30,6 +30,7 @@ def init_schema(engine: Engine) -> None:
     """Create missing tables, then add missing *nullable* columns to existing
     tables (data is never dropped or rewritten). For the shared PostgreSQL
     deployment, replace this with an Alembic migration in the team's migrations folder."""
+    import geosatya.platform_models  # noqa: F401  (registers the KAVACH tables)
     Base.metadata.create_all(engine)
     add_missing_columns(engine)
 

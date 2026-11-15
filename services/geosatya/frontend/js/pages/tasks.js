@@ -1,5 +1,6 @@
 /* Worker: task list, and the task page where location + completion photo are verified. */
 
+import { workCheckCard } from "../kavach/workcheck-ui.js";
 import { api, cachedGet, sendOrQueue, session } from "../api.js";
 import { newKey, pending, saveSnapshot } from "../outbox.js";
 
@@ -232,14 +233,16 @@ export async function renderTask(ctx) {
     nextStep = locationSharer(t, ctx, { step: "Step 2 · Travel", extra: [arriveButton, startWork(false)] });
   } else if (isWorker && t.status === "ASSIGNED") {
     nextStep = card({ class: "card next-step" }, h("span", { class: "lbl" }, "Step 3 · On site"), h("h2", {}, "You're at the spot"),
-      h("p", { class: "muted" }, "Start work when you begin. You'll take the completion photo here when you're done."), h("div", {}, startWork(true)));
+      h("p", { class: "muted" }, "Start work when you begin. You'll take the completion photo here when you're done."),
+      workCheckCard(t.task_id, { target, showSteps: false }), h("div", {}, startWork(true)));
   } else if (editable && queuedCompletion) {
     nextStep = card({ class: "card next-step" }, h("span", { class: "lbl" }, "Step 4 · Finish"), h("h2", {}, "Completion saved on this phone"),
       banner("info", `Saved ${fmtAgo(queuedCompletion.created_at)}. It will be sent automatically when you're back online, and the location is checked then. `
         + "Keep the app open or reopen it later; don't clear the browser's data."),
       h("p", { class: "hint" }, "If it isn't accepted (for example, too far from the spot), you'll be told and can take it again."));
   } else if (editable) {
-    nextStep = card({ class: "card next-step" }, h("span", { class: "lbl" }, "Step 4 · Finish"), h("h2", {}, "Completion photo"), capBox,
+    nextStep = card({ class: "card next-step" }, h("span", { class: "lbl" }, "Step 4 · Finish"), workCheckCard(t.task_id, { target }),
+      h("h2", {}, "Completion photo"), capBox,
       h("label", { class: "field", for: "desc" }, "What did you do?", desc), resultBox, submit,
       h("p", { class: "hint" }, `Take it at the spot: you must be within ${limits.geofence_radius_m} m. The server checks the distance itself.`),
       workProgressCard(t, rerender));

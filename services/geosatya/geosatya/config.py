@@ -68,6 +68,15 @@ class Settings(BaseSettings):
     # Empty = not configured: reports are still accepted and marked "analysis not configured".
     intelligence_url: str = ""
     intelligence_timeout_s: float = Field(default=8.0, gt=0, le=60)
+    # Team agents after Incident Intelligence (each optional; empty = not configured).
+    # Their results are advisory: they are stored and shown, never block a report.
+    duplicate_detection_url: str = ""     # Duplicate Detection agent (Yash), consolidation API
+    supervisor_agent_url: str = ""        # Supervisor agent (Karanveer)
+    sanitation_agent_url: str = ""        # Sanitation Planning agent (Namrata)
+    agents_timeout_s: float = Field(default=6.0, gt=0, le=60)
+    # Verification agent (MrBadDrip), run in-process on each completion photo.
+    # off | mock (OpenCV quality/alignment + GPS; no AI vision) | gemini (needs GEMINI_API_KEY + GEMINI_MODEL)
+    verification_agent: str = "mock"
 
     # --- Dispatch (ranking reused from the dispatch-work branch).
     dispatch_max_radius_km: float = Field(default=2.0, gt=0, le=50)

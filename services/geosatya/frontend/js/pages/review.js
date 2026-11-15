@@ -1,6 +1,8 @@
 /* Supervisor: verification queue and the review page. */
 
 import { api } from "../api.js";
+import { teamAgentsCard } from "../kavach/agents-ui.js";
+import { workCheckReview } from "../kavach/workcheck-ui.js";
 import { distanceFacts, outcomeBanner, photo, reasonChips } from "../components.js";
 import { createMap, legend, mapProviderName } from "../maps.js";
 import { banner, button, card, chip, clear, demoTag, emptyState, fmtAgo, fmtCoord, fmtM, fmtTime, h, kv, label, pageHead, reasonDialog, toast } from "../ui.js";
@@ -60,6 +62,8 @@ export async function renderReview(ctx) {
         h("p", {}, inc.description)),
       card({}, h("h2", {}, "Completed"), c.photo ? photo(c.photo.url, "Completion photo") : h("p", { class: "muted" }, "No photo"),
         h("p", {}, `“${c.description}”`))),
+    inc.task ? workCheckReview(inc.task.task_id) : null,
+    teamAgentsCard(inc, { only: ["VERIFICATION", "SANITATION"], title: "Second opinion from the team's agents" }),
     h("div", { class: "grid two" },
       card({ class: "card flush" }, h("div", { class: "pad row between wrap" }, h("h2", {}, "Where the worker was"), h("span", { class: "muted" }, mapProviderName())),
         mapEl, h("div", { class: "pad stack" }, legend(["target", "me", "exif"]), distanceFacts(c.distance_m, c.accuracy_m, c.radius_m))),

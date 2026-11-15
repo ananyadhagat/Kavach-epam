@@ -153,19 +153,50 @@ export async function bootstrap() {
       if (!isNetworkError(err)) throw err;
       session.users = JSON.parse(store.get("geosatya.users") || "[]");
     }
+    // KAVACH: nobody is "signed in" until they choose an identity on the access page.
     const saved = store.get("geosatya.demoUser");
-    session.me = session.users.find((u) => u.user_id === saved) || session.users.find((u) => u.role === "CITIZEN") || session.users[0] || null;
+    session.me = session.users.find((u) => u.user_id === saved) || null;
   } else {
     session.me = await api("/me");
   }
+  await loadContext();
 }
 
-export function switchUser(userId) {
-  const user = session.users.find((u) => u.user_id === userId);
+/* The signed-in user's workspace (organization or open event), or null. */
+export async function loadContext() {
+  session.ctx = null;
+  if (!session.me) return;
+  try {
+    session.ctx = await api("/kavach/me");
+    store.set(`kavach.ctx.${session.me.user_id}`, JSON.stringify(session.ctx));
+  } catch (err) {
+    if (!isNetworkError(err)) { if (err.status === 401 || err.status === 403) signOut(false); return; }
+    session.ctx = JSON.parse(store.get(`kavach.ctx.${session.me.user_id}`) || "null");
+  }
+}
+
+/* Reload the demo identities (after a registration or an invite created a new one). */
+export async function refreshUsers() {
+  if (session.config?.auth_mode !== "demo") return;
+  session.users = await api("/demo/users");
+  store.set("geosatya.users", JSON.stringify(session.users));
+}
+
+export async function switchUser(userId) {
+  let user = session.users.find((u) => u.user_id === userId);
+  if (!user) { await refreshUsers().catch(() => {}); user = session.users.find((u) => u.user_id === userId); }
   if (!user) return;
   session.me = user;
   store.set("geosatya.demoUser", userId);
+  await loadContext();
   session.listeners.forEach((fn) => fn(user));
+}
+
+export function signOut(notify = true) {
+  session.me = null;
+  session.ctx = null;
+  store.set("geosatya.demoUser", null);
+  if (notify) session.listeners.forEach((fn) => fn(null));
 }
 export const firstUser = (role) => session.users.find((u) => u.role === role);
 export const category = (id) => session.categories.find((c) => c.id === id) || null;
