@@ -59,3 +59,18 @@ workers = [
 ]
 
 tasks = {}
+
+
+def list_workers():
+    """Return current worker profiles.
+
+    This is the worker-directory adapter for the demo. Replace this function
+    with the worker portal/database query when that source is available; the
+    dispatch algorithm consumes the same profile fields either way.
+    """
+    return workers
+
+
+def get_worker(worker_id):
+    """Look up a profile through the same adapter used by Dispatch."""
+    return next((worker for worker in list_workers() if worker["worker_id"] == worker_id), None)
