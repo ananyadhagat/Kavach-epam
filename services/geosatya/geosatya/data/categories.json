@@ -1,0 +1,367 @@
+{
+  "_comment": "Civic incident categories. Add an entry to support a new category; no code change needed.",
+  "categories": [
+    {
+      "id": "road_damage",
+      "dispatch": {
+        "required_skills": [
+          "road_repair"
+        ],
+        "required_equipment": [],
+        "work_minutes": 90
+      },
+      "label": "Pothole / Road Damage",
+      "icon": "road",
+      "title_placeholder": "Large pothole near the main crossing",
+      "description_placeholder": "A deep pothole on the left side of the road. Vehicles swerve to avoid it.",
+      "asset_label": null,
+      "asset_hint": null,
+      "instructions": [
+        "Go to the pin on the map.",
+        "Repair or make the damaged section safe.",
+        "Take a photo of the finished work from the same spot."
+      ]
+    },
+    {
+      "id": "garbage",
+      "dispatch": {
+        "required_skills": [
+          "waste_collection"
+        ],
+        "required_equipment": [],
+        "work_minutes": 45
+      },
+      "label": "Garbage / Cleanliness",
+      "icon": "trash",
+      "title_placeholder": "Garbage not collected for 3 days",
+      "description_placeholder": "Waste is piling up around the bin and spilling onto the road.",
+      "asset_label": "Bin or collection point number",
+      "asset_hint": "e.g. GCP-09",
+      "instructions": [
+        "Go to the pin on the map.",
+        "Clear the waste.",
+        "Take a photo of the cleaned area."
+      ]
+    },
+    {
+      "id": "water_leakage",
+      "dispatch": {
+        "required_skills": [
+          "plumbing"
+        ],
+        "required_equipment": [],
+        "work_minutes": 90
+      },
+      "label": "Water Leakage",
+      "icon": "droplet",
+      "title_placeholder": "Water leaking from a pipeline at the corner",
+      "description_placeholder": "Clean water has been leaking onto the road since morning.",
+      "asset_label": "Pipeline or valve number",
+      "asset_hint": "e.g. Valve V-14",
+      "instructions": [
+        "Go to the pin on the map.",
+        "Stop or repair the leak, or note that it needs a specialist.",
+        "Take a photo showing the result."
+      ]
+    },
+    {
+      "id": "drainage",
+      "dispatch": {
+        "required_skills": [
+          "drain_cleaning"
+        ],
+        "required_equipment": [],
+        "work_minutes": 60
+      },
+      "label": "Drainage / Waterlogging",
+      "icon": "drain",
+      "title_placeholder": "Blocked drain causing waterlogging",
+      "description_placeholder": "The roadside drain is blocked and water collects across the lane.",
+      "asset_label": "Drain or manhole number",
+      "asset_hint": "e.g. Drain D-31",
+      "instructions": [
+        "Go to the pin on the map.",
+        "Clear the blockage.",
+        "Take a photo showing water flowing."
+      ]
+    },
+    {
+      "id": "streetlight",
+      "dispatch": {
+        "required_skills": [
+          "electrical"
+        ],
+        "required_equipment": [],
+        "work_minutes": 60
+      },
+      "label": "Broken Streetlight",
+      "icon": "bulb",
+      "title_placeholder": "Streetlight not working on pole 147",
+      "description_placeholder": "The streetlight has been off for a week and the lane is dark at night.",
+      "asset_label": "Pole number",
+      "asset_hint": "e.g. SL-0147 (painted on the pole)",
+      "instructions": [
+        "Go to the pin on the map and find the pole.",
+        "Repair or replace the light.",
+        "Take a photo showing the pole and the light."
+      ]
+    },
+    {
+      "id": "infrastructure",
+      "dispatch": {
+        "required_skills": [
+          "general_maintenance"
+        ],
+        "required_equipment": [],
+        "work_minutes": 60
+      },
+      "label": "Damaged Public Infrastructure",
+      "icon": "bench",
+      "title_placeholder": "Broken bench in the park",
+      "description_placeholder": "The seat plank of the second bench from the gate is broken.",
+      "asset_label": "Asset name or number",
+      "asset_hint": "e.g. Bench 3",
+      "instructions": [
+        "Go to the pin on the map.",
+        "Repair or secure the asset.",
+        "Take a photo of the finished work."
+      ]
+    },
+    {
+      "id": "safety_hazard",
+      "dispatch": {
+        "required_skills": [
+          "general_maintenance"
+        ],
+        "required_equipment": [],
+        "work_minutes": 45
+      },
+      "label": "Public Safety Hazard",
+      "icon": "alert",
+      "title_placeholder": "Fallen branch blocking the footpath",
+      "description_placeholder": "A large branch has fallen across the footpath; people are walking on the road.",
+      "asset_label": null,
+      "asset_hint": null,
+      "instructions": [
+        "Go to the pin on the map.",
+        "Make the hazard safe or remove it.",
+        "Take a photo showing the cleared area."
+      ]
+    },
+    {
+      "id": "public_toilet",
+      "dispatch": {
+        "required_skills": [
+          "general_maintenance"
+        ],
+        "required_equipment": [],
+        "work_minutes": 60
+      },
+      "label": "Public toilet maintenance",
+      "icon": "toilet",
+      "title_placeholder": "Public toilet near the bus stand is not clean",
+      "description_placeholder": "What is wrong: cleanliness, water, lights, broken doors or fittings?",
+      "asset_label": "Toilet / block",
+      "asset_hint": "Name or number on the building, if any",
+      "instructions": [
+        "Go to the pin on the map.",
+        "Clean, repair or restore the facility.",
+        "Take a photo of the finished work from the same spot."
+      ]
+    },
+    {
+      "id": "sanitation",
+      "dispatch": {
+        "required_skills": [
+          "waste_collection"
+        ],
+        "required_equipment": [],
+        "work_minutes": 60
+      },
+      "label": "Sanitation and cleanliness",
+      "icon": "broom",
+      "title_placeholder": "Street not swept near the market",
+      "description_placeholder": "Describe the cleanliness problem and how long it has been there.",
+      "asset_label": null,
+      "asset_hint": null,
+      "instructions": [
+        "Go to the pin on the map.",
+        "Clean the area.",
+        "Take a photo of the clean area from the same spot."
+      ]
+    },
+    {
+      "id": "waste_disposal",
+      "dispatch": {
+        "required_skills": [
+          "waste_collection"
+        ],
+        "required_equipment": [],
+        "work_minutes": 75
+      },
+      "label": "Waste disposal",
+      "icon": "recycle",
+      "title_placeholder": "Waste dumped beside the road",
+      "description_placeholder": "What kind of waste, how much, and is anyone burning it?",
+      "asset_label": null,
+      "asset_hint": null,
+      "instructions": [
+        "Go to the pin on the map.",
+        "Collect and remove the waste to the proper disposal point.",
+        "Take a photo of the cleared spot from the same place."
+      ]
+    },
+    {
+      "id": "highway",
+      "dispatch": {
+        "required_skills": [
+          "road_repair"
+        ],
+        "required_equipment": [],
+        "work_minutes": 120
+      },
+      "label": "Highway problem",
+      "icon": "highway",
+      "title_placeholder": "Large crack across the highway lane",
+      "description_placeholder": "Which highway, which direction, and what is the danger?",
+      "asset_label": "Highway / km marker",
+      "asset_hint": "For example NH-46, km 112",
+      "instructions": [
+        "Go to the pin on the map and secure the area.",
+        "Repair or make the carriageway safe.",
+        "Take a photo of the finished work from the same spot."
+      ]
+    },
+    {
+      "id": "other",
+      "dispatch": {
+        "required_skills": [
+          "general_maintenance"
+        ],
+        "required_equipment": [],
+        "work_minutes": 60
+      },
+      "label": "Other Civic Issue",
+      "icon": "dots",
+      "title_placeholder": "Short summary of the issue",
+      "description_placeholder": "Describe the issue in your own words.",
+      "asset_label": null,
+      "asset_hint": null,
+      "instructions": [
+        "Go to the pin on the map.",
+        "Resolve the issue.",
+        "Take a photo of the result."
+      ]
+    },
+    {
+      "id": "medical_assistance",
+      "scope": "event",
+      "dispatch": {
+        "required_skills": [
+          "first_aid"
+        ],
+        "required_equipment": [],
+        "work_minutes": 20
+      },
+      "label": "Medical Assistance",
+      "icon": "medical",
+      "title_placeholder": "Person feeling unwell near Gate 2",
+      "description_placeholder": "What happened, how many people, are they conscious?",
+      "asset_label": null,
+      "asset_hint": null,
+      "instructions": [
+        "Go to the pin on the map.",
+        "Give first aid and call the medical team if needed.",
+        "Record what was done."
+      ]
+    },
+    {
+      "id": "crowd_management",
+      "scope": "event",
+      "dispatch": {
+        "required_skills": [
+          "crowd_control"
+        ],
+        "required_equipment": [],
+        "work_minutes": 30
+      },
+      "label": "Crowd Management",
+      "icon": "users",
+      "title_placeholder": "Crowd building up at the food court exit",
+      "description_placeholder": "Where is the crowd, how dense is it, is anyone at risk?",
+      "asset_label": null,
+      "asset_hint": null,
+      "instructions": [
+        "Go to the pin on the map.",
+        "Open alternate routes and guide people.",
+        "Report when the area is clear."
+      ]
+    },
+    {
+      "id": "security_concern",
+      "scope": "event",
+      "dispatch": {
+        "required_skills": [
+          "security"
+        ],
+        "required_equipment": [],
+        "work_minutes": 30
+      },
+      "label": "Security Concern",
+      "icon": "shield",
+      "title_placeholder": "Unattended bag near the main stage",
+      "description_placeholder": "Describe what you saw. Do not approach anything dangerous.",
+      "asset_label": null,
+      "asset_hint": null,
+      "instructions": [
+        "Go to the pin on the map.",
+        "Secure the area and follow the security protocol.",
+        "Record the outcome."
+      ]
+    },
+    {
+      "id": "missing_person",
+      "scope": "event",
+      "dispatch": {
+        "required_skills": [
+          "security"
+        ],
+        "required_equipment": [],
+        "work_minutes": 45
+      },
+      "label": "Missing Person",
+      "icon": "search",
+      "title_placeholder": "Child separated from parents near Zone B",
+      "description_placeholder": "Age, clothing and where the person was last seen.",
+      "asset_label": null,
+      "asset_hint": null,
+      "instructions": [
+        "Go to the last-seen location.",
+        "Search the nearby area and alert the help desk.",
+        "Record when the person is found."
+      ]
+    },
+    {
+      "id": "event_operations",
+      "scope": "event",
+      "dispatch": {
+        "required_skills": [
+          "general_maintenance"
+        ],
+        "required_equipment": [],
+        "work_minutes": 30
+      },
+      "label": "Operational / Maintenance Issue",
+      "icon": "tasks",
+      "title_placeholder": "Power out at the ticket counter",
+      "description_placeholder": "What is not working and how it affects the event.",
+      "asset_label": null,
+      "asset_hint": null,
+      "instructions": [
+        "Go to the pin on the map.",
+        "Fix the issue or call the right vendor.",
+        "Record the result."
+      ]
+    }
+  ]
+}

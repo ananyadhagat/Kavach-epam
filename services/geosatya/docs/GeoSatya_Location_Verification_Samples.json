@@ -1,0 +1,1902 @@
+{
+  "captured_at": "2026-10-29T19:16:57.984757+00:00",
+  "git_commit": "9053d0c",
+  "samples": [
+    {
+      "id": "config",
+      "title": "Active geofence configuration",
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/config",
+        "body": null
+      },
+      "status_code": 200,
+      "response": {
+        "app_name": "GeoSatya",
+        "environment": "test",
+        "auth_mode": "demo",
+        "maps": {
+          "provider": "leaflet",
+          "google_browser_key": null,
+          "google_map_id": null
+        },
+        "limits": {
+          "geofence_radius_m": 15.0,
+          "max_accuracy_m": 25.0
+        },
+        "limit_ranges": {
+          "geofence_radius_m": [
+            10.0,
+            20.0
+          ],
+          "max_accuracy_m": [
+            10.0,
+            100.0
+          ]
+        },
+        "location_freshness_s": 30,
+        "simulation_allowed": true,
+        "simulated_may_pass": false,
+        "max_image_size_bytes": 8388608,
+        "min_completion_chars": 10,
+        "integration": {
+          "intelligence_configured": false,
+          "dispatch_fallback": "workload",
+          "dispatch_max_radius_km": 2.0,
+          "dispatch_location_max_age_s": 900
+        },
+        "tracking": {
+          "min_interval_s": 10,
+          "stale_s": 120,
+          "arrival_radius_m": 50.0,
+          "eta_method": "APPROXIMATE_STRAIGHT_LINE"
+        }
+      },
+      "note": null
+    },
+    {
+      "id": "report_device",
+      "title": "Citizen report with device location (in-app camera, photo has EXIF GPS)",
+      "request": {
+        "method": "POST",
+        "path": "/api/v1/incidents",
+        "body": {
+          "category": "road_damage",
+          "title": "Pothole near the bus stop",
+          "description": "Deep pothole in the left lane near the bus stop.",
+          "device_location": {
+            "latitude": 23.2599,
+            "longitude": 77.4126,
+            "accuracy_m": 9.0,
+            "observed_at": "2026-10-29T19:16:56.579311+00:00",
+            "mode": "LIVE"
+          },
+          "photos_meta": [
+            {
+              "capture_source": "CAMERA_LIVE",
+              "captured_at": "2026-10-29T19:16:55.579347+00:00",
+              "uploaded_at": "2026-10-29T19:16:57.579355+00:00"
+            }
+          ]
+        }
+      },
+      "status_code": 201,
+      "response": {
+        "incident_id": "GS-YSY8S5",
+        "category": "road_damage",
+        "category_label": "Pothole / Road Damage",
+        "category_icon": "road",
+        "title": "Pothole near the bus stop",
+        "status": "ASSIGNED",
+        "status_text": "Assigned to a field team",
+        "created_at": "2026-10-29T19:16:57.606697Z",
+        "updated_at": "2026-10-29T19:16:57.646767Z",
+        "is_demo": false,
+        "task_id": "TSK-FD819C",
+        "priority": "NORMAL",
+        "rework": false,
+        "description": "Deep pothole in the left lane near the bus stop.",
+        "asset_identifier": null,
+        "asset_label": null,
+        "instructions": [
+          "Go to the pin on the map.",
+          "Repair or make the damaged section safe.",
+          "Take a photo of the finished work from the same spot."
+        ],
+        "location": {
+          "latitude": 23.2599,
+          "longitude": 77.4126,
+          "source": "DEVICE_GEOLOCATION",
+          "accuracy_m": 9.0,
+          "observed_at": "2026-10-29T19:16:56.579311Z",
+          "mode": "LIVE",
+          "flags": []
+        },
+        "photos": [
+          {
+            "media_id": "MED-94FA78B242",
+            "role": "REPORT",
+            "url": "/api/v1/media/MED-94FA78B242",
+            "capture_source": "CAMERA_LIVE",
+            "width": 640,
+            "height": 480
+          }
+        ],
+        "task": {
+          "task_id": "TSK-FD819C",
+          "status": "ASSIGNED",
+          "attempt": 1,
+          "worker_id": "W-DEMO-12",
+          "worker_name": "Ravi (field worker)",
+          "target_latitude": 23.2599,
+          "target_longitude": 77.4126,
+          "target_source": "ORIGINAL",
+          "rework_reason": null,
+          "assigned_at": "2026-10-29T19:16:57.644082Z"
+        },
+        "reporter_name": "Aarav (citizen)",
+        "progress": {
+          "reported_at": "2026-10-29T19:16:57.606697Z",
+          "assigned_at": "2026-10-29T19:16:57.644082Z",
+          "tracking_started_at": null,
+          "arrived_at": null,
+          "work_started_at": null,
+          "completion_submitted_at": null,
+          "resolved_at": null,
+          "tracking_active": false,
+          "etr": {
+            "state": "ESTIMATED",
+            "approximate": true,
+            "due_at": "2026-10-29T21:46:57.651653Z",
+            "remaining_min": 150,
+            "updated_at": "2026-10-29T19:16:57.651653Z",
+            "updated_on": "ASSIGNED",
+            "basis": {
+              "approximate": true,
+              "travel_min": 30,
+              "travel_source": "DEFAULT_ALLOWANCE",
+              "work_min": 90,
+              "work_source": "CATEGORY_BASELINE",
+              "history_samples": 0,
+              "review_min": 30,
+              "notes": [
+                "Worker location unknown: a default travel allowance is used.",
+                "No history yet (0 resolved task(s) in this category): the category baseline is used."
+              ]
+            },
+            "message": "Approximate estimate, not a deadline. It is updated when the work moves to a new stage."
+          }
+        },
+        "intelligence": {
+          "status": "NOT_CONFIGURED",
+          "priority": "NORMAL",
+          "source": "Incident Intelligence agent (system generated)"
+        },
+        "timeline": [
+          {
+            "event_id": "EVT-3F55EDD1B360",
+            "actor": "Aarav (citizen)",
+            "actor_role": "CITIZEN",
+            "action": "INCIDENT_REPORTED",
+            "incident_id": "GS-YSY8S5",
+            "time": "2026-10-29T19:16:57.624937Z",
+            "details": {
+              "category": "road_damage",
+              "location_source": "DEVICE_GEOLOCATION",
+              "location_mode": "LIVE",
+              "flags": []
+            }
+          },
+          {
+            "event_id": "EVT-E1D170280D35",
+            "actor": "Verification engine",
+            "actor_role": "SYSTEM",
+            "action": "STATUS_CHANGED",
+            "incident_id": "GS-YSY8S5",
+            "time": "2026-10-29T19:16:57.646723Z",
+            "details": {
+              "from_status": "SUBMITTED",
+              "to_status": "ASSIGNED",
+              "reason": "Assigned to W-DEMO-12: No qualified worker has shared a recent location; assigned by workload (distance not considered)"
+            }
+          }
+        ]
+      },
+      "note": "Multipart: `payload` JSON + one photo. Response as the citizen sees it."
+    },
+    {
+      "id": "incident_supervisor",
+      "title": "Incident detail as the supervisor sees it (photo times + EXIF GPS)",
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/incidents/GS-YSY8S5",
+        "body": null
+      },
+      "status_code": 200,
+      "response": {
+        "incident_id": "GS-YSY8S5",
+        "category": "road_damage",
+        "category_label": "Pothole / Road Damage",
+        "category_icon": "road",
+        "title": "Pothole near the bus stop",
+        "status": "ASSIGNED",
+        "status_text": "Assigned to a field team",
+        "created_at": "2026-10-29T19:16:57.606697Z",
+        "updated_at": "2026-10-29T19:16:57.646767Z",
+        "is_demo": false,
+        "task_id": "TSK-FD819C",
+        "priority": "NORMAL",
+        "rework": false,
+        "description": "Deep pothole in the left lane near the bus stop.",
+        "asset_identifier": null,
+        "asset_label": null,
+        "instructions": [
+          "Go to the pin on the map.",
+          "Repair or make the damaged section safe.",
+          "Take a photo of the finished work from the same spot."
+        ],
+        "location": {
+          "latitude": 23.2599,
+          "longitude": 77.4126,
+          "source": "DEVICE_GEOLOCATION",
+          "accuracy_m": 9.0,
+          "observed_at": "2026-10-29T19:16:56.579311Z",
+          "mode": "LIVE",
+          "flags": []
+        },
+        "photos": [
+          {
+            "media_id": "MED-94FA78B242",
+            "role": "REPORT",
+            "url": "/api/v1/media/MED-94FA78B242",
+            "capture_source": "CAMERA_LIVE",
+            "width": 640,
+            "height": 480,
+            "exif_status": "GPS_FOUND",
+            "sha256": "7e53f387c3194dabb95811cd24e9aa73c4ab245e29ab642ca3e3404d09bac658",
+            "times": {
+              "image_captured_at": "2026-10-29T19:16:55.579347Z",
+              "exif_claimed_time": null,
+              "uploaded_at": "2026-10-29T19:16:57.579355Z",
+              "server_received_at": "2026-10-29T19:16:57.616936Z"
+            },
+            "exif_gps": {
+              "latitude": 23.2599,
+              "longitude": 77.4126391
+            }
+          }
+        ],
+        "task": {
+          "task_id": "TSK-FD819C",
+          "status": "ASSIGNED",
+          "attempt": 1,
+          "worker_id": "W-DEMO-12",
+          "worker_name": "Ravi (field worker)",
+          "target_latitude": 23.2599,
+          "target_longitude": 77.4126,
+          "target_source": "ORIGINAL",
+          "rework_reason": null,
+          "assigned_at": "2026-10-29T19:16:57.644082Z"
+        },
+        "reporter_name": "Aarav (citizen)",
+        "completions": [],
+        "completion_photos": [],
+        "progress": {
+          "reported_at": "2026-10-29T19:16:57.606697Z",
+          "assigned_at": "2026-10-29T19:16:57.644082Z",
+          "tracking_started_at": null,
+          "arrived_at": null,
+          "work_started_at": null,
+          "completion_submitted_at": null,
+          "resolved_at": null,
+          "tracking_active": false,
+          "etr": {
+            "state": "ESTIMATED",
+            "approximate": true,
+            "due_at": "2026-10-29T21:46:57.651653Z",
+            "remaining_min": 150,
+            "updated_at": "2026-10-29T19:16:57.651653Z",
+            "updated_on": "ASSIGNED",
+            "basis": {
+              "approximate": true,
+              "travel_min": 30,
+              "travel_source": "DEFAULT_ALLOWANCE",
+              "work_min": 90,
+              "work_source": "CATEGORY_BASELINE",
+              "history_samples": 0,
+              "review_min": 30,
+              "notes": [
+                "Worker location unknown: a default travel allowance is used.",
+                "No history yet (0 resolved task(s) in this category): the category baseline is used."
+              ]
+            },
+            "message": "Approximate estimate, not a deadline. It is updated when the work moves to a new stage."
+          }
+        },
+        "intelligence": {
+          "status": "NOT_CONFIGURED",
+          "priority": "NORMAL",
+          "source": "Incident Intelligence agent (system generated)",
+          "category": null,
+          "incident_type": null,
+          "severity": null,
+          "severity_reason": null,
+          "severity_rule_matches": [],
+          "summary": null,
+          "needs_clarification": false,
+          "clarification_questions": [],
+          "missing_information": [],
+          "location_check_status": null,
+          "external_incident_id": null,
+          "request_id": "geosatya-GS-YSY8S5",
+          "model_info": null,
+          "attempts": 0,
+          "last_error": null,
+          "requested_at": null,
+          "completed_at": null
+        },
+        "dispatch": {
+          "status": "ASSIGNED",
+          "method": "WORKLOAD_FALLBACK",
+          "worker_id": "W-DEMO-12",
+          "worker_name": "Ravi (field worker)",
+          "priority": "NORMAL",
+          "reason": "No qualified worker has shared a recent location; assigned by workload (distance not considered)",
+          "required_skills": [
+            "road_repair"
+          ],
+          "required_equipment": [],
+          "ranking": [],
+          "rejected": [
+            {
+              "worker_id": "W-DEMO-12",
+              "reasons": [
+                "Location unavailable"
+              ],
+              "worker_name": "Ravi (field worker)"
+            },
+            {
+              "worker_id": "W-DEMO-15",
+              "reasons": [
+                "Location unavailable"
+              ],
+              "worker_name": "Meena (field worker)"
+            }
+          ],
+          "decided_at": "2026-10-29T19:16:57.643914Z",
+          "history": [
+            {
+              "status": "ASSIGNED",
+              "method": "WORKLOAD_FALLBACK",
+              "worker_name": "Ravi (field worker)",
+              "reason": "No qualified worker has shared a recent location; assigned by workload (distance not considered)",
+              "time": "2026-10-29T19:16:57.643914Z"
+            }
+          ]
+        },
+        "timeline": [
+          {
+            "event_id": "EVT-3F55EDD1B360",
+            "actor": "Aarav (citizen)",
+            "actor_role": "CITIZEN",
+            "action": "INCIDENT_REPORTED",
+            "incident_id": "GS-YSY8S5",
+            "time": "2026-10-29T19:16:57.624937Z",
+            "details": {
+              "category": "road_damage",
+              "location_source": "DEVICE_GEOLOCATION",
+              "location_mode": "LIVE",
+              "flags": []
+            }
+          },
+          {
+            "event_id": "EVT-DAF417B40FBA",
+            "actor": "Verification engine",
+            "actor_role": "SYSTEM",
+            "action": "DISPATCHED",
+            "incident_id": "GS-YSY8S5",
+            "time": "2026-10-29T19:16:57.644039Z",
+            "details": {
+              "worker_id": "W-DEMO-12",
+              "method": "WORKLOAD_FALLBACK",
+              "priority": "NORMAL"
+            }
+          },
+          {
+            "event_id": "EVT-E1D170280D35",
+            "actor": "Verification engine",
+            "actor_role": "SYSTEM",
+            "action": "STATUS_CHANGED",
+            "incident_id": "GS-YSY8S5",
+            "time": "2026-10-29T19:16:57.646723Z",
+            "details": {
+              "from_status": "SUBMITTED",
+              "to_status": "ASSIGNED",
+              "reason": "Assigned to W-DEMO-12: No qualified worker has shared a recent location; assigned by workload (distance not considered)"
+            }
+          }
+        ]
+      },
+      "note": null
+    },
+    {
+      "id": "report_pin",
+      "title": "Citizen report with location denied: map-pin fallback, gallery photo",
+      "request": {
+        "method": "POST",
+        "path": "/api/v1/incidents",
+        "body": {
+          "category": "streetlight",
+          "title": "Streetlight not working",
+          "description": "The streetlight on this pole has been off for a week.",
+          "asset_identifier": "SL-0147",
+          "device_location_error": "PERMISSION_DENIED",
+          "user_location": {
+            "latitude": 23.2612475,
+            "longitude": 77.4133822
+          },
+          "photos_meta": [
+            {
+              "capture_source": "GALLERY",
+              "uploaded_at": "2026-10-29T19:16:57.687242+00:00"
+            }
+          ]
+        }
+      },
+      "status_code": 201,
+      "response": {
+        "incident_id": "GS-PJMYH3",
+        "category": "streetlight",
+        "category_label": "Broken Streetlight",
+        "category_icon": "bulb",
+        "title": "Streetlight not working",
+        "status": "ASSIGNED",
+        "status_text": "Assigned to a field team",
+        "created_at": "2026-10-29T19:16:57.698951Z",
+        "updated_at": "2026-10-29T19:16:57.717482Z",
+        "is_demo": false,
+        "task_id": "TSK-723CB0",
+        "priority": "NORMAL",
+        "rework": false,
+        "description": "The streetlight on this pole has been off for a week.",
+        "asset_identifier": "SL-0147",
+        "asset_label": "Pole number",
+        "instructions": [
+          "Go to the pin on the map and find the pole.",
+          "Repair or replace the light.",
+          "Take a photo showing the pole and the light."
+        ],
+        "location": {
+          "latitude": 23.2612475,
+          "longitude": 77.4133822,
+          "source": "USER_SELECTED_PIN",
+          "accuracy_m": null,
+          "observed_at": null,
+          "mode": "USER_PIN",
+          "flags": [
+            "USER_SELECTED_LOCATION"
+          ]
+        },
+        "photos": [
+          {
+            "media_id": "MED-AB2C714434",
+            "role": "REPORT",
+            "url": "/api/v1/media/MED-AB2C714434",
+            "capture_source": "GALLERY",
+            "width": 640,
+            "height": 480
+          }
+        ],
+        "task": {
+          "task_id": "TSK-723CB0",
+          "status": "ASSIGNED",
+          "attempt": 1,
+          "worker_id": "W-DEMO-12",
+          "worker_name": "Ravi (field worker)",
+          "target_latitude": 23.2612475,
+          "target_longitude": 77.4133822,
+          "target_source": "ORIGINAL",
+          "rework_reason": null,
+          "assigned_at": "2026-10-29T19:16:57.716584Z"
+        },
+        "reporter_name": "Aarav (citizen)",
+        "progress": {
+          "reported_at": "2026-10-29T19:16:57.698951Z",
+          "assigned_at": "2026-10-29T19:16:57.716584Z",
+          "tracking_started_at": null,
+          "arrived_at": null,
+          "work_started_at": null,
+          "completion_submitted_at": null,
+          "resolved_at": null,
+          "tracking_active": false,
+          "etr": {
+            "state": "ESTIMATED",
+            "approximate": true,
+            "due_at": "2026-10-29T21:16:57.718612Z",
+            "remaining_min": 120,
+            "updated_at": "2026-10-29T19:16:57.718612Z",
+            "updated_on": "ASSIGNED",
+            "basis": {
+              "approximate": true,
+              "travel_min": 30,
+              "travel_source": "DEFAULT_ALLOWANCE",
+              "work_min": 60,
+              "work_source": "CATEGORY_BASELINE",
+              "history_samples": 0,
+              "review_min": 30,
+              "notes": [
+                "Worker location unknown: a default travel allowance is used.",
+                "No history yet (0 resolved task(s) in this category): the category baseline is used."
+              ]
+            },
+            "message": "Approximate estimate, not a deadline. It is updated when the work moves to a new stage."
+          }
+        },
+        "intelligence": {
+          "status": "NOT_CONFIGURED",
+          "priority": "NORMAL",
+          "source": "Incident Intelligence agent (system generated)"
+        },
+        "timeline": [
+          {
+            "event_id": "EVT-C4534CC99D26",
+            "actor": "Aarav (citizen)",
+            "actor_role": "CITIZEN",
+            "action": "INCIDENT_REPORTED",
+            "incident_id": "GS-PJMYH3",
+            "time": "2026-10-29T19:16:57.707942Z",
+            "details": {
+              "category": "streetlight",
+              "location_source": "USER_SELECTED_PIN",
+              "location_mode": "USER_PIN",
+              "flags": [
+                "USER_SELECTED_LOCATION"
+              ]
+            }
+          },
+          {
+            "event_id": "EVT-8BFCA261342D",
+            "actor": "Verification engine",
+            "actor_role": "SYSTEM",
+            "action": "STATUS_CHANGED",
+            "incident_id": "GS-PJMYH3",
+            "time": "2026-10-29T19:16:57.717445Z",
+            "details": {
+              "from_status": "SUBMITTED",
+              "to_status": "ASSIGNED",
+              "reason": "Assigned to W-DEMO-12: No qualified worker has shared a recent location; assigned by workload (distance not considered)"
+            }
+          }
+        ]
+      },
+      "note": null
+    },
+    {
+      "id": "completion_fail",
+      "title": "Worker completion 45 m away: FAIL (not accepted)",
+      "request": {
+        "method": "POST",
+        "path": "/api/v1/tasks/TSK-FD819C/completion",
+        "body": {
+          "description": "Filled and compacted the pothole.",
+          "device_location": {
+            "latitude": 23.2601875,
+            "longitude": 77.4129129,
+            "accuracy_m": 8.0,
+            "observed_at": "2026-10-29T19:16:56.751147+00:00",
+            "mode": "LIVE"
+          },
+          "device_location_error": null,
+          "photo_meta": {
+            "capture_source": "CAMERA_LIVE",
+            "captured_at": "2026-10-29T19:16:55.758994+00:00",
+            "uploaded_at": "2026-10-29T19:16:57.759013+00:00"
+          }
+        }
+      },
+      "status_code": 200,
+      "response": {
+        "completion": {
+          "completion_id": "CMP-B9A98004",
+          "incident_id": "GS-YSY8S5",
+          "attempt": 1,
+          "outcome": "FAIL",
+          "accepted": false,
+          "message": "Worker location is outside the permitted radius (45 m away, limit 15 m). Move closer to the assigned incident location and try again.",
+          "distance_m": 45.2,
+          "accuracy_m": 8.0,
+          "radius_m": 15.0,
+          "reason_codes": [
+            "OUTSIDE_RADIUS"
+          ],
+          "simulated": false,
+          "description": "Filled and compacted the pothole.",
+          "worker_name": "Ravi (field worker)",
+          "submitted_at": "2026-10-29T19:16:57.776009Z",
+          "review_decision": null,
+          "review_reason": null,
+          "reviewed_by_name": null,
+          "reviewed_at": null
+        },
+        "task": {
+          "task_id": "TSK-FD819C",
+          "status": "IN_PROGRESS",
+          "attempt": 1,
+          "worker_id": "W-DEMO-12",
+          "worker_name": "Ravi (field worker)",
+          "target_latitude": 23.2599,
+          "target_longitude": 77.4126,
+          "target_source": "ORIGINAL",
+          "rework_reason": null,
+          "assigned_at": "2026-10-29T19:16:57.644082Z"
+        },
+        "incident_status": "IN_PROGRESS"
+      },
+      "note": null
+    },
+    {
+      "id": "completion_not_checked",
+      "title": "Worker completion with location permission denied: NOT_CHECKED",
+      "request": {
+        "method": "POST",
+        "path": "/api/v1/tasks/TSK-FD819C/completion",
+        "body": {
+          "description": "Filled and compacted the pothole.",
+          "device_location": null,
+          "device_location_error": "PERMISSION_DENIED",
+          "photo_meta": {
+            "capture_source": "CAMERA_LIVE",
+            "captured_at": "2026-10-29T19:16:55.793588+00:00",
+            "uploaded_at": "2026-10-29T19:16:57.793619+00:00"
+          }
+        }
+      },
+      "status_code": 200,
+      "response": {
+        "completion": {
+          "completion_id": "CMP-F5CD43EF",
+          "incident_id": "GS-YSY8S5",
+          "attempt": 1,
+          "outcome": "NOT_CHECKED",
+          "accepted": false,
+          "message": "Your location could not be checked (location permission was denied). Fix location access and try again; nothing was verified.",
+          "distance_m": null,
+          "accuracy_m": null,
+          "radius_m": 15.0,
+          "reason_codes": [
+            "LOCATION_UNAVAILABLE",
+            "PERMISSION_DENIED"
+          ],
+          "simulated": false,
+          "description": "Filled and compacted the pothole.",
+          "worker_name": "Ravi (field worker)",
+          "submitted_at": "2026-10-29T19:16:57.807090Z",
+          "review_decision": null,
+          "review_reason": null,
+          "reviewed_by_name": null,
+          "reviewed_at": null
+        },
+        "task": {
+          "task_id": "TSK-FD819C",
+          "status": "IN_PROGRESS",
+          "attempt": 1,
+          "worker_id": "W-DEMO-12",
+          "worker_name": "Ravi (field worker)",
+          "target_latitude": 23.2599,
+          "target_longitude": 77.4126,
+          "target_source": "ORIGINAL",
+          "rework_reason": null,
+          "assigned_at": "2026-10-29T19:16:57.644082Z"
+        },
+        "incident_status": "IN_PROGRESS"
+      },
+      "note": null
+    },
+    {
+      "id": "completion_pass",
+      "title": "Worker completion 4 m away with good accuracy: PASS",
+      "request": {
+        "method": "POST",
+        "path": "/api/v1/tasks/TSK-FD819C/completion",
+        "body": {
+          "description": "Filled and compacted the pothole.",
+          "device_location": {
+            "latitude": 23.2599,
+            "longitude": 77.4126391,
+            "accuracy_m": 8.0,
+            "observed_at": "2026-10-29T19:16:56.815174+00:00",
+            "mode": "LIVE"
+          },
+          "device_location_error": null,
+          "photo_meta": {
+            "capture_source": "CAMERA_LIVE",
+            "captured_at": "2026-10-29T19:16:55.822354+00:00",
+            "uploaded_at": "2026-10-29T19:16:57.822369+00:00"
+          }
+        }
+      },
+      "status_code": 200,
+      "response": {
+        "completion": {
+          "completion_id": "CMP-4D797E63",
+          "incident_id": "GS-YSY8S5",
+          "attempt": 1,
+          "outcome": "PASS",
+          "accepted": true,
+          "message": "Worker location is within the permitted radius (4 m, limit 15 m) and the required completion evidence has been submitted.",
+          "distance_m": 4.0,
+          "accuracy_m": 8.0,
+          "radius_m": 15.0,
+          "reason_codes": [
+            "WITHIN_RADIUS"
+          ],
+          "simulated": false,
+          "description": "Filled and compacted the pothole.",
+          "worker_name": "Ravi (field worker)",
+          "submitted_at": "2026-10-29T19:16:57.836681Z",
+          "review_decision": null,
+          "review_reason": null,
+          "reviewed_by_name": null,
+          "reviewed_at": null
+        },
+        "task": {
+          "task_id": "TSK-FD819C",
+          "status": "AWAITING_VERIFICATION",
+          "attempt": 1,
+          "worker_id": "W-DEMO-12",
+          "worker_name": "Ravi (field worker)",
+          "target_latitude": 23.2599,
+          "target_longitude": 77.4126,
+          "target_source": "ORIGINAL",
+          "rework_reason": null,
+          "assigned_at": "2026-10-29T19:16:57.644082Z"
+        },
+        "incident_status": "AWAITING_VERIFICATION"
+      },
+      "note": null
+    },
+    {
+      "id": "completion_detail",
+      "title": "Completion detail for the supervisor (full geofence result, device fix, photo)",
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/completions/CMP-4D797E63",
+        "body": null
+      },
+      "status_code": 200,
+      "response": {
+        "completion_id": "CMP-4D797E63",
+        "incident_id": "GS-YSY8S5",
+        "attempt": 1,
+        "outcome": "PASS",
+        "accepted": true,
+        "message": "Worker location is within the permitted radius (4 m, limit 15 m) and the required completion evidence has been submitted.",
+        "distance_m": 4.0,
+        "accuracy_m": 8.0,
+        "radius_m": 15.0,
+        "reason_codes": [
+          "WITHIN_RADIUS"
+        ],
+        "simulated": false,
+        "description": "Filled and compacted the pothole.",
+        "worker_name": "Ravi (field worker)",
+        "submitted_at": "2026-10-29T19:16:57.836681Z",
+        "review_decision": null,
+        "review_reason": null,
+        "reviewed_by_name": null,
+        "reviewed_at": null,
+        "result": {
+          "outcome": "PASS",
+          "message": "Worker location is within the permitted radius (4 m, limit 15 m) and the required completion evidence has been submitted.",
+          "distance_m": 4.0,
+          "accuracy_m": 8.0,
+          "radius_m": 15.0,
+          "max_accuracy_m": 25.0,
+          "reason_codes": [
+            "WITHIN_RADIUS"
+          ],
+          "simulated": false,
+          "exif_target_distance_m": null,
+          "exif_device_distance_m": null,
+          "needs_review": false,
+          "times": {
+            "image_captured_at": "2026-10-29T19:16:55.822354+00:00",
+            "location_observed_at": "2026-10-29T19:16:56.815174+00:00",
+            "uploaded_at": "2026-10-29T19:16:57.822369+00:00",
+            "server_received_at": "2026-10-29T19:16:57.830086+00:00"
+          },
+          "photo_source": "CAMERA_LIVE",
+          "exif_status": "NO_EXIF"
+        },
+        "photo": {
+          "media_id": "MED-B9F597EBC2",
+          "role": "COMPLETION",
+          "url": "/api/v1/media/MED-B9F597EBC2",
+          "capture_source": "CAMERA_LIVE",
+          "width": 640,
+          "height": 480,
+          "exif_status": "NO_EXIF",
+          "sha256": "b09574a9473c31c4b1d6df30885cfdcf666f325115d7e9293e7fa409055b55a0",
+          "times": {
+            "image_captured_at": "2026-10-29T19:16:55.822354Z",
+            "exif_claimed_time": null,
+            "uploaded_at": "2026-10-29T19:16:57.822369Z",
+            "server_received_at": "2026-10-29T19:16:57.830086Z"
+          },
+          "exif_gps": null
+        },
+        "device": {
+          "available": true,
+          "latitude": 23.2599,
+          "longitude": 77.4126391,
+          "accuracy_m": 8.0,
+          "mode": "LIVE",
+          "observed_at": "2026-10-29T19:16:56.815174Z",
+          "unavailable_reason": null
+        },
+        "pending": true,
+        "incident": {
+          "incident_id": "GS-YSY8S5",
+          "category": "road_damage",
+          "category_label": "Pothole / Road Damage",
+          "category_icon": "road",
+          "title": "Pothole near the bus stop",
+          "status": "AWAITING_VERIFICATION",
+          "status_text": "Work done, being verified",
+          "created_at": "2026-10-29T19:16:57.606697Z",
+          "updated_at": "2026-10-29T19:16:57.836851Z",
+          "is_demo": false,
+          "task_id": "TSK-FD819C",
+          "priority": "NORMAL",
+          "rework": false,
+          "description": "Deep pothole in the left lane near the bus stop.",
+          "asset_identifier": null,
+          "asset_label": null,
+          "instructions": [
+            "Go to the pin on the map.",
+            "Repair or make the damaged section safe.",
+            "Take a photo of the finished work from the same spot."
+          ],
+          "location": {
+            "latitude": 23.2599,
+            "longitude": 77.4126,
+            "source": "DEVICE_GEOLOCATION",
+            "accuracy_m": 9.0,
+            "observed_at": "2026-10-29T19:16:56.579311Z",
+            "mode": "LIVE",
+            "flags": []
+          },
+          "photos": [
+            {
+              "media_id": "MED-94FA78B242",
+              "role": "REPORT",
+              "url": "/api/v1/media/MED-94FA78B242",
+              "capture_source": "CAMERA_LIVE",
+              "width": 640,
+              "height": 480,
+              "exif_status": "GPS_FOUND",
+              "sha256": "7e53f387c3194dabb95811cd24e9aa73c4ab245e29ab642ca3e3404d09bac658",
+              "times": {
+                "image_captured_at": "2026-10-29T19:16:55.579347Z",
+                "exif_claimed_time": null,
+                "uploaded_at": "2026-10-29T19:16:57.579355Z",
+                "server_received_at": "2026-10-29T19:16:57.616936Z"
+              },
+              "exif_gps": {
+                "latitude": 23.2599,
+                "longitude": 77.4126391
+              }
+            }
+          ],
+          "task": {
+            "task_id": "TSK-FD819C",
+            "status": "AWAITING_VERIFICATION",
+            "attempt": 1,
+            "worker_id": "W-DEMO-12",
+            "worker_name": "Ravi (field worker)",
+            "target_latitude": 23.2599,
+            "target_longitude": 77.4126,
+            "target_source": "ORIGINAL",
+            "rework_reason": null,
+            "assigned_at": "2026-10-29T19:16:57.644082Z"
+          },
+          "reporter_name": "Aarav (citizen)",
+          "completions": [
+            {
+              "completion_id": "CMP-B9A98004",
+              "incident_id": "GS-YSY8S5",
+              "attempt": 1,
+              "outcome": "FAIL",
+              "accepted": false,
+              "message": "Worker location is outside the permitted radius (45 m away, limit 15 m). Move closer to the assigned incident location and try again.",
+              "distance_m": 45.2,
+              "accuracy_m": 8.0,
+              "radius_m": 15.0,
+              "reason_codes": [
+                "OUTSIDE_RADIUS"
+              ],
+              "simulated": false,
+              "description": "Filled and compacted the pothole.",
+              "worker_name": "Ravi (field worker)",
+              "submitted_at": "2026-10-29T19:16:57.776009Z",
+              "review_decision": null,
+              "review_reason": null,
+              "reviewed_by_name": null,
+              "reviewed_at": null,
+              "result": {
+                "outcome": "FAIL",
+                "message": "Worker location is outside the permitted radius (45 m away, limit 15 m). Move closer to the assigned incident location and try again.",
+                "distance_m": 45.2,
+                "accuracy_m": 8.0,
+                "radius_m": 15.0,
+                "max_accuracy_m": 25.0,
+                "reason_codes": [
+                  "OUTSIDE_RADIUS"
+                ],
+                "simulated": false,
+                "exif_target_distance_m": null,
+                "exif_device_distance_m": null,
+                "needs_review": false,
+                "times": {
+                  "image_captured_at": "2026-10-29T19:16:55.758994+00:00",
+                  "location_observed_at": "2026-10-29T19:16:56.751147+00:00",
+                  "uploaded_at": "2026-10-29T19:16:57.759013+00:00",
+                  "server_received_at": "2026-10-29T19:16:57.767042+00:00"
+                },
+                "photo_source": "CAMERA_LIVE",
+                "exif_status": "NO_EXIF"
+              },
+              "photo": {
+                "media_id": "MED-7C874F97E9",
+                "role": "COMPLETION",
+                "url": "/api/v1/media/MED-7C874F97E9",
+                "capture_source": "CAMERA_LIVE",
+                "width": 640,
+                "height": 480,
+                "exif_status": "NO_EXIF",
+                "sha256": "30f042a66d948ab60d117922f686b1ecd36c3c8133a94af4b07f0286fe284940",
+                "times": {
+                  "image_captured_at": "2026-10-29T19:16:55.758994Z",
+                  "exif_claimed_time": null,
+                  "uploaded_at": "2026-10-29T19:16:57.759013Z",
+                  "server_received_at": "2026-10-29T19:16:57.767042Z"
+                },
+                "exif_gps": null
+              },
+              "device": {
+                "available": true,
+                "latitude": 23.2601875,
+                "longitude": 77.4129129,
+                "accuracy_m": 8.0,
+                "mode": "LIVE",
+                "observed_at": "2026-10-29T19:16:56.751147Z",
+                "unavailable_reason": null
+              }
+            },
+            {
+              "completion_id": "CMP-F5CD43EF",
+              "incident_id": "GS-YSY8S5",
+              "attempt": 1,
+              "outcome": "NOT_CHECKED",
+              "accepted": false,
+              "message": "Your location could not be checked (location permission was denied). Fix location access and try again; nothing was verified.",
+              "distance_m": null,
+              "accuracy_m": null,
+              "radius_m": 15.0,
+              "reason_codes": [
+                "LOCATION_UNAVAILABLE",
+                "PERMISSION_DENIED"
+              ],
+              "simulated": false,
+              "description": "Filled and compacted the pothole.",
+              "worker_name": "Ravi (field worker)",
+              "submitted_at": "2026-10-29T19:16:57.807090Z",
+              "review_decision": null,
+              "review_reason": null,
+              "reviewed_by_name": null,
+              "reviewed_at": null,
+              "result": {
+                "outcome": "NOT_CHECKED",
+                "message": "Your location could not be checked (location permission was denied). Fix location access and try again; nothing was verified.",
+                "distance_m": null,
+                "accuracy_m": null,
+                "radius_m": 15.0,
+                "max_accuracy_m": 25.0,
+                "reason_codes": [
+                  "LOCATION_UNAVAILABLE",
+                  "PERMISSION_DENIED"
+                ],
+                "simulated": false,
+                "exif_target_distance_m": null,
+                "exif_device_distance_m": null,
+                "needs_review": false,
+                "times": {
+                  "image_captured_at": "2026-10-29T19:16:55.793588+00:00",
+                  "location_observed_at": null,
+                  "uploaded_at": "2026-10-29T19:16:57.793619+00:00",
+                  "server_received_at": "2026-10-29T19:16:57.800892+00:00"
+                },
+                "photo_source": "CAMERA_LIVE",
+                "exif_status": "NO_EXIF"
+              },
+              "photo": {
+                "media_id": "MED-0736DD9C03",
+                "role": "COMPLETION",
+                "url": "/api/v1/media/MED-0736DD9C03",
+                "capture_source": "CAMERA_LIVE",
+                "width": 640,
+                "height": 480,
+                "exif_status": "NO_EXIF",
+                "sha256": "e24b8c437ece67c39f7b96d2f0def3c873e4ef3a0bdba46dc8827d4f4e561afa",
+                "times": {
+                  "image_captured_at": "2026-10-29T19:16:55.793588Z",
+                  "exif_claimed_time": null,
+                  "uploaded_at": "2026-10-29T19:16:57.793619Z",
+                  "server_received_at": "2026-10-29T19:16:57.800892Z"
+                },
+                "exif_gps": null
+              },
+              "device": {
+                "available": false,
+                "latitude": null,
+                "longitude": null,
+                "accuracy_m": null,
+                "mode": "LIVE",
+                "observed_at": null,
+                "unavailable_reason": "PERMISSION_DENIED"
+              }
+            },
+            {
+              "completion_id": "CMP-4D797E63",
+              "incident_id": "GS-YSY8S5",
+              "attempt": 1,
+              "outcome": "PASS",
+              "accepted": true,
+              "message": "Worker location is within the permitted radius (4 m, limit 15 m) and the required completion evidence has been submitted.",
+              "distance_m": 4.0,
+              "accuracy_m": 8.0,
+              "radius_m": 15.0,
+              "reason_codes": [
+                "WITHIN_RADIUS"
+              ],
+              "simulated": false,
+              "description": "Filled and compacted the pothole.",
+              "worker_name": "Ravi (field worker)",
+              "submitted_at": "2026-10-29T19:16:57.836681Z",
+              "review_decision": null,
+              "review_reason": null,
+              "reviewed_by_name": null,
+              "reviewed_at": null,
+              "result": {
+                "outcome": "PASS",
+                "message": "Worker location is within the permitted radius (4 m, limit 15 m) and the required completion evidence has been submitted.",
+                "distance_m": 4.0,
+                "accuracy_m": 8.0,
+                "radius_m": 15.0,
+                "max_accuracy_m": 25.0,
+                "reason_codes": [
+                  "WITHIN_RADIUS"
+                ],
+                "simulated": false,
+                "exif_target_distance_m": null,
+                "exif_device_distance_m": null,
+                "needs_review": false,
+                "times": {
+                  "image_captured_at": "2026-10-29T19:16:55.822354+00:00",
+                  "location_observed_at": "2026-10-29T19:16:56.815174+00:00",
+                  "uploaded_at": "2026-10-29T19:16:57.822369+00:00",
+                  "server_received_at": "2026-10-29T19:16:57.830086+00:00"
+                },
+                "photo_source": "CAMERA_LIVE",
+                "exif_status": "NO_EXIF"
+              },
+              "photo": {
+                "media_id": "MED-B9F597EBC2",
+                "role": "COMPLETION",
+                "url": "/api/v1/media/MED-B9F597EBC2",
+                "capture_source": "CAMERA_LIVE",
+                "width": 640,
+                "height": 480,
+                "exif_status": "NO_EXIF",
+                "sha256": "b09574a9473c31c4b1d6df30885cfdcf666f325115d7e9293e7fa409055b55a0",
+                "times": {
+                  "image_captured_at": "2026-10-29T19:16:55.822354Z",
+                  "exif_claimed_time": null,
+                  "uploaded_at": "2026-10-29T19:16:57.822369Z",
+                  "server_received_at": "2026-10-29T19:16:57.830086Z"
+                },
+                "exif_gps": null
+              },
+              "device": {
+                "available": true,
+                "latitude": 23.2599,
+                "longitude": 77.4126391,
+                "accuracy_m": 8.0,
+                "mode": "LIVE",
+                "observed_at": "2026-10-29T19:16:56.815174Z",
+                "unavailable_reason": null
+              }
+            }
+          ],
+          "completion_photos": [
+            {
+              "media_id": "MED-7C874F97E9",
+              "role": "COMPLETION",
+              "url": "/api/v1/media/MED-7C874F97E9",
+              "capture_source": "CAMERA_LIVE",
+              "width": 640,
+              "height": 480,
+              "exif_status": "NO_EXIF",
+              "sha256": "30f042a66d948ab60d117922f686b1ecd36c3c8133a94af4b07f0286fe284940",
+              "times": {
+                "image_captured_at": "2026-10-29T19:16:55.758994Z",
+                "exif_claimed_time": null,
+                "uploaded_at": "2026-10-29T19:16:57.759013Z",
+                "server_received_at": "2026-10-29T19:16:57.767042Z"
+              },
+              "exif_gps": null
+            },
+            {
+              "media_id": "MED-0736DD9C03",
+              "role": "COMPLETION",
+              "url": "/api/v1/media/MED-0736DD9C03",
+              "capture_source": "CAMERA_LIVE",
+              "width": 640,
+              "height": 480,
+              "exif_status": "NO_EXIF",
+              "sha256": "e24b8c437ece67c39f7b96d2f0def3c873e4ef3a0bdba46dc8827d4f4e561afa",
+              "times": {
+                "image_captured_at": "2026-10-29T19:16:55.793588Z",
+                "exif_claimed_time": null,
+                "uploaded_at": "2026-10-29T19:16:57.793619Z",
+                "server_received_at": "2026-10-29T19:16:57.800892Z"
+              },
+              "exif_gps": null
+            },
+            {
+              "media_id": "MED-B9F597EBC2",
+              "role": "COMPLETION",
+              "url": "/api/v1/media/MED-B9F597EBC2",
+              "capture_source": "CAMERA_LIVE",
+              "width": 640,
+              "height": 480,
+              "exif_status": "NO_EXIF",
+              "sha256": "b09574a9473c31c4b1d6df30885cfdcf666f325115d7e9293e7fa409055b55a0",
+              "times": {
+                "image_captured_at": "2026-10-29T19:16:55.822354Z",
+                "exif_claimed_time": null,
+                "uploaded_at": "2026-10-29T19:16:57.822369Z",
+                "server_received_at": "2026-10-29T19:16:57.830086Z"
+              },
+              "exif_gps": null
+            }
+          ],
+          "progress": {
+            "reported_at": "2026-10-29T19:16:57.606697Z",
+            "assigned_at": "2026-10-29T19:16:57.644082Z",
+            "tracking_started_at": null,
+            "arrived_at": null,
+            "work_started_at": "2026-10-29T19:16:57.737641Z",
+            "completion_submitted_at": "2026-10-29T19:16:57.836681Z",
+            "resolved_at": null,
+            "tracking_active": false,
+            "etr": {
+              "state": "ESTIMATED",
+              "approximate": true,
+              "due_at": "2026-10-29T19:46:57.836681Z",
+              "remaining_min": 30,
+              "updated_at": "2026-10-29T19:16:57.840726Z",
+              "updated_on": "COMPLETION_SUBMITTED",
+              "basis": {
+                "approximate": true,
+                "travel_min": 0,
+                "travel_source": null,
+                "work_min": 0,
+                "work_source": "CATEGORY_BASELINE",
+                "history_samples": 0,
+                "review_min": 30,
+                "notes": [
+                  "No history yet (0 resolved task(s) in this category): the category baseline is used."
+                ]
+              },
+              "message": "Approximate estimate, not a deadline. It is updated when the work moves to a new stage."
+            }
+          },
+          "intelligence": {
+            "status": "NOT_CONFIGURED",
+            "priority": "NORMAL",
+            "source": "Incident Intelligence agent (system generated)",
+            "category": null,
+            "incident_type": null,
+            "severity": null,
+            "severity_reason": null,
+            "severity_rule_matches": [],
+            "summary": null,
+            "needs_clarification": false,
+            "clarification_questions": [],
+            "missing_information": [],
+            "location_check_status": null,
+            "external_incident_id": null,
+            "request_id": "geosatya-GS-YSY8S5",
+            "model_info": null,
+            "attempts": 0,
+            "last_error": null,
+            "requested_at": null,
+            "completed_at": null
+          },
+          "dispatch": {
+            "status": "ASSIGNED",
+            "method": "WORKLOAD_FALLBACK",
+            "worker_id": "W-DEMO-12",
+            "worker_name": "Ravi (field worker)",
+            "priority": "NORMAL",
+            "reason": "No qualified worker has shared a recent location; assigned by workload (distance not considered)",
+            "required_skills": [
+              "road_repair"
+            ],
+            "required_equipment": [],
+            "ranking": [],
+            "rejected": [
+              {
+                "worker_id": "W-DEMO-12",
+                "reasons": [
+                  "Location unavailable"
+                ],
+                "worker_name": "Ravi (field worker)"
+              },
+              {
+                "worker_id": "W-DEMO-15",
+                "reasons": [
+                  "Location unavailable"
+                ],
+                "worker_name": "Meena (field worker)"
+              }
+            ],
+            "decided_at": "2026-10-29T19:16:57.643914Z",
+            "history": [
+              {
+                "status": "ASSIGNED",
+                "method": "WORKLOAD_FALLBACK",
+                "worker_name": "Ravi (field worker)",
+                "reason": "No qualified worker has shared a recent location; assigned by workload (distance not considered)",
+                "time": "2026-10-29T19:16:57.643914Z"
+              }
+            ]
+          },
+          "timeline": [
+            {
+              "event_id": "EVT-3F55EDD1B360",
+              "actor": "Aarav (citizen)",
+              "actor_role": "CITIZEN",
+              "action": "INCIDENT_REPORTED",
+              "incident_id": "GS-YSY8S5",
+              "time": "2026-10-29T19:16:57.624937Z",
+              "details": {
+                "category": "road_damage",
+                "location_source": "DEVICE_GEOLOCATION",
+                "location_mode": "LIVE",
+                "flags": []
+              }
+            },
+            {
+              "event_id": "EVT-DAF417B40FBA",
+              "actor": "Verification engine",
+              "actor_role": "SYSTEM",
+              "action": "DISPATCHED",
+              "incident_id": "GS-YSY8S5",
+              "time": "2026-10-29T19:16:57.644039Z",
+              "details": {
+                "worker_id": "W-DEMO-12",
+                "method": "WORKLOAD_FALLBACK",
+                "priority": "NORMAL"
+              }
+            },
+            {
+              "event_id": "EVT-E1D170280D35",
+              "actor": "Verification engine",
+              "actor_role": "SYSTEM",
+              "action": "STATUS_CHANGED",
+              "incident_id": "GS-YSY8S5",
+              "time": "2026-10-29T19:16:57.646723Z",
+              "details": {
+                "from_status": "SUBMITTED",
+                "to_status": "ASSIGNED",
+                "reason": "Assigned to W-DEMO-12: No qualified worker has shared a recent location; assigned by workload (distance not considered)"
+              }
+            },
+            {
+              "event_id": "EVT-0F12007576B8",
+              "actor": "Ravi (field worker)",
+              "actor_role": "WORKER",
+              "action": "STATUS_CHANGED",
+              "incident_id": "GS-YSY8S5",
+              "time": "2026-10-29T19:16:57.737572Z",
+              "details": {
+                "from_status": "ASSIGNED",
+                "to_status": "IN_PROGRESS",
+                "reason": "Worker started"
+              }
+            },
+            {
+              "event_id": "EVT-5B2AC6969AF1",
+              "actor": "Verification engine",
+              "actor_role": "SYSTEM",
+              "action": "LOCATION_VERIFIED",
+              "incident_id": "GS-YSY8S5",
+              "time": "2026-10-29T19:16:57.776293Z",
+              "details": {
+                "outcome": "FAIL",
+                "reason_codes": [
+                  "OUTSIDE_RADIUS"
+                ],
+                "distance_m": 45.2,
+                "accuracy_m": 8.0,
+                "radius_m": 15.0,
+                "accepted": false,
+                "attempt": 1
+              }
+            },
+            {
+              "event_id": "EVT-7B2CD4171307",
+              "actor": "Verification engine",
+              "actor_role": "SYSTEM",
+              "action": "LOCATION_VERIFIED",
+              "incident_id": "GS-YSY8S5",
+              "time": "2026-10-29T19:16:57.807156Z",
+              "details": {
+                "outcome": "NOT_CHECKED",
+                "reason_codes": [
+                  "LOCATION_UNAVAILABLE",
+                  "PERMISSION_DENIED"
+                ],
+                "distance_m": null,
+                "accuracy_m": null,
+                "radius_m": 15.0,
+                "accepted": false,
+                "attempt": 1
+              }
+            },
+            {
+              "event_id": "EVT-52F014C7102B",
+              "actor": "Verification engine",
+              "actor_role": "SYSTEM",
+              "action": "LOCATION_VERIFIED",
+              "incident_id": "GS-YSY8S5",
+              "time": "2026-10-29T19:16:57.836758Z",
+              "details": {
+                "outcome": "PASS",
+                "reason_codes": [
+                  "WITHIN_RADIUS"
+                ],
+                "distance_m": 4.0,
+                "accuracy_m": 8.0,
+                "radius_m": 15.0,
+                "accepted": true,
+                "attempt": 1
+              }
+            },
+            {
+              "event_id": "EVT-C052453CB138",
+              "actor": "Ravi (field worker)",
+              "actor_role": "WORKER",
+              "action": "STATUS_CHANGED",
+              "incident_id": "GS-YSY8S5",
+              "time": "2026-10-29T19:16:57.836816Z",
+              "details": {
+                "from_status": "IN_PROGRESS",
+                "to_status": "AWAITING_VERIFICATION",
+                "reason": "Evidence submitted (PASS)"
+              }
+            }
+          ]
+        },
+        "target": {
+          "latitude": 23.2599,
+          "longitude": 77.4126,
+          "source": "ORIGINAL"
+        }
+      },
+      "note": null
+    },
+    {
+      "id": "completion_review",
+      "title": "Worker completion with weak GPS (±80 m): REVIEW_REQUIRED",
+      "request": {
+        "method": "POST",
+        "path": "/api/v1/tasks/TSK-723CB0/completion",
+        "body": {
+          "description": "Filled and compacted the pothole.",
+          "device_location": {
+            "latitude": 23.2612744,
+            "longitude": 77.4133822,
+            "accuracy_m": 80.0,
+            "observed_at": "2026-10-29T19:16:56.898843+00:00",
+            "mode": "LIVE"
+          },
+          "device_location_error": null,
+          "photo_meta": {
+            "capture_source": "CAMERA_LIVE",
+            "captured_at": "2026-10-29T19:16:55.905819+00:00",
+            "uploaded_at": "2026-10-29T19:16:57.905852+00:00"
+          }
+        }
+      },
+      "status_code": 200,
+      "response": {
+        "completion": {
+          "completion_id": "CMP-685F7557",
+          "incident_id": "GS-PJMYH3",
+          "attempt": 1,
+          "outcome": "REVIEW_REQUIRED",
+          "accepted": true,
+          "message": "GPS accuracy (±80 m) is too weak to confirm you are at the spot. A supervisor will review it.",
+          "distance_m": 3.0,
+          "accuracy_m": 80.0,
+          "radius_m": 15.0,
+          "reason_codes": [
+            "POOR_GPS_ACCURACY"
+          ],
+          "simulated": false,
+          "description": "Filled and compacted the pothole.",
+          "worker_name": "Ravi (field worker)",
+          "submitted_at": "2026-10-29T19:16:57.919265Z",
+          "review_decision": null,
+          "review_reason": null,
+          "reviewed_by_name": null,
+          "reviewed_at": null
+        },
+        "task": {
+          "task_id": "TSK-723CB0",
+          "status": "AWAITING_VERIFICATION",
+          "attempt": 1,
+          "worker_id": "W-DEMO-12",
+          "worker_name": "Ravi (field worker)",
+          "target_latitude": 23.2612475,
+          "target_longitude": 77.4133822,
+          "target_source": "ORIGINAL",
+          "rework_reason": null,
+          "assigned_at": "2026-10-29T19:16:57.716584Z"
+        },
+        "incident_status": "AWAITING_VERIFICATION"
+      },
+      "note": null
+    },
+    {
+      "id": "queue",
+      "title": "Verification queue (supervisor)",
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/verification-queue",
+        "body": null
+      },
+      "status_code": 200,
+      "response": [
+        {
+          "completion_id": "CMP-685F7557",
+          "incident_id": "GS-PJMYH3",
+          "attempt": 1,
+          "outcome": "REVIEW_REQUIRED",
+          "accepted": true,
+          "message": "GPS accuracy (±80 m) is too weak to confirm you are at the spot. A supervisor will review it.",
+          "distance_m": 3.0,
+          "accuracy_m": 80.0,
+          "radius_m": 15.0,
+          "reason_codes": [
+            "POOR_GPS_ACCURACY"
+          ],
+          "simulated": false,
+          "description": "Filled and compacted the pothole.",
+          "worker_name": "Ravi (field worker)",
+          "submitted_at": "2026-10-29T19:16:57.919265Z",
+          "review_decision": null,
+          "review_reason": null,
+          "reviewed_by_name": null,
+          "reviewed_at": null,
+          "pending": true,
+          "title": "Streetlight not working",
+          "category_label": "Broken Streetlight",
+          "is_demo": false
+        },
+        {
+          "completion_id": "CMP-4D797E63",
+          "incident_id": "GS-YSY8S5",
+          "attempt": 1,
+          "outcome": "PASS",
+          "accepted": true,
+          "message": "Worker location is within the permitted radius (4 m, limit 15 m) and the required completion evidence has been submitted.",
+          "distance_m": 4.0,
+          "accuracy_m": 8.0,
+          "radius_m": 15.0,
+          "reason_codes": [
+            "WITHIN_RADIUS"
+          ],
+          "simulated": false,
+          "description": "Filled and compacted the pothole.",
+          "worker_name": "Ravi (field worker)",
+          "submitted_at": "2026-10-29T19:16:57.836681Z",
+          "review_decision": null,
+          "review_reason": null,
+          "reviewed_by_name": null,
+          "reviewed_at": null,
+          "pending": true,
+          "title": "Pothole near the bus stop",
+          "category_label": "Pothole / Road Damage",
+          "is_demo": false
+        }
+      ],
+      "note": null
+    },
+    {
+      "id": "review_approve",
+      "title": "Supervisor approves the PASS completion",
+      "request": {
+        "method": "POST",
+        "path": "/api/v1/completions/CMP-4D797E63/review",
+        "body": {
+          "decision": "APPROVE",
+          "reason": ""
+        }
+      },
+      "status_code": 200,
+      "response": {
+        "completion_id": "CMP-4D797E63",
+        "incident_id": "GS-YSY8S5",
+        "attempt": 1,
+        "outcome": "PASS",
+        "accepted": true,
+        "message": "Worker location is within the permitted radius (4 m, limit 15 m) and the required completion evidence has been submitted.",
+        "distance_m": 4.0,
+        "accuracy_m": 8.0,
+        "radius_m": 15.0,
+        "reason_codes": [
+          "WITHIN_RADIUS"
+        ],
+        "simulated": false,
+        "description": "Filled and compacted the pothole.",
+        "worker_name": "Ravi (field worker)",
+        "submitted_at": "2026-10-29T19:16:57.836681Z",
+        "review_decision": "APPROVE",
+        "review_reason": null,
+        "reviewed_by_name": "Priya (supervisor)",
+        "reviewed_at": "2026-10-29T19:16:57.946316Z"
+      },
+      "note": null
+    },
+    {
+      "id": "status_citizen",
+      "title": "Final verification status as the citizen sees it",
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/incidents/GS-YSY8S5",
+        "body": null
+      },
+      "status_code": 200,
+      "response": {
+        "incident_id": "GS-YSY8S5",
+        "category": "road_damage",
+        "category_label": "Pothole / Road Damage",
+        "category_icon": "road",
+        "title": "Pothole near the bus stop",
+        "status": "RESOLVED",
+        "status_text": "Resolved",
+        "created_at": "2026-10-29T19:16:57.606697Z",
+        "updated_at": "2026-10-29T19:16:57.946401Z",
+        "is_demo": false,
+        "task_id": "TSK-FD819C",
+        "priority": "NORMAL",
+        "rework": false,
+        "description": "Deep pothole in the left lane near the bus stop.",
+        "asset_identifier": null,
+        "asset_label": null,
+        "instructions": [
+          "Go to the pin on the map.",
+          "Repair or make the damaged section safe.",
+          "Take a photo of the finished work from the same spot."
+        ],
+        "location": {
+          "latitude": 23.2599,
+          "longitude": 77.4126,
+          "source": "DEVICE_GEOLOCATION",
+          "accuracy_m": 9.0,
+          "observed_at": "2026-10-29T19:16:56.579311Z",
+          "mode": "LIVE",
+          "flags": []
+        },
+        "photos": [
+          {
+            "media_id": "MED-94FA78B242",
+            "role": "REPORT",
+            "url": "/api/v1/media/MED-94FA78B242",
+            "capture_source": "CAMERA_LIVE",
+            "width": 640,
+            "height": 480
+          }
+        ],
+        "task": {
+          "task_id": "TSK-FD819C",
+          "status": "RESOLVED",
+          "attempt": 1,
+          "worker_id": "W-DEMO-12",
+          "worker_name": "Ravi (field worker)",
+          "target_latitude": 23.2599,
+          "target_longitude": 77.4126,
+          "target_source": "ORIGINAL",
+          "rework_reason": null,
+          "assigned_at": "2026-10-29T19:16:57.644082Z"
+        },
+        "reporter_name": "Aarav (citizen)",
+        "progress": {
+          "reported_at": "2026-10-29T19:16:57.606697Z",
+          "assigned_at": "2026-10-29T19:16:57.644082Z",
+          "tracking_started_at": null,
+          "arrived_at": null,
+          "work_started_at": "2026-10-29T19:16:57.737641Z",
+          "completion_submitted_at": "2026-10-29T19:16:57.836681Z",
+          "resolved_at": "2026-10-29T19:16:57.946316Z",
+          "tracking_active": false,
+          "etr": {
+            "state": "RESOLVED",
+            "message": "Resolved.",
+            "approximate": false,
+            "due_at": null,
+            "actual": {
+              "total_min": 0.0,
+              "to_assignment_min": 0.0,
+              "travel_min": null,
+              "work_min": 0.0,
+              "review_min": 0.0,
+              "reported_at": "2026-10-29T19:16:57.606697Z",
+              "resolved_at": "2026-10-29T19:16:57.946316Z"
+            }
+          }
+        },
+        "intelligence": {
+          "status": "NOT_CONFIGURED",
+          "priority": "NORMAL",
+          "source": "Incident Intelligence agent (system generated)"
+        },
+        "timeline": [
+          {
+            "event_id": "EVT-3F55EDD1B360",
+            "actor": "Aarav (citizen)",
+            "actor_role": "CITIZEN",
+            "action": "INCIDENT_REPORTED",
+            "incident_id": "GS-YSY8S5",
+            "time": "2026-10-29T19:16:57.624937Z",
+            "details": {
+              "category": "road_damage",
+              "location_source": "DEVICE_GEOLOCATION",
+              "location_mode": "LIVE",
+              "flags": []
+            }
+          },
+          {
+            "event_id": "EVT-E1D170280D35",
+            "actor": "Verification engine",
+            "actor_role": "SYSTEM",
+            "action": "STATUS_CHANGED",
+            "incident_id": "GS-YSY8S5",
+            "time": "2026-10-29T19:16:57.646723Z",
+            "details": {
+              "from_status": "SUBMITTED",
+              "to_status": "ASSIGNED",
+              "reason": "Assigned to W-DEMO-12: No qualified worker has shared a recent location; assigned by workload (distance not considered)"
+            }
+          },
+          {
+            "event_id": "EVT-0F12007576B8",
+            "actor": "Ravi (field worker)",
+            "actor_role": "WORKER",
+            "action": "STATUS_CHANGED",
+            "incident_id": "GS-YSY8S5",
+            "time": "2026-10-29T19:16:57.737572Z",
+            "details": {
+              "from_status": "ASSIGNED",
+              "to_status": "IN_PROGRESS",
+              "reason": "Worker started"
+            }
+          },
+          {
+            "event_id": "EVT-C052453CB138",
+            "actor": "Ravi (field worker)",
+            "actor_role": "WORKER",
+            "action": "STATUS_CHANGED",
+            "incident_id": "GS-YSY8S5",
+            "time": "2026-10-29T19:16:57.836816Z",
+            "details": {
+              "from_status": "IN_PROGRESS",
+              "to_status": "AWAITING_VERIFICATION",
+              "reason": "Evidence submitted (PASS)"
+            }
+          },
+          {
+            "event_id": "EVT-3D48D82C1E86",
+            "actor": "Priya (supervisor)",
+            "actor_role": "SUPERVISOR",
+            "action": "STATUS_CHANGED",
+            "incident_id": "GS-YSY8S5",
+            "time": "2026-10-29T19:16:57.946341Z",
+            "details": {
+              "from_status": "AWAITING_VERIFICATION",
+              "to_status": "RESOLVED",
+              "reason": "Approved after review"
+            }
+          }
+        ]
+      },
+      "note": null
+    },
+    {
+      "id": "audit",
+      "title": "Audit trail of verification events for the incident",
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/evidence-history?incident_id=GS-YSY8S5",
+        "body": null
+      },
+      "status_code": 200,
+      "response": {
+        "events": [
+          {
+            "event_id": "EVT-E31DB2D34BDA",
+            "actor": "Priya (supervisor)",
+            "actor_role": "SUPERVISOR",
+            "action": "SUPERVISOR_DECISION",
+            "incident_id": "GS-YSY8S5",
+            "time": "2026-10-29T19:16:57.950289Z",
+            "details": {
+              "decision": "APPROVE",
+              "reason": "",
+              "automated_outcome": "PASS",
+              "override": false,
+              "attempt": 1
+            }
+          },
+          {
+            "event_id": "EVT-3D48D82C1E86",
+            "actor": "Priya (supervisor)",
+            "actor_role": "SUPERVISOR",
+            "action": "STATUS_CHANGED",
+            "incident_id": "GS-YSY8S5",
+            "time": "2026-10-29T19:16:57.946341Z",
+            "details": {
+              "from_status": "AWAITING_VERIFICATION",
+              "to_status": "RESOLVED",
+              "reason": "Approved after review"
+            }
+          },
+          {
+            "event_id": "EVT-C052453CB138",
+            "actor": "Ravi (field worker)",
+            "actor_role": "WORKER",
+            "action": "STATUS_CHANGED",
+            "incident_id": "GS-YSY8S5",
+            "time": "2026-10-29T19:16:57.836816Z",
+            "details": {
+              "from_status": "IN_PROGRESS",
+              "to_status": "AWAITING_VERIFICATION",
+              "reason": "Evidence submitted (PASS)"
+            }
+          },
+          {
+            "event_id": "EVT-52F014C7102B",
+            "actor": "Verification engine",
+            "actor_role": "SYSTEM",
+            "action": "LOCATION_VERIFIED",
+            "incident_id": "GS-YSY8S5",
+            "time": "2026-10-29T19:16:57.836758Z",
+            "details": {
+              "outcome": "PASS",
+              "reason_codes": [
+                "WITHIN_RADIUS"
+              ],
+              "distance_m": 4.0,
+              "accuracy_m": 8.0,
+              "radius_m": 15.0,
+              "accepted": true,
+              "attempt": 1
+            }
+          },
+          {
+            "event_id": "EVT-7B2CD4171307",
+            "actor": "Verification engine",
+            "actor_role": "SYSTEM",
+            "action": "LOCATION_VERIFIED",
+            "incident_id": "GS-YSY8S5",
+            "time": "2026-10-29T19:16:57.807156Z",
+            "details": {
+              "outcome": "NOT_CHECKED",
+              "reason_codes": [
+                "LOCATION_UNAVAILABLE",
+                "PERMISSION_DENIED"
+              ],
+              "distance_m": null,
+              "accuracy_m": null,
+              "radius_m": 15.0,
+              "accepted": false,
+              "attempt": 1
+            }
+          },
+          {
+            "event_id": "EVT-5B2AC6969AF1",
+            "actor": "Verification engine",
+            "actor_role": "SYSTEM",
+            "action": "LOCATION_VERIFIED",
+            "incident_id": "GS-YSY8S5",
+            "time": "2026-10-29T19:16:57.776293Z",
+            "details": {
+              "outcome": "FAIL",
+              "reason_codes": [
+                "OUTSIDE_RADIUS"
+              ],
+              "distance_m": 45.2,
+              "accuracy_m": 8.0,
+              "radius_m": 15.0,
+              "accepted": false,
+              "attempt": 1
+            }
+          },
+          {
+            "event_id": "EVT-0F12007576B8",
+            "actor": "Ravi (field worker)",
+            "actor_role": "WORKER",
+            "action": "STATUS_CHANGED",
+            "incident_id": "GS-YSY8S5",
+            "time": "2026-10-29T19:16:57.737572Z",
+            "details": {
+              "from_status": "ASSIGNED",
+              "to_status": "IN_PROGRESS",
+              "reason": "Worker started"
+            }
+          },
+          {
+            "event_id": "EVT-E1D170280D35",
+            "actor": "Verification engine",
+            "actor_role": "SYSTEM",
+            "action": "STATUS_CHANGED",
+            "incident_id": "GS-YSY8S5",
+            "time": "2026-10-29T19:16:57.646723Z",
+            "details": {
+              "from_status": "SUBMITTED",
+              "to_status": "ASSIGNED",
+              "reason": "Assigned to W-DEMO-12: No qualified worker has shared a recent location; assigned by workload (distance not considered)"
+            }
+          },
+          {
+            "event_id": "EVT-DAF417B40FBA",
+            "actor": "Verification engine",
+            "actor_role": "SYSTEM",
+            "action": "DISPATCHED",
+            "incident_id": "GS-YSY8S5",
+            "time": "2026-10-29T19:16:57.644039Z",
+            "details": {
+              "worker_id": "W-DEMO-12",
+              "method": "WORKLOAD_FALLBACK",
+              "priority": "NORMAL"
+            }
+          },
+          {
+            "event_id": "EVT-3F55EDD1B360",
+            "actor": "Aarav (citizen)",
+            "actor_role": "CITIZEN",
+            "action": "INCIDENT_REPORTED",
+            "incident_id": "GS-YSY8S5",
+            "time": "2026-10-29T19:16:57.624937Z",
+            "details": {
+              "category": "road_damage",
+              "location_source": "DEVICE_GEOLOCATION",
+              "location_mode": "LIVE",
+              "flags": []
+            }
+          }
+        ],
+        "evidence_counts": {
+          "IMAGE_EXIF": 6,
+          "DEVICE_GEOLOCATION": 6,
+          "USER_SELECTED_PIN": 1
+        }
+      },
+      "note": null
+    }
+  ]
+}

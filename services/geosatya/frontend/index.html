@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KAVACH · Civic intelligence and safer operations</title>
+<meta name="description" content="KAVACH: report civic issues, run event and organization field operations, dispatch the right worker and verify the work on the ground with GeoSatya.">
+<meta name="theme-color" content="#060A13">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="64x64" href="icons/favicon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Kavach">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="kavach.css">
+<link rel="stylesheet" href="theme.css">
+<link rel="stylesheet" href="home.css">
+<link rel="stylesheet" href="safety.css">
+<link rel="stylesheet" href="auth.css">
+<link rel="stylesheet" href="aurora.css">
+<script src="config.js"></script>
+</head>
+<body data-mode="public">
+<button class="skip" type="button" onclick="(document.querySelector('[data-mode=app] #main')||document.getElementById('pubmain')).focus()">Skip to content</button>
+
+<!-- Public site: landing, solutions, public reporting status, sign-in -->
+<div class="public">
+  <header class="pubbar"><div class="in" id="pubbar"></div></header>
+  <main id="pubmain" class="pubmain" tabindex="-1"></main>
+  <footer class="kfoot" id="pubfoot"></footer>
+</div>
+
+<!-- Signed-in app: citizen, worker, supervisor, organization, event and platform workspaces -->
+<div class="shell">
+  <aside class="sidebar">
+    <a class="kbrand" href="#/" aria-label="Kavach home">
+      <img class="brandlogo full" src="icons/kavach-logo-light.webp" alt="KAVACH: Civic, Safety, Operations" width="130" height="41">
+      <img class="brandlogo mark" src="icons/kavach-mark-light.png" alt="KAVACH" width="34" height="38">
+      <span class="ws" id="ws-name">Civic intelligence</span>
+    </a>
+    <nav id="nav" class="nav" aria-label="Main"></nav>
+  </aside>
+  <div class="content">
+    <header class="topbar">
+      <div class="row wrap" style="gap:12px"><div id="ws-switch"></div><div id="role-switcher" class="role-switcher"></div></div>
+      <div class="row wrap" style="gap:12px">
+        <div id="net-status" class="net-status" role="status" aria-live="polite" hidden></div>
+        <label id="sim-toggle" class="sim-toggle" hidden title="Uses made-up coordinates for testing. Always labelled SIMULATED.">
+          <input type="checkbox" id="sim-check"><span>Simulate GPS (demo)</span>
+        </label>
+        <button id="signout" class="btn small signout" type="button">Sign out</button>
+      </div>
+    </header>
+    <main id="main" class="main" tabindex="-1"></main>
+  </div>
+</div>
+<nav id="bottom-nav" class="bottom-nav" aria-label="Quick navigation"></nav>
+<a id="sos-fab" class="sos-fab" href="#/safety" aria-label="SOS: open Women's Safety" hidden>SOS</a>
+<div id="toasts" class="toasts" aria-live="polite"></div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script type="module" src="js/app.js"></script>
+</body>
+</html>

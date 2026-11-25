@@ -1,0 +1,9 @@
+.venv/
+.venv-*/
+__pycache__/
+.pytest_cache/
+*.py[cod]
+.env
+verification_audit*.db
+.tmp-api-*/
+tmp/pytest-*/

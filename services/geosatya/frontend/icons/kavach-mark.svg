@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Kavach">
+  <defs>
+    <linearGradient id="kv-shield" x1="10" y1="4" x2="56" y2="60" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#C6E27A"/>
+      <stop offset=".45" stop-color="#2FA27A"/>
+      <stop offset="1" stop-color="#0B5F57"/>
+    </linearGradient>
+    <linearGradient id="kv-edge" x1="32" y1="4" x2="32" y2="60" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity=".55"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <!-- shield -->
+  <path d="M32 4.5 54.5 12.6v16.9c0 14.6-9.4 25.4-22.5 30.6C18.9 54.9 9.5 44.1 9.5 29.5V12.6Z" fill="url(#kv-shield)"/>
+  <path d="M32 4.5 54.5 12.6v16.9c0 14.6-9.4 25.4-22.5 30.6C18.9 54.9 9.5 44.1 9.5 29.5V12.6Z" fill="none" stroke="url(#kv-edge)" stroke-width="1.6"/>
+  <!-- connected field network -->
+  <g stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" fill="none">
+    <path d="M25.2 24.6 19 21.2M38.8 24.6 45 21.2M32 38.4V46.4"/>
+  </g>
+  <g fill="#FFFFFF">
+    <circle cx="18" cy="20.6" r="3.4"/>
+    <circle cx="46" cy="20.6" r="3.4"/>
+    <circle cx="32" cy="48.2" r="3.4"/>
+  </g>
+  <!-- protected hub: a location ring with a live core -->
+  <circle cx="32" cy="29.4" r="8.6" fill="none" stroke="#FFFFFF" stroke-width="3.4"/>
+  <circle cx="32" cy="29.4" r="3.3" fill="#E9F6B8"/>
+</svg>

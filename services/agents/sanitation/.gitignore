@@ -1,0 +1,43 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# Secrets and local environment
+.env
+.env.*
+!.env.example
+
+# Python virtual environments
+.venv/
+venv/
+env/
+
+# Python generated files
+__pycache__/
+*.py[cod]
+.pytest_cache/
+*.egg-info/
+build/
+dist/
+
+# Test and coverage output
+.coverage
+htmlcov/
+
+# Logs and temporary files
+*.log
+*.tmp
+
+# Local editor settings
+.vscode/
+
+# Backup files
+*.bak
+*.backup.py

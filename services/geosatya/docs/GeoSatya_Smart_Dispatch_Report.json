@@ -1,0 +1,136 @@
+{
+  "project": "Kavach GeoSatya: smart dispatch, live worker tracking, ETA and civic incident resolution",
+  "generated": "2026-10-30",
+  "repository": {
+    "url": "https://github.com/ananyadhagat/Kavach-epam",
+    "branch": "geosatya-location-verification",
+    "base_commit": "9053d0c",
+    "module_path": "services/geosatya"
+  },
+  "sources_inspected": {
+    "geosatya": "origin/geosatya-location-verification 9053d0c (previous integration already committed by the user)",
+    "incident_intelligence_agent": "origin/incident-intelligence-agent e2ff0e9, unchanged since the previous inspection; ZIP identical",
+    "dispatch_work": "origin/dispatch-work 6ef3bf9, unchanged; ZIP identical",
+    "zip_note": "No new ZIP was attached to this request; the two ZIPs in D:/Downloads are the same files inspected before"
+  },
+  "integration": {
+    "incident_intelligence": {"status": "completed", "phase": "previous commit 9053d0c", "details": ["HTTP call after the report is committed; stable X-Request-ID; output stored separately; severity -> priority; failures never lose the report"]},
+    "dispatch_and_worker_selection": {"status": "completed", "phase": "previous commit 9053d0c", "details": ["Dispatch agent ranking reused unchanged in this phase (eligibility + 70% distance / 30% workload)", "Labelled workload fallback or escalation", "Released workers excluded from automatic re-dispatch (new)"]},
+    "acceptance_and_journey": {"status": "completed", "phase": "this phase", "details": ["POST /tasks/{id}/accept, /decline; starting the journey or work implies acceptance", "Acceptance timeout flagged after ACCEPTANCE_TIMEOUT_MIN; supervisor re-dispatch via POST /tasks/{id}/release kind ACCEPTANCE_TIMEOUT", "Supervisor cancellation via POST /tasks/{id}/release kind CANCELLED", "No duplicate active assignments: one task per incident, released task removed before re-dispatch", "No background scheduler: timeouts are flagged, not auto-reassigned"]},
+    "live_worker_tracking": {"status": "completed", "phase": "previous commit + this phase", "details": ["Authorised assigned worker only, active task only; citizen sees position only while live", "Points capped and deleted when field work ends, on reassignment or release", "Controlled polling: incident page 15 s, board 30 s, visible tab only"]},
+    "eta": {"status": "completed", "phase": "previous commit + this phase", "details": ["Approximate straight-line x 1.4 at observed or assumed speed, shown as a range", "States WAITING_FOR_LOCATION, AVAILABLE, STALE, ARRIVED, NOT_APPLICABLE", "Stationary worker flag (new)", "No road routing and no drawn route"]},
+    "arrival_detection": {"status": "completed", "phase": "this phase", "details": ["2 consecutive readings within 50 m, accuracy <= 50 m, fix not older than 120 s", "Separate from the 15 m completion geofence"]},
+    "etr_and_actual_resolution": {"status": "completed", "phase": "previous commit", "details": ["Event-based ETR with category baseline or historical median", "Actual durations from recorded timestamps"]},
+    "completion_verification": {"status": "completed", "phase": "unchanged GeoSatya", "details": ["Server Haversine against the task's stored target; PASS / FAIL / REVIEW_REQUIRED / NOT_CHECKED unchanged"]},
+    "citizen_timeline": {"status": "completed", "phase": "this phase", "details": ["progress.events from persisted rows only, including withdrawn and pending assignments", "Phase text: UNASSIGNED .. RESOLVED"]},
+    "supervisor_dispatch_board": {"status": "completed", "phase": "this phase", "details": ["GET /dispatch/board and the Dispatch Board page with attention flags and filters"]},
+    "database": {"status": "completed", "phase": "this phase", "details": ["New nullable column task_progress.accepted_at", "init_schema adds missing nullable columns (additive ALTER TABLE); verified on the existing local database with all 4 incidents kept"]},
+    "ratings": {"status": "not_started", "details": ["Not in any branch; proposal in docs/INTEGRATION.md section 8"]}
+  },
+  "status_mapping": {
+    "ASSIGNED": "task ASSIGNED, no accepted_at",
+    "ACCEPTED": "task ASSIGNED + task_progress.accepted_at",
+    "EN_ROUTE": "task ASSIGNED + tracking_started_at",
+    "ARRIVED": "task_progress.arrived_at (confirmed readings)",
+    "IN_PROGRESS": "task IN_PROGRESS",
+    "COMPLETION_SUBMITTED / VERIFICATION / REVIEW": "task AWAITING_VERIFICATION",
+    "RESOLVED": "task RESOLVED",
+    "REJECTED_OR_MORE_EVIDENCE": "back to ASSIGNED, attempt + 1",
+    "DECLINED / TIMEOUT / CANCELLED": "task removed, dispatch record RELEASED, incident SUBMITTED, re-dispatch"
+  },
+  "testing": {
+    "tests_run": ["pytest services/geosatya full suite", "Live HTTP run against GeoSatya :8000 and the Incident Intelligence agent :8001 (mock mode)", "Browser: worker accept, supervisor cancel assignment, dispatch board, citizen timeline; desktop and 375 px"],
+    "passed": [
+      "156 pytest tests passed (110 original + 29 integration + 17 scenario), 1 dependency deprecation warning",
+      "Scenario A successful resolution (automated + live run)",
+      "Scenario B no suitable worker",
+      "Scenario C decline re-dispatch without duplicates; acceptance timeout flag and re-dispatch (automated + live decline)",
+      "Scenario D location unavailable",
+      "Scenario E stale location and resume",
+      "Scenario F arrival needs confirmed fresh readings (automated + live)",
+      "Scenario G completion outside geofence is FAIL and not accepted",
+      "Scenario H review pending is not shown as resolved (automated + live)",
+      "Scenario I ETR and tracking unavailable when unassigned",
+      "Scenario J cancellation stops tracking and new worker starts clean (automated + browser)",
+      "Column migration on an older database (automated + real local database)",
+      "Browser: no console errors after the map-animation fix; no horizontal overflow at 375 px"
+    ],
+    "failed": [],
+    "skipped": [],
+    "blocked": [
+      "Real phone GPS and camera (browser pane blocks them; labelled simulation used)",
+      "Gemini mode of the intelligence agent (no API key)",
+      "Partner branches' own test suites (not run)"
+    ],
+    "bugs_found_and_fixed": [
+      "Legacy tasks tracked before accepted_at existed were flagged as not accepted in time",
+      "Leaflet error when a page re-rendered while the map was animating a zoom",
+      "Audit view labelled dispatch and intelligence actions as 'Verification engine'"
+    ]
+  },
+  "localhost": {
+    "status": "verified",
+    "startup_instructions": [
+      "Optional agent: in a checkout of incident-intelligence-agent, $env:KAVACH_LLM_MODE='mock'; python -m uvicorn kavach.main:app --app-dir src --port 8001",
+      "GeoSatya: cd services/geosatya; optionally $env:INTELLIGENCE_URL='http://127.0.0.1:8001'; uvicorn geosatya.main:create_app --factory --reload",
+      "Open http://localhost:8000; pick a demo role; enable Simulate GPS (demo) when there is no GPS"
+    ],
+    "urls": ["http://localhost:8000", "http://localhost:8000/docs", "http://localhost:8000/health", "http://127.0.0.1:8001/health"],
+    "ports": [8000, 8001]
+  },
+  "git": {
+    "files_changed": [
+      "services/geosatya/.env.example", "services/geosatya/README.md", "services/geosatya/docs/INTEGRATION.md",
+      "services/geosatya/docs/GEOSATYA_INTEGRATION_HANDOFF.md",
+      "services/geosatya/frontend/js/app.js", "services/geosatya/frontend/js/live.js", "services/geosatya/frontend/js/maps.js",
+      "services/geosatya/frontend/js/pages/tasks.js", "services/geosatya/frontend/styles.css",
+      "services/geosatya/geosatya/api/routes.py", "services/geosatya/geosatya/api/schemas.py", "services/geosatya/geosatya/api/views.py",
+      "services/geosatya/geosatya/config.py", "services/geosatya/geosatya/db.py", "services/geosatya/geosatya/models.py",
+      "services/geosatya/geosatya/services/common.py", "services/geosatya/geosatya/services/dispatch.py",
+      "services/geosatya/geosatya/services/estimates.py", "services/geosatya/geosatya/services/tasks.py",
+      "services/geosatya/geosatya/services/tracking.py", "services/geosatya/tests/test_integration.py"
+    ],
+    "files_added": [
+      "services/geosatya/frontend/js/pages/board.js", "services/geosatya/geosatya/services/board.py", "services/geosatya/tests/test_scenarios.py",
+      "services/geosatya/docs/GeoSatya_Smart_Dispatch_Report.json", "services/geosatya/docs/GeoSatya_Smart_Dispatch_Handoff.pdf"
+    ],
+    "untracked_from_earlier_request": ["services/geosatya/docs/GeoSatya_Location_Verification_Outputs.pdf", "services/geosatya/docs/GeoSatya_Location_Verification_Samples.json"],
+    "not_modified": ["services/geosatya/geosatya/dispatch/ranking.py (Dispatch agent rules)", "services/geosatya/geosatya/location/geofence.py (geofence rule)"],
+    "commit_created": false,
+    "push_completed": false,
+    "target_branch": "geosatya-location-verification"
+  },
+  "checkpoints": [
+    {"id": 1, "name": "Inspect repository, ZIP and branches", "status": "completed"},
+    {"id": 2, "name": "Compare GeoSatya, Incident Intelligence and Dispatch Work", "status": "completed"},
+    {"id": 3, "name": "Connect reporting to Incident Intelligence", "status": "completed", "note": "previous commit"},
+    {"id": 4, "name": "Connect incidents to dispatch and assignment", "status": "completed", "note": "previous commit"},
+    {"id": 5, "name": "Worker selection", "status": "completed", "note": "previous commit; released-worker exclusion added"},
+    {"id": 6, "name": "Acceptance and journey status", "status": "completed"},
+    {"id": 7, "name": "Authorised live tracking", "status": "completed"},
+    {"id": 8, "name": "ETA and arrival detection", "status": "completed"},
+    {"id": 9, "name": "Work start and ETR", "status": "completed", "note": "previous commit"},
+    {"id": 10, "name": "Completion evidence and geofence verification", "status": "completed", "note": "unchanged rule"},
+    {"id": 11, "name": "Citizen timeline and supervisor dashboard", "status": "completed"},
+    {"id": 12, "name": "Tests and integration fixes", "status": "completed"},
+    {"id": 13, "name": "Localhost verification", "status": "completed"},
+    {"id": 14, "name": "Documentation and handoff", "status": "completed", "note": "commit and push left to the user"}
+  ],
+  "pending": ["Commit and push (user handles git)", "Ratings (team decision)", "Real-phone HTTPS test", "Optional routing provider", "Admin screen for worker skills", "Background job for acceptance timeouts if wanted"],
+  "known_issues": [
+    "No road routing; ETA is approximate",
+    "Browser cannot track in the background",
+    "ETR baselines are placeholders until history exists",
+    "Dispatch has no service-area or location-accuracy rule (no such data)",
+    "Released assignments delete the task row (history kept in dispatch_records and audit); not allowed after evidence exists",
+    "incident-intelligence-agent requirements.txt lacks python-dotenv; dispatch-work requirements.txt is empty and app/_init_.py is misnamed",
+    "Demo identities are not authentication"
+  ],
+  "next_steps": [
+    "Review the diff and commit with explicit paths under services/geosatya, then push to origin geosatya-location-verification",
+    "Team decisions: DISPATCH_FALLBACK default, auto-reassign on acceptance timeout, ratings",
+    "Phone test over HTTPS"
+  ],
+  "handoff_document": "services/geosatya/docs/GEOSATYA_INTEGRATION_HANDOFF.md",
+  "pdf_report": "services/geosatya/docs/GeoSatya_Smart_Dispatch_Handoff.pdf"
+}

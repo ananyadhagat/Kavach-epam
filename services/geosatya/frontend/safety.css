@@ -1,0 +1,77 @@
+/* Women's safety, available jobs, mobile bottom navigation. */
+
+/* ----- the SOS button ----- */
+.sos-card { align-items: center; padding: clamp(24px, 4vw, 40px); }
+.sos-btn { position: relative; width: min(230px, 62vw); aspect-ratio: 1; border-radius: 50%; border: 0; cursor: pointer; overflow: hidden; color: #fff; user-select: none; touch-action: none; -webkit-touch-callout: none;
+  background: radial-gradient(circle at 35% 28%, #E53935, #B71C1C); box-shadow: 0 0 0 10px rgba(198, 40, 40, .1), 0 0 0 22px rgba(198, 40, 40, .05), 0 18px 36px rgba(183, 28, 28, .35);
+  display: grid; place-content: center; justify-items: center; gap: 2px; transition: transform .15s, box-shadow .2s; }
+.sos-btn:hover { box-shadow: 0 0 0 12px rgba(198, 40, 40, .14), 0 0 0 26px rgba(198, 40, 40, .06), 0 22px 44px rgba(183, 28, 28, .42); }
+.sos-btn:active, .sos-btn.holding { transform: scale(.97); }
+.sos-label { position: relative; font: 800 clamp(44px, 12vw, 60px)/1 var(--display); letter-spacing: .04em; }
+.sos-hint { position: relative; font: 600 14px var(--font); opacity: .92; }
+.sos-fill { position: absolute; inset: 0; background: rgba(255, 255, 255, .28); transform: scaleY(0); transform-origin: bottom; }
+.sos-btn.holding .sos-fill { animation: sosfill 1s linear forwards; }
+@keyframes sosfill { to { transform: scaleY(1); } }
+.sos-btn:focus-visible { outline: 4px solid #1B4DA1; outline-offset: 6px; }
+
+/* countdown */
+.cd-dialog { width: min(420px, calc(100vw - 28px)); text-align: center; }
+.cd-num { font: 800 96px/1 var(--display); color: #C62828; font-variant-numeric: tabular-nums; }
+.cd-actions { display: grid; gap: 10px; width: 100%; }
+.btn.block { width: 100%; }
+.btn.sos:hover { background: #A92222; }
+
+/* active SOS */
+.sos-active { display: grid; gap: 18px; }
+.sos-banner { display: flex; gap: 14px; align-items: center; padding: 18px 20px; border-radius: 20px; background: #C62828; color: #fff; }
+.sos-banner strong { font: 800 22px var(--display); } .sos-banner .stack { gap: 2px; } .sos-clock { font-variant-numeric: tabular-nums; }
+.sos-pulse { width: 16px; height: 16px; border-radius: 50%; background: #fff; flex-shrink: 0; animation: sospulse 1.4s ease-out infinite; }
+@keyframes sospulse { 0% { box-shadow: 0 0 0 0 rgba(255, 255, 255, .7); } 100% { box-shadow: 0 0 0 16px rgba(255, 255, 255, 0); } }
+.sos-loc .dot { font-size: 14px; }
+.ally-send { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 0; border-bottom: 1px solid var(--line); }
+.ally-send:last-child { border-bottom: 0; }
+
+/* calling */
+.callrow { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.callbtn { display: flex; align-items: center; justify-content: center; gap: 12px; padding: 16px 12px; min-height: 64px; border-radius: 18px; background: #fff; border: 1.5px solid #C62828; color: #B71C1C; text-decoration: none; transition: background .15s, transform .1s; }
+.callbtn:hover { background: #FDECEC; } .callbtn:active { transform: scale(.98); }
+.callbtn span { display: flex; flex-direction: column; line-height: 1.15; } .callbtn strong { font: 800 24px var(--display); } .callbtn small { font-size: 12.5px; color: var(--ink-2); font-weight: 600; }
+.callrow.compact .callbtn { min-height: 52px; padding: 10px; } .callrow.compact strong { font-size: 19px; }
+@media (max-width: 560px) { .callrow { grid-template-columns: 1fr; } .callbtn { justify-content: flex-start; padding-left: 20px; } }
+
+/* allies */
+.allylist { display: grid; }
+.ally-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 14px 0; border-bottom: 1px solid var(--line); }
+.ally-row:last-child { border-bottom: 0; }
+.consent { display: flex; gap: 12px; align-items: flex-start; font-size: 14.5px; color: var(--ink-2); line-height: 1.5; cursor: pointer; padding: 12px 14px; border-radius: 14px; background: #F5F7FA; }
+.consent input { margin-top: 3px; width: 20px; height: 20px; flex-shrink: 0; }
+.hist-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; border-radius: 14px; border: 1px solid var(--line); background: #fff; flex-wrap: wrap; }
+@media (max-width: 560px) { .ally-row { grid-template-columns: auto 1fr; } .ally-row > .row { grid-column: 1 / -1; } }
+
+/* the page a trusted ally opens */
+.ally-page { max-width: 760px; }
+.ally-head { display: flex; align-items: center; gap: 14px; padding: 18px 20px; border-radius: 20px; }
+.ally-head.alert { background: #C62828; color: #fff; } .ally-head.ended { background: var(--green-soft); color: var(--green-2); }
+.ally-ok { width: 14px; height: 14px; border-radius: 50%; background: var(--green); flex-shrink: 0; }
+
+/* worker: available jobs */
+.joblist { display: grid; gap: 12px; }
+.job { display: flex; align-items: center; gap: 14px; padding: 16px 18px; border-radius: 18px; background: #fff; border: 1px solid var(--line); flex-wrap: wrap; }
+.job .grow { flex: 1 1 220px; min-width: 0; } .job .grow strong { display: block; overflow-wrap: anywhere; }
+
+/* floating SOS shortcut and phone bottom navigation */
+.sos-fab { position: fixed; right: 16px; bottom: 16px; z-index: 40; display: inline-flex; align-items: center; gap: 8px; min-height: 52px; padding: 0 20px; border-radius: 999px;
+  background: #C62828; color: #fff; font: 800 16px var(--font); letter-spacing: .04em; text-decoration: none; box-shadow: 0 10px 26px rgba(183, 28, 28, .4); }
+.sos-fab:hover { background: #A92222; } .sos-fab[hidden] { display: none; }
+.bottom-nav { display: none; }
+@media (max-width: 900px) {
+  .sidebar .nav { display: none; }
+  .bottom-nav { position: fixed; left: 0; right: 0; bottom: 0; z-index: 35; display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; background: rgba(255, 255, 255, .96); backdrop-filter: blur(12px);
+    border-top: 1px solid var(--line); padding: 6px 4px calc(6px + env(safe-area-inset-bottom)); }
+  .bottom-nav a { display: flex; flex-direction: column; align-items: center; gap: 3px; min-height: 52px; justify-content: center; padding: 4px 2px; border-radius: 12px; text-decoration: none; color: var(--muted); font: 600 11px var(--font); text-align: center; line-height: 1.15; }
+  .bottom-nav a[aria-current="page"] { color: var(--navy); background: var(--info-bg); }
+  .main { padding-bottom: 96px; }
+  .sos-fab { bottom: calc(76px + env(safe-area-inset-bottom)); }
+  .sidebar { padding: 8px 12px; } .topbar { padding: 8px 14px; }
+}
+body[data-mode="public"] .sos-fab, body[data-mode="public"] .bottom-nav { display: none !important; }

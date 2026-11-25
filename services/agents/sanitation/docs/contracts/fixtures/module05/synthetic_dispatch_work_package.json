@@ -1,0 +1,85 @@
+{
+  "_comment": "SYNTHETIC LOCAL PROTOTYPE FIXTURE ONLY - NOT AN OWNER-APPROVED MODULE 05 FIXTURE",
+  "status": "PENDING_CONFIRMATION",
+  "plan_id": "SAN-PLAN-2026-000123",
+  "incident_id": "INC-2026-000123",
+  "complaint_id": "CMP-2026-000123",
+  "location": "UNSPECIFIED",
+  "department": "SANITATION",
+  "priority": "MEDIUM",
+  "routing": {
+    "status": "RESOLVED",
+    "facility_id": "SITE-01",
+    "location_id": "MAIN_GATE",
+    "ward_id": null,
+    "queue_id": null
+  },
+  "tasks": [
+    {
+      "task_id": "SAN-T001",
+      "sequence": 1,
+      "task_code": "INSPECT_AREA",
+      "title": "Inspect the affected bin and surrounding area",
+      "description": "Confirm visible overflow, affected area and any immediate hazards before handling waste.",
+      "depends_on": [],
+      "estimated_duration": {
+        "minutes": 15.0,
+        "status": "CALCULATED",
+        "basis": ["STANDARD_INSPECTION_DURATION"]
+      },
+      "required_resources": [
+        {
+          "resource_code": "PPE_GENERAL",
+          "quantity": 1,
+          "unit": "SET",
+          "basis": "TEMPLATE_MINIMUM"
+        },
+        {
+          "resource_code": "INSPECTION_TOOLS",
+          "quantity": 1,
+          "unit": "SET",
+          "basis": "TEMPLATE_MINIMUM"
+        }
+      ],
+      "completion_criteria": [
+        "Inspection findings are recorded",
+        "Any hazardous or unknown material is escalated"
+      ],
+      "status": "NOT_STARTED"
+    }
+  ],
+  "safety_notes": [],
+  "safety_constraints": [
+    "Do not handle unknown hazardous materials without trained personnel",
+    "Use PPE required by the approved procedure",
+    "Escalate newly discovered hazards"
+  ],
+  "approval_status": "approved",
+  "requires_human_review": true,
+  "planning_status": "PLAN_READY",
+  "dispatch_eligible": true,
+  "resource_estimate": {},
+  "resource_demand": {
+    "status": "COMPLETE",
+    "required_resources": ["INSPECTION_TOOLS", "PPE_GENERAL"],
+    "estimated_worker_demand": {
+      "count": 1,
+      "roles": ["SANITATION_OPERATIVE"],
+      "basis": "PRIORITY_MEDIUM_CREW_RULE"
+    },
+    "availability_confirmed": false,
+    "resource_policy_version": "resource-policy-1"
+  },
+  "duration_estimate": {
+    "status": "CALCULATED",
+    "total_minutes": 15.0,
+    "range_minutes": null,
+    "method": "DEPENDENCY_CRITICAL_PATH",
+    "basis": ["ALL_TASK_PRODUCTIVITY_RATES_AND_QUANTITIES_VALIDATED"],
+    "sla_response_due_at": "2026-10-21T13:55:00+05:30",
+    "sla_resolution_due_at": "2026-10-21T19:55:00+05:30"
+  },
+  "assigned_worker_id": null,
+  "assignment_status": "UNASSIGNED",
+  "availability_confirmed": false
+}

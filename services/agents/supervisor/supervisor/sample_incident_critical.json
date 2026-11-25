@@ -1,0 +1,14 @@
+{
+  "incident_id": "9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d",
+  "description": "Large waste spill and sewage leak right outside the hospital gate in MP Nagar Zone 1.",
+  "category": "SANITATION",
+  "incident_type": "WASTE_SPILL",
+  "severity": "CRITICAL",
+  "reported_at": "2026-10-28T07:10:00Z",
+  "location_metadata": {
+    "latitude": 23.2315,
+    "longitude": 77.4350,
+    "locality": "MP Nagar Zone 1, Bhopal",
+    "verification_status": "VERIFIED"
+  }
+}

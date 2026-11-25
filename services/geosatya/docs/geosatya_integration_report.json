@@ -1,0 +1,187 @@
+{
+  "project": "Kavach GeoSatya Integration",
+  "generated": "2026-10-30",
+  "repository": {
+    "url": "https://github.com/ananyadhagat/Kavach-epam",
+    "branch": "geosatya-location-verification",
+    "base_commit": "e4e3e91",
+    "module_path": "services/geosatya"
+  },
+  "sources_inspected": {
+    "geosatya": "origin/geosatya-location-verification e4e3e91",
+    "incident_intelligence_agent": "origin/incident-intelligence-agent e2ff0e9 (ZIP Kavach-epam-incident-intelligence-agent.zip has identical code)",
+    "dispatch_work": "origin/dispatch-work 6ef3bf9 (ZIP Kavach-epam-dispatch-work.zip has identical code)"
+  },
+  "integration": {
+    "geosatya": {
+      "status": "completed",
+      "details": [
+        "Existing reporting, EXIF, geofence, review and audit preserved; all 110 original tests still pass",
+        "Report is committed before any other agent is called",
+        "Optional Idempotency-Key on POST /incidents prevents duplicate reports on retry",
+        "Additive schema only: 6 new tables, no existing table or column changed"
+      ]
+    },
+    "incident_intelligence": {
+      "status": "completed",
+      "details": [
+        "Agent called over HTTP (POST /api/v1/incidents) with a stable X-Request-ID per incident",
+        "Output stored separately in incident_intelligence; citizen category and text never overwritten",
+        "Severity maps to dispatch priority HIGH/MEDIUM/LOW, otherwise NORMAL",
+        "NOT_CONFIGURED, UNAVAILABLE, FAILED and CONFLICT outcomes recorded; report still dispatched; supervisor retry endpoint",
+        "Verified end to end against the real agent running locally in mock mode (no Gemini key)"
+      ]
+    },
+    "dispatch_work": {
+      "status": "completed",
+      "details": [
+        "dispatch_task ranking reused with three documented minimal changes",
+        "Worker data now from GeoSatya worker_profiles and shared locations, not the branch's static in-memory list",
+        "Configurable fallback: labelled workload assignment or escalation to supervisor",
+        "Supervisor manual assign, reassign (reason required) and retry dispatch; one task per incident guarantees no duplicates",
+        "The branch's own HTTP service is not called (static workers near Ujjain go stale 15 min after start)"
+      ]
+    },
+    "eta": {
+      "status": "completed",
+      "details": [
+        "Approximate only: straight-line distance x 1.4 route factor at observed approach speed or assumed 20 km/h",
+        "Shown as a minute range with states WAITING_FOR_LOCATION, AVAILABLE, STALE, ARRIVED, NOT_APPLICABLE",
+        "No road-routing provider configured"
+      ]
+    },
+    "live_worker_tracking": {
+      "status": "completed",
+      "details": [
+        "Assigned worker shares location during ASSIGNED/IN_PROGRESS via browser watchPosition or labelled simulation",
+        "Citizen sees latest location only while live; supervisor also last-known and up to 20 recent points",
+        "Points deleted on completion submission or reassignment; updates throttled to 10 s",
+        "Arrival estimated within 50 m; never replaces the 15 m server geofence check",
+        "Foreground-only: a web page cannot track in the background"
+      ]
+    },
+    "etr_resolution_estimation": {
+      "status": "completed",
+      "details": [
+        "Recomputed only on events: assignment, first location, arrival, work start, completion, rework, reassignment, resolution",
+        "Work duration = median of at least 3 resolved jobs in the category, else category baseline in categories.json",
+        "Actual resolution time and breakdown computed from recorded timestamps only"
+      ]
+    },
+    "ratings": {
+      "status": "not_started",
+      "details": [
+        "No rating exists in any inspected branch; minimal proposal in docs/INTEGRATION.md section 8 awaiting a team decision"
+      ]
+    }
+  },
+  "testing": {
+    "tests_run": [
+      "pytest services/geosatya (full suite)",
+      "HTTP smoke test against running GeoSatya :8000 and Incident Intelligence agent :8001 (mock mode)",
+      "Browser check of citizen, worker and supervisor pages at desktop and 375 px width"
+    ],
+    "passed": [
+      "139 pytest tests passed (110 original + 29 in tests/test_integration.py), 1 dependency deprecation warning",
+      "Smoke: intelligence COMPLETED with severity HIGH (INJURY rule) -> priority HIGH",
+      "Smoke: dispatch ranked the 0.6 km worker over the 1.6 km worker",
+      "Smoke: idempotent retry returned the same incident",
+      "Smoke: ETA available, arrival detected at 20 m, geofence PASS at 4 m, tracking ended and points purged, ETR replaced by actual resolution time",
+      "Browser: no console errors; no horizontal overflow at 375 px"
+    ],
+    "failed": [],
+    "not_run": [
+      "Partner branches' own test suites",
+      "Real phone GPS and camera (the browser pane blocks them; labelled simulation used)",
+      "Gemini mode of the intelligence agent (no API key)",
+      "Google Maps (no key); OpenStreetMap used"
+    ],
+    "limitations": [
+      "ETA has no road routing",
+      "Browser tracking stops when the page is closed or suspended",
+      "ETR baselines are placeholders until history exists",
+      "Demo identities are not authentication"
+    ]
+  },
+  "localhost": {
+    "status": "verified",
+    "startup_instructions": [
+      "Intelligence agent (optional): in a checkout of incident-intelligence-agent, set KAVACH_LLM_MODE=mock and run: python -m uvicorn kavach.main:app --app-dir src --port 8001",
+      "GeoSatya: cd services/geosatya; set INTELLIGENCE_URL=http://127.0.0.1:8001 (optional); run: uvicorn geosatya.main:create_app --factory --reload",
+      "Open http://localhost:8000 and pick a demo role; enable Simulate GPS (demo) when there is no GPS"
+    ],
+    "required_services": [
+      "GeoSatya FastAPI app (also serves the frontend)",
+      "Incident Intelligence agent (optional)"
+    ],
+    "ports": [8000, 8001]
+  },
+  "git": {
+    "files_changed": [
+      "services/geosatya/.env.example",
+      "services/geosatya/README.md",
+      "services/geosatya/frontend/js/maps.js",
+      "services/geosatya/frontend/js/pages/dashboard.js",
+      "services/geosatya/frontend/js/pages/incident.js",
+      "services/geosatya/frontend/js/pages/tasks.js",
+      "services/geosatya/frontend/styles.css",
+      "services/geosatya/geosatya/api/routes.py",
+      "services/geosatya/geosatya/api/schemas.py",
+      "services/geosatya/geosatya/api/views.py",
+      "services/geosatya/geosatya/config.py",
+      "services/geosatya/geosatya/data/categories.json",
+      "services/geosatya/geosatya/main.py",
+      "services/geosatya/geosatya/models.py",
+      "services/geosatya/geosatya/seed.py",
+      "services/geosatya/geosatya/services/common.py",
+      "services/geosatya/geosatya/services/incidents.py",
+      "services/geosatya/geosatya/services/tasks.py"
+    ],
+    "files_added": [
+      "services/geosatya/docs/INTEGRATION.md",
+      "services/geosatya/docs/GEOSATYA_INTEGRATION_HANDOFF.md",
+      "services/geosatya/docs/geosatya_integration_report.json",
+      "services/geosatya/docs/GeoSatya_Integration_Report.pdf",
+      "services/geosatya/frontend/js/live.js",
+      "services/geosatya/geosatya/dispatch/__init__.py",
+      "services/geosatya/geosatya/dispatch/ranking.py",
+      "services/geosatya/geosatya/integrations/__init__.py",
+      "services/geosatya/geosatya/integrations/intelligence.py",
+      "services/geosatya/geosatya/services/dispatch.py",
+      "services/geosatya/geosatya/services/estimates.py",
+      "services/geosatya/geosatya/services/intelligence.py",
+      "services/geosatya/geosatya/services/tracking.py",
+      "services/geosatya/tests/test_integration.py"
+    ],
+    "commit_created": false,
+    "push_completed": false,
+    "target_branch": "geosatya-location-verification"
+  },
+  "checkpoints": [
+    {"id": 1, "name": "Existing GeoSatya preserved and reviewed", "status": "completed"},
+    {"id": 2, "name": "Incident Intelligence integration", "status": "completed"},
+    {"id": 3, "name": "Dispatch integration", "status": "completed"},
+    {"id": 4, "name": "ETA and live tracking", "status": "completed"},
+    {"id": 5, "name": "ETR and resolution monitoring", "status": "completed"},
+    {"id": 6, "name": "Frontend integration", "status": "completed"},
+    {"id": 7, "name": "Backend and database integration", "status": "completed"},
+    {"id": 8, "name": "Tests and bug fixes", "status": "completed"},
+    {"id": 9, "name": "Localhost verification", "status": "completed"},
+    {"id": 10, "name": "Documentation and remaining work", "status": "partially_completed", "note": "Docs done; ratings, routing, real-device test and commit/push pending"}
+  ],
+  "known_issues": [
+    "incident-intelligence-agent requirements.txt is missing python-dotenv",
+    "dispatch-work has an empty requirements.txt, app/_init_.py misnamed, and static in-memory workers",
+    "No admin UI to set worker skills; non-demo workers start with no skills",
+    "No accept or cancel step in the task lifecycle",
+    "SQLite with create_all; no migrations"
+  ],
+  "next_steps": [
+    "Review the diff, then commit to geosatya-location-verification and push to origin (not done; awaiting approval)",
+    "Team decision on DISPATCH_FALLBACK default and on the rating proposal",
+    "Test on a real phone over HTTPS",
+    "Optionally add a routing provider for road-distance ETA",
+    "Agree with the intelligence owner whether its classification should replace the citizen's category"
+  ],
+  "handoff_document": "services/geosatya/docs/GEOSATYA_INTEGRATION_HANDOFF.md"
+}
