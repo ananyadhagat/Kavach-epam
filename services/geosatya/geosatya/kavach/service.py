@@ -19,7 +19,7 @@ from sqlalchemy import func, select
 
 from geosatya.kavach import catalog
 from geosatya.location.coordinates import CoordinateError, haversine_m, validate_coordinates
-from geosatya.models import AuditRow, IncidentRow, TaskProgressRow, TaskRow, UserRow, WorkerProfileRow
+from geosatya.models import AuditRow, IncidentRow, IntelligenceRow, TaskProgressRow, TaskRow, UserRow, WorkerProfileRow
 from geosatya.platform_models import AuthorityRow, DepartmentRow, InviteRow, PlanRow, WorkspaceRow, ZoneRow
 from geosatya.scope import is_active
 from geosatya.services.common import Actor, ServiceError, audit, new_id
@@ -94,7 +94,8 @@ def _new_user(session, *, name: str, role: str, platform_role: str | None = None
 def _default_settings(kind: str) -> dict:
     cats = ([c for c in ("medical_assistance", "crowd_management", "security_concern", "missing_person", "event_operations",
                          "garbage", "safety_hazard")] if kind == "EVENT"
-            else ["road_damage", "garbage", "water_leakage", "drainage", "streetlight", "infrastructure", "safety_hazard", "other"])
+            else ["road_damage", "garbage", "water_leakage", "drainage", "streetlight", "infrastructure", "safety_hazard", "public_toilet",
+                 "sanitation", "waste_disposal", "highway", "other"])
     return {
         "categories": cats,
         "priority_levels": list(catalog.PRIORITY_LEVELS),
@@ -440,8 +441,21 @@ def authority_view(a: AuthorityRow) -> dict:
 
 
 # ------------------------------------------------------ public views
-PUBLIC_STAGES = [("SUBMITTED", "Received"), ("ASSIGNED", "Assigned"), ("IN_PROGRESS", "Work in progress"),
-                 ("AWAITING_VERIFICATION", "Being verified"), ("RESOLVED", "Resolved")]
+# Reported -> Verified -> Assigned -> In progress -> Resolved.
+# "Verified" = the report was checked: its location was recorded and its details analysed.
+PUBLIC_STAGES = [("REPORTED", "Reported"), ("VERIFIED", "Verified"), ("ASSIGNED", "Assigned"), ("IN_PROGRESS", "In progress"),
+                 ("RESOLVED", "Resolved")]
+STAGE_OF_STATUS = {"SUBMITTED": 0, "ASSIGNED": 2, "IN_PROGRESS": 3, "AWAITING_VERIFICATION": 3, "RESOLVED": 4}
+
+
+def stage_index(session, inc) -> int:
+    """How far a report has got (0-4). Verified is reached once the analysis ran or work moved on."""
+    idx = STAGE_OF_STATUS.get(inc.status, 0)
+    if idx == 0:
+        row = session.get(IntelligenceRow, inc.incident_id)
+        if row is not None and row.status == "COMPLETED":
+            idx = 1
+    return idx
 
 
 def public_scope():
@@ -458,11 +472,14 @@ def public_track(session, categories, reference: str) -> dict:
     for e in session.scalars(select(AuditRow).where(AuditRow.incident_id == inc.incident_id).order_by(AuditRow.event_time)):
         to = (e.details or {}).get("to_status")
         if e.action == "INCIDENT_REPORTED":
-            reached.setdefault("SUBMITTED", e.event_time)
-        elif to:
-            reached[to] = e.event_time  # the latest time each stage was reached (rework can repeat a stage)
-    order = [s for s, _ in PUBLIC_STAGES]
-    current = order.index(inc.status) if inc.status in order else 0
+            reached.setdefault("REPORTED", e.event_time)
+        elif to == "ASSIGNED":
+            reached["ASSIGNED"] = e.event_time
+        elif to in ("IN_PROGRESS", "AWAITING_VERIFICATION"):
+            reached["IN_PROGRESS"] = e.event_time
+        elif to == "RESOLVED":
+            reached["RESOLVED"] = e.event_time  # the latest time each stage was reached (rework can repeat a stage)
+    current = stage_index(session, inc)
     authority = session.get(AuthorityRow, inc.authority_id) if inc.authority_id else None
     return {
         "reference": inc.incident_id, "category": inc.category, "category_label": categories.label(inc.category),
@@ -496,7 +513,10 @@ def public_stats(session, categories) -> dict:
         "reported_this_week": sum(as_utc(i.created_at) >= week_ago for i in rows),
         "resolution_rate": round(100 * by_status.get("RESOLVED", 0) / len(rows)) if rows else None,
         "median_resolution_hours": median,
-        "by_status": [{"status": s, "label": label, "count": by_status.get(s, 0)} for s, label in PUBLIC_STAGES],
+        "by_status": [{"status": s, "label": label, "count": n} for (s, label), n in zip(
+            [PUBLIC_STAGES[0], PUBLIC_STAGES[2], PUBLIC_STAGES[3], PUBLIC_STAGES[4]],
+            [by_status.get("SUBMITTED", 0), by_status.get("ASSIGNED", 0),
+             by_status.get("IN_PROGRESS", 0) + by_status.get("AWAITING_VERIFICATION", 0), by_status.get("RESOLVED", 0)])],
         "by_category": [{"category": c, "label": categories.label(c), "count": n} for c, n in by_cat.most_common()],
         "areas": [{"latitude": lat, "longitude": lon, "count": n} for (lat, lon), n in cells.items()],
         "includes_demo_data": any(i.is_demo for i in rows),

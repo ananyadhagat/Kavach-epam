@@ -66,7 +66,7 @@ def app_config(request: Request, session: Session = Depends(get_session)):
     s = _app(request).settings
     key = s.google_maps_browser_key
     return {
-        "app_name": s.app_name, "environment": s.app_env, "auth_mode": s.auth_mode,
+        "app_name": s.app_name, "environment": s.app_env, "auth_mode": s.auth_mode, "team_demo": s.team_demo,
         "maps": {"provider": "google" if key else "leaflet", "google_browser_key": key, "google_map_id": s.google_maps_map_id},
         "limits": get_limits(session, s),
         "limit_ranges": {"geofence_radius_m": [GEOFENCE_MIN_M, GEOFENCE_MAX_M], "max_accuracy_m": [ACCURACY_MIN_M, ACCURACY_MAX_M]},
@@ -195,6 +195,15 @@ def retry_dispatch(incident_id: str, request: Request, actor: Actor = Depends(su
             incident_service.refresh_etr(session, app.settings, app.categories, task, incident, "ASSIGNED")
         session.commit()
     return incident_detail(session, app.categories, incident, task, actor)
+
+
+@router.get("/incidents/{incident_id}/dispatch/candidates", tags=["Integration"])
+def dispatch_candidates(incident_id: str, request: Request, actor: Actor = Depends(supervisor_only),
+                        session: Session = Depends(get_session)):
+    """Worker search: who could take this incident right now, ranked by the Dispatch rules. Read-only."""
+    app = _app(request)
+    incident = load_incident(session, incident_id, actor)
+    return dispatch_service.preview_candidates(session, app.settings, app.categories, incident)
 
 
 @router.post("/incidents/{incident_id}/assign", tags=["Integration"])
@@ -417,7 +426,8 @@ def workers(request: Request, actor: Actor = Depends(supervisor_only), session: 
     """Dispatch view of the workforce: skills, load, and how old their shared location is."""
     settings, now = _app(request).settings, utcnow()
     out = []
-    for w in dispatch_service.worker_pool(session, workspace_id=actor.workspace_id):
+    for w in dispatch_service.worker_pool(session, workspace_id=actor.workspace_id,
+                                          registered_only=dispatch_service.needs_registered_workers(settings)):
         updated = w.pop("location_updated_at")
         age = int((now - updated).total_seconds()) if updated else None
         out.append({**w, "location_age_s": age, "location_fresh": age is not None and age <= settings.dispatch_location_max_age_s})

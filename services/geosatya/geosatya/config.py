@@ -34,10 +34,23 @@ class Settings(BaseSettings):
     api_prefix: str = "/api/v1"
     app_env: Literal["development", "test", "production"] = "development"
 
-    # demo:  no sign-in; the UI picks a seeded demo identity (refused in production).
-    # token: bearer tokens mapped to users, until a real identity provider is connected.
-    auth_mode: Literal["demo", "token"] = "demo"
+    # jwt:   real sign-in (citizen sign-up/login, worker access code + registration,
+    #        supervisor credentials + access code). FastAPI issues a JWT access token.
+    # demo:  development only: the UI may also pick a seeded demo identity (refused in production).
+    #        JWT sign-in works in demo mode too.
+    # token: fixed bearer tokens mapped to users (for scripts and tests).
+    auth_mode: Literal["jwt", "demo", "token"] = "jwt"
     auth_tokens: SecretStr = SecretStr("")
+    # Signs the access tokens. Empty = a random secret per server start (everyone signs in again after a restart).
+    # Production needs a fixed secret of 32+ characters. Never commit it.
+    jwt_secret: SecretStr = SecretStr("")
+    jwt_ttl_hours: float = Field(default=12.0, gt=0, le=24 * 30)
+    # Predefined access codes, held only by the server (environment variables). Empty = that door is closed.
+    worker_access_code: SecretStr = SecretStr("")       # needed to register as a field worker
+    supervisor_access_code: SecretStr = SecretStr("")   # needed, with credentials, for supervisor sign-in
+    admin_access_code: SecretStr = SecretStr("")        # needed, with credentials, for platform admin sign-in
+    # Sign-in / registration attempts per client address and per account per minute.
+    login_rate_limit_per_min: int = Field(default=8, ge=0)
 
     database_url: str = f"sqlite:///{(BASE_DIR / 'data' / 'geosatya_v3.db').as_posix()}"
     storage_dir: Path = BASE_DIR / "private_uploads"
@@ -56,6 +69,8 @@ class Settings(BaseSettings):
 
     min_completion_chars: int = Field(default=10, ge=0)
     seed_demo_data: bool = True
+    # Team live demo: only the ten team members, and a sign-in screen that accepts any password (demo mode only).
+    team_demo: bool = False
     cors_origins: str = ""
 
     # Browser key for the Maps JavaScript API. It is visible to visitors by
@@ -77,6 +92,11 @@ class Settings(BaseSettings):
     # Verification agent (MrBadDrip), run in-process on each completion photo.
     # off | mock (OpenCV quality/alignment + GPS; no AI vision) | gemini (needs GEMINI_API_KEY + GEMINI_MODEL)
     verification_agent: str = "mock"
+    # Women's safety (Trusted Allies + SOS). No SMS / WhatsApp / push provider is connected:
+    # until one is, allies get a private link the user sends from their own phone.
+    sos_max_active_hours: float = Field(default=6.0, gt=0, le=48)    # an SOS left open is closed after this long
+    sos_max_allies: int = Field(default=8, ge=1, le=20)
+    sos_location_max_age_s: int = Field(default=900, ge=30)          # an older fix is not shared as "current"
 
     # --- Dispatch (ranking reused from the dispatch-work branch).
     dispatch_max_radius_km: float = Field(default=2.0, gt=0, le=50)

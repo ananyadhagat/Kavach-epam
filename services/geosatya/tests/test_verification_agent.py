@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 
 from geosatya.kavach.seed import CITY
 from geosatya.main import create_app
-from tests.conftest import CITIZEN, SPOT, SUPERVISOR, complete, fix, make_settings, offset, report
+from tests.conftest import complaint_post, CITIZEN, SPOT, SUPERVISOR, complete, fix, make_settings, offset, report
 
 K = "/api/v1/kavach"
 ORG_ADMIN = {"X-GeoSatya-Demo-User": "ORG-DEMO-01"}
@@ -61,16 +61,17 @@ def test_a_simulated_fix_is_not_passed_on_as_gps(c):
     assert any("No usable GPS" in r for r in s["remarks"])
 
 
-def test_public_report_without_a_before_photo_is_inconclusive_not_passed(c):
+def test_public_complaint_photo_is_used_as_the_before_photo(c):
+    """Complaints now always carry a camera photo; the Verification agent uses it as the before photo."""
     w = {"X-GeoSatya-Demo-User": "OW-DEMO-21"}
     c.post("/api/v1/workers/me/check-in", json={"available": True, "location": fix(offset(CITY, east_m=50))}, headers=w)
     body = {"category": "road_damage", "title": "Pothole", "description": "A deep pothole on the main road.", "device_location": fix(CITY)}
-    inc = c.post(f"{K}/public/reports", json=body, headers=CITIZEN).json()
+    inc = complaint_post(c, body, headers=CITIZEN).json()
     assert inc["task"]["worker_id"] == "OW-DEMO-21"
     c.post(f"/api/v1/tasks/{inc['task']['task_id']}/start", headers=w)
     complete(c, inc["task"]["task_id"], w, device=fix(offset(CITY, east_m=2)))
     s = verification(c, inc["incident_id"], ORG_ADMIN)["summary"]
-    assert s["before_photos"] == 0 and s["verification_status"] != "PASS"
+    assert s["before_photos"] == 1
 
 
 def test_sanitation_plan_tasks_become_the_requirements(c):

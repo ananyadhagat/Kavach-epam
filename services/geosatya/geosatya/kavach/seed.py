@@ -35,6 +35,7 @@ USERS = [
 def seed_kavach_demo(session: Session) -> None:
     ensure_plans(session)
     if session.get(WorkspaceRow, "WS-DEMO-ORG") is not None:
+        _upgrade_demo(session)
         return
     now = utcnow()
     for user_id, name, role, platform_role, *_ in USERS:
@@ -85,13 +86,27 @@ def seed_kavach_demo(session: Session) -> None:
                      workspace_id=org.workspace_id, integration="NONE", data_note=SAMPLE_NOTE, is_demo=True),
         AuthorityRow(authority_id="AUTH-DEMO-NH", name="National Highway Division (sample)", kind="NATIONAL_HIGHWAY",
                      center_latitude=CITY[0], center_longitude=CITY[1], radius_km=80,
-                     categories=["road_damage", "safety_hazard", "streetlight", "infrastructure"], road_types=["NATIONAL_HIGHWAY"],
+                     categories=["road_damage", "safety_hazard", "streetlight", "infrastructure", "highway"], road_types=["NATIONAL_HIGHWAY"],
                      integration="NONE", contact="Forward manually through the authority's own complaint channel.",
                      data_note=SAMPLE_NOTE, is_demo=True),
         AuthorityRow(authority_id="AUTH-DEMO-SH", name="State Highway Division (sample)", kind="STATE_HIGHWAY",
                      center_latitude=CITY[0], center_longitude=CITY[1], radius_km=80,
-                     categories=["road_damage", "safety_hazard", "streetlight", "infrastructure"], road_types=["STATE_HIGHWAY"],
+                     categories=["road_damage", "safety_hazard", "streetlight", "infrastructure", "highway"], road_types=["STATE_HIGHWAY"],
                      integration="NONE", contact="Forward manually through the authority's own complaint channel.",
                      data_note=SAMPLE_NOTE, is_demo=True),
     ])
+    session.flush()
+
+
+NEW_ROAD_CATEGORIES = ["highway"]
+
+
+def _upgrade_demo(session: Session) -> None:
+    """Existing demo databases: the sample highway authorities also take the new 'highway' category."""
+    for authority_id in ("AUTH-DEMO-NH", "AUTH-DEMO-SH"):
+        row = session.get(AuthorityRow, authority_id)
+        if row is not None and row.categories:
+            missing = [c for c in NEW_ROAD_CATEGORIES if c not in row.categories]
+            if missing:
+                row.categories = [*row.categories, *missing]
     session.flush()

@@ -11,7 +11,7 @@ from fastapi.testclient import TestClient
 from geosatya.integrations.agents import AgentClient, TeamAgents
 from geosatya.kavach.seed import CITY, EVENT
 from geosatya.main import create_app
-from tests.conftest import CITIZEN, SUPERVISOR, fix, make_settings, offset, report
+from tests.conftest import complaint_post, CITIZEN, SUPERVISOR, fix, make_settings, offset, report
 
 K = "/api/v1/kavach"
 ORG_ADMIN = {"X-GeoSatya-Demo-User": "ORG-DEMO-01"}
@@ -76,7 +76,7 @@ def env(tmp_path):
 
 def garbage(c, point=None, headers=CITIZEN, text="Garbage pile dumped next to the bus stop, smells bad", expect=201):
     body = {"category": "garbage", "title": "Garbage pile at bus stop", "description": text, "device_location": fix(point or offset(CITY, north_m=300))}
-    r = c.post(f"{K}/public/reports", json=body, headers=headers)
+    r = complaint_post(c, body, headers=headers)
     assert r.status_code == expect, r.text
     return r.json()
 
@@ -137,7 +137,7 @@ def test_sanitation_runs_only_for_waste_incidents(env):
     c, fake = env
     body = {"category": "streetlight", "title": "Streetlight off", "description": "The streetlight has been off for days.",
             "device_location": fix(offset(CITY, east_m=500))}
-    inc = c.post(f"{K}/public/reports", json=body, headers=CITIZEN).json()
+    inc = complaint_post(c, body, headers=CITIZEN).json()
     assert "san" not in [n for n, *_ in fake.calls]
     assert agents(c, inc["incident_id"], ORG_ADMIN)["SANITATION"]["status"] == "NOT_APPLICABLE"
 

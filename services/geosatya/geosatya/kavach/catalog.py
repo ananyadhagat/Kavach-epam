@@ -30,6 +30,7 @@ PRIORITY_LEVELS = ["LOW", "NORMAL", "MEDIUM", "HIGH"]
 DEFAULT_TARGET_HOURS = {
     "road_damage": 72, "garbage": 12, "water_leakage": 24, "drainage": 24, "streetlight": 48,
     "infrastructure": 72, "safety_hazard": 6, "other": 72,
+    "public_toilet": 24, "sanitation": 12, "waste_disposal": 24, "highway": 72,
     "medical_assistance": 0.25, "crowd_management": 0.5, "security_concern": 0.5, "missing_person": 1, "event_operations": 1,
 }
 

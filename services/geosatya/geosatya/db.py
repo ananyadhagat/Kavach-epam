@@ -33,6 +33,8 @@ def init_schema(engine: Engine) -> None:
     import geosatya.platform_models  # noqa: F401  (registers the KAVACH tables)
     Base.metadata.create_all(engine)
     add_missing_columns(engine)
+    with engine.begin() as conn:  # one account per email / phone (NULLs are allowed many times)
+        conn.execute(text('CREATE UNIQUE INDEX IF NOT EXISTS ux_users_login_id ON users (login_id)'))
 
 
 def add_missing_columns(engine: Engine) -> list[str]:

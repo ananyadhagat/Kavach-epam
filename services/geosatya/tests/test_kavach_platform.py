@@ -7,7 +7,7 @@ from fastapi.testclient import TestClient
 
 from geosatya.kavach.seed import CITY, EVENT
 from geosatya.main import create_app
-from tests.conftest import CITIZEN, SUPERVISOR, fix, make_settings, offset, report
+from tests.conftest import complaint_post, CITIZEN, SUPERVISOR, fix, make_settings, offset, report
 
 ORG_ADMIN = {"X-GeoSatya-Demo-User": "ORG-DEMO-01"}
 ORG_SUP = {"X-GeoSatya-Demo-User": "OSUP-DEMO-01"}
@@ -34,7 +34,7 @@ def check_in(c, headers, point):
 def public_report(c, point=NEAR_CITY, category="road_damage", road_type=None, headers=CITIZEN, expect=201, **extra):
     body = {"category": category, "title": "Deep pothole on the main road", "description": "A large pothole is damaging vehicles.",
             "device_location": fix(point), **({"road_type": road_type} if road_type else {}), **extra}
-    r = c.post(f"{K}/public/reports", json=body, headers=headers)
+    r = complaint_post(c, body, headers=headers)
     assert r.status_code == expect, r.text
     return r.json()
 
@@ -48,10 +48,10 @@ def event_report(c, headers, point, category="medical_assistance", expect=201, *
 
 
 # ------------------------------------------------------------ public civic
-def test_public_report_needs_no_photo_and_is_routed_to_the_municipal_workspace(c):
+def test_public_report_with_photo_is_routed_to_the_municipal_workspace(c):
     check_in(c, ROAD_CREW, offset(NEAR_CITY, east_m=200))
     inc = public_report(c)
-    assert inc["photos"] == []
+    assert len(inc["photos"]) == 1
     assert inc["authority"]["authority"]["authority_id"] == "AUTH-DEMO-MUN"
     assert inc["task"]["worker_id"] == "OW-DEMO-21"           # the organization's own worker, not a civic one
     # GeoSatya's location evidence is recorded exactly as for any report.
@@ -206,7 +206,7 @@ def test_event_lifecycle_register_create_invite_join_report_dispatch(c):
 
 def test_outsiders_cannot_report_into_an_event(c):
     event_report(c, ROAD_CREW, offset(EVENT, east_m=5), expect=404)
-    event_report(c, CITIZEN, offset(EVENT, east_m=5), expect=404)
+    event_report(c, CITIZEN, offset(EVENT, east_m=5), expect=403)   # citizens never report inside a workspace (central authorization)
 
 
 def test_report_outside_the_event_area_is_flagged_not_blocked(c):

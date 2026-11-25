@@ -6,16 +6,17 @@
      keeps its own per-user snapshot of the worker's tasks (js/outbox.js) and queues
      actions taken offline, sending them when the connection returns. */
 
-const VERSION = "kavach-v4";
+const VERSION = "kavach-v9";
 const SHELL = `${VERSION}-shell`, TILES = `${VERSION}-tiles`, MAX_TILES = 400;
 const SHELL_FILES = [
-  "/", "/index.html", "/styles.css", "/kavach.css", "/icons/kavach-mark.svg", "/config.js", "/manifest.webmanifest",
+  "/", "/index.html", "/styles.css", "/kavach.css", "/theme.css", "/home.css", "/safety.css", "/auth.css", "/aurora.css", "/icons/kavach-logo.webp", "/icons/kavach-logo-light.webp", "/icons/kavach-mark.png", "/icons/kavach-mark-light.png", "/icons/favicon.png",  "/config.js", "/manifest.webmanifest",
   "/icons/icon-192.png", "/icons/icon-512.png", "/icons/maskable-512.png", "/icons/apple-touch-icon.png",
   "/js/app.js", "/js/api.js", "/js/capture.js", "/js/components.js", "/js/live.js", "/js/maps.js", "/js/ui.js", "/js/outbox.js",
   "/js/pages/board.js", "/js/pages/dashboard.js", "/js/pages/history.js", "/js/pages/incident.js", "/js/pages/livemap.js",
   "/js/pages/report.js", "/js/pages/review.js", "/js/pages/settings.js", "/js/pages/tasks.js",
   "/js/kavach/brand.js", "/js/kavach/public.js", "/js/kavach/access.js", "/js/kavach/report.js", "/js/kavach/widgets.js",
-  "/js/kavach/workspace.js", "/js/kavach/admin.js", "/js/kavach/agents-ui.js", "/js/kavach/workcheck-ui.js",
+  "/js/kavach/workspace.js", "/js/kavach/admin.js", "/js/kavach/agents-ui.js", "/js/kavach/workcheck-ui.js", "/js/kavach/home.js", "/js/kavach/categories.js", "/js/kavach/illustrations.js", "/js/kavach/citizen-ui.js", "/js/kavach/jobs.js", "/js/kavach/safety.js", "/js/kavach/auth.js", "/js/kavach/complaint.js", "/js/kavach/profile.js",
+  "/js/kavach/allocate.js", "/js/kavach/voice.js", "/js/kavach/serenity.js", "/js/kavach/lanyard.js", "/js/kavach/team.js", "/js/kavach/team-data.js", "/js/kavach/teamlogin.js",
   "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css", "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js",
 ];
 

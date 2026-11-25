@@ -1,12 +1,14 @@
 """Identity and access.
 
-AUTH_MODE=demo (local prototype): no sign-in. The UI picks a seeded demo
-identity and sends it in X-GeoSatya-Demo-User. Only users flagged is_demo
-work this way, and the mode is refused when APP_ENV=production.
-AUTH_MODE=token: bearer tokens mapped to users (AUTH_TOKENS), a stand-in until
-a real identity provider is connected in get_actor().
+AUTH_MODE=jwt (default): users sign in (geosatya/api/auth_routes.py) and send
+the JWT access token as "Authorization: Bearer <token>".
+AUTH_MODE=demo (development only): JWT sign-in works, and the UI may also pick
+a seeded demo identity sent in X-GeoSatya-Demo-User. Only users flagged
+is_demo work this way, and the mode is refused when APP_ENV=production.
+AUTH_MODE=token: fixed bearer tokens mapped to users (AUTH_TOKENS), for scripts.
 
-Authorization is the same in both modes.
+Authorization is the same in every mode: geosatya/authz.py checks each route,
+and the loaders below check ownership and workspace.
 """
 
 import hmac
@@ -19,6 +21,7 @@ from sqlalchemy.orm import Session
 
 from geosatya.models import IncidentRow, TaskRow, UserRow
 from geosatya.scope import is_active, same_workspace
+from geosatya.security import TokenError, looks_like_jwt, read_token
 from geosatya.services.common import Actor
 
 DEMO_HEADER = "X-GeoSatya-Demo-User"
@@ -35,7 +38,21 @@ def get_session(request: Request) -> Iterator[Session]:
 
 def get_actor(request: Request, session: Session = Depends(get_session),
               credentials: HTTPAuthorizationCredentials | None = Depends(bearer)) -> Actor:
+    cached = getattr(request.state, "actor", None)
+    if cached is not None:
+        return cached
+    actor = _identify(request, session, credentials)
+    request.state.actor = actor
+    return actor
+
+
+def _identify(request: Request, session: Session, credentials: HTTPAuthorizationCredentials | None) -> Actor:
     settings = request.app.state.settings
+    token = credentials.credentials if credentials is not None and credentials.scheme.lower() == "bearer" else None
+    if token and looks_like_jwt(token) and settings.auth_mode in ("jwt", "demo"):
+        return _jwt_actor(request, session, token)
+    if settings.auth_mode == "jwt":
+        raise HTTPException(401, "Please sign in to continue.", headers={"WWW-Authenticate": "Bearer"})
     if settings.auth_mode == "demo":
         user_id = request.headers.get(DEMO_HEADER)
         if not user_id:
@@ -52,6 +69,22 @@ def get_actor(request: Request, session: Session = Depends(get_session),
             if user is not None:
                 return _actor(user)
     raise HTTPException(401, "Invalid token", headers={"WWW-Authenticate": "Bearer"})
+
+
+def _jwt_actor(request: Request, session: Session, token: str) -> Actor:
+    """Validate the JWT, then identify the user and role from the database: a
+    deactivated account, a changed role or a signed-out token stops working at once."""
+    expired = HTTPException(401, "Your sign-in has expired. Please sign in again.", headers={"WWW-Authenticate": "Bearer"})
+    try:
+        claims = read_token(request.app.state.jwt_secret, token)
+    except TokenError:
+        raise expired from None
+    user = session.get(UserRow, claims["sub"])
+    if user is None or not user.password_hash:
+        raise expired
+    if claims.get("role") != user.role or claims.get("prole") != user.platform_role or claims.get("ep") != (user.auth_epoch or 0):
+        raise expired
+    return _actor(user)
 
 
 def _actor(user: UserRow) -> Actor:

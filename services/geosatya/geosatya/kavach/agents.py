@@ -37,6 +37,7 @@ SANITATION_TYPES = {
     "BIN_OVERFLOW": ("WASTE_OVERFLOW", "BIN_OVERFLOW", "BIN_OVERFLOW_RESPONSE"),
     "GARBAGE_PILE": ("WASTE_OVERFLOW", "GARBAGE_PILE", "GARBAGE_PILE_REMOVAL"),
     "WASTE_SPILL": ("HAZARD_OR_SPILL", "WASTE_SPILL", "SPILL_RESPONSE"),
+    "PUBLIC_TOILET": ("FACILITY_CLEANING", "DIRTY_PUBLIC_TOILET", "PUBLIC_TOILET_CLEANING"),
 }
 
 
@@ -129,7 +130,9 @@ def sanitation_type(session, incident) -> tuple[str, str, str] | None:
     text = f"{incident.title} {incident.description}".lower()
     if kind == "WASTE_SPILL" or ("spill" in text and incident.category in ("garbage", "safety_hazard")):
         return SANITATION_TYPES["WASTE_SPILL"]
-    if incident.category == "garbage" or kind in ("WASTE_OVERFLOW", "BIN_OVERFLOW", "GARBAGE_PILE", "GARBAGE_DUMP"):
+    if incident.category == "public_toilet":
+        return SANITATION_TYPES["PUBLIC_TOILET"]
+    if incident.category in ("garbage", "sanitation", "waste_disposal") or kind in ("WASTE_OVERFLOW", "BIN_OVERFLOW", "GARBAGE_PILE", "GARBAGE_DUMP"):
         return SANITATION_TYPES["BIN_OVERFLOW" if re.search(r"\b(dust ?bin|bin|bins)\b", text) else "GARBAGE_PILE"]
     return None
 

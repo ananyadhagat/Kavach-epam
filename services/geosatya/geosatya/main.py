@@ -5,13 +5,17 @@ from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
 
-from fastapi import FastAPI
+import secrets
+
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from PIL import Image
 
 from geosatya.accessgate import install as install_access_gate
+from geosatya.api.auth_routes import router as auth_router
 from geosatya.api.routes import register_error_handlers, router
+from geosatya.authz import authorize
 from geosatya.categories import load_categories
 from geosatya.config import BASE_DIR, Settings, get_settings
 from geosatya.db import init_schema, make_engine, make_session_factory
@@ -33,10 +37,13 @@ def make_verifier(settings, log):
         return None
 from geosatya.integrations.routing import make_router
 from geosatya.kavach.api import router as kavach_router
+from geosatya.kavach.citizen_worker import router as citizen_worker_router
+from geosatya.kavach.women import router as women_router
 from geosatya.kavach.seed import seed_kavach_demo
 from geosatya.kavach.service import ensure_plans
 from geosatya.ratelimit import SlidingWindowLimiter
 from geosatya.media.storage import LocalImageStorage
+from geosatya.kavach.audio import router as audio_router
 from geosatya.models import Base
 from geosatya.seed import ensure_users, seed_demo_data
 
@@ -59,11 +66,25 @@ CATEGORIES_FILE = BASE_DIR / "geosatya" / "data" / "categories.json"
 
 def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or get_settings()
+    if settings.team_demo and (settings.auth_mode != "demo" or settings.app_env == "production"):
+        raise RuntimeError("TEAM_DEMO needs AUTH_MODE=demo and is not allowed when APP_ENV=production.")
     if settings.app_env == "production" and settings.auth_mode == "demo":
         raise RuntimeError("AUTH_MODE=demo is not allowed when APP_ENV=production. "
-                           "Connect an identity provider or use AUTH_MODE=token.")
+                           "Use AUTH_MODE=jwt (real sign-in).")
     if settings.auth_mode == "token" and not settings.token_map():
         raise RuntimeError("AUTH_MODE=token needs AUTH_TOKENS.")
+    jwt_secret = settings.jwt_secret.get_secret_value()
+    if settings.app_env == "production" and settings.auth_mode == "jwt" and len(jwt_secret) < 32:
+        raise RuntimeError("APP_ENV=production needs JWT_SECRET (32+ random characters).")
+    if jwt_secret and len(jwt_secret) < 32:
+        raise RuntimeError("JWT_SECRET must be at least 32 characters.")
+    for name in ("worker_access_code", "supervisor_access_code", "admin_access_code"):
+        value = getattr(settings, name).get_secret_value()
+        if value and len(value.strip()) < 6:
+            raise RuntimeError(f"{name.upper()} must be at least 6 characters.")
+    if not jwt_secret:
+        # Development: a random secret for this run only (everyone signs in again after a restart).
+        jwt_secret = secrets.token_urlsafe(48)
     Image.MAX_IMAGE_PIXELS = settings.max_image_pixels
 
     engine = make_engine(settings.database_url)
@@ -79,6 +100,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             if settings.seed_demo_data and settings.app_env != "production":
                 seed_demo_data(session, storage, settings, categories)
                 seed_kavach_demo(session)
+            if settings.team_demo:
+                from geosatya.kavach.teamdemo import seed_team
+                seed_team(session)
             session.commit()
 
     def reset_demo(by: str = "unknown") -> str | None:
@@ -122,6 +146,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.agents = make_team_agents(settings)
     app.state.verifier = make_verifier(settings, log)
     app.state.report_limiter = SlidingWindowLimiter(settings.report_rate_limit_per_min)
+    app.state.auth_limiter = SlidingWindowLimiter(settings.login_rate_limit_per_min)
+    app.state.jwt_secret = jwt_secret
 
     if settings.cors_list():
         app.add_middleware(CORSMiddleware, allow_origins=settings.cors_list(), allow_credentials=False,
@@ -132,8 +158,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             raise RuntimeError("ACCESS_CODE must be at least 6 characters.")
         install_access_gate(app, settings.access_code.get_secret_value(), settings.access_cookie_hours)
     register_error_handlers(app)
-    app.include_router(router, prefix=settings.api_prefix)
-    app.include_router(kavach_router, prefix=settings.api_prefix)
+    # Every API route passes the central authorization check (geosatya/authz.py) before its handler.
+    checked = [Depends(authorize)]
+    for api_router in (auth_router, router, kavach_router, citizen_worker_router, women_router, audio_router):
+        app.include_router(api_router, prefix=settings.api_prefix, dependencies=checked)
 
     @app.get("/health", tags=["App"])
     def health():

@@ -5,19 +5,23 @@ import { categoryIcon, dots, flagChips, locationSource, photo } from "../compone
 import { dispatchCard, intelligenceCard, progressCard } from "../live.js";
 import { createMap, legend, mapProviderName } from "../maps.js";
 import { teamAgentsCard } from "../kavach/agents-ui.js";
+import { complaintStages, feedbackCard } from "../kavach/citizen-ui.js";
 import { banner, button, card, chip, clear, demoTag, emptyState, fmtAgo, fmtCoord, fmtTime, h, icon, kv, label, pageHead, toast } from "../ui.js";
 
-export async function renderMyReports({ main }) {
-  const items = await api("/incidents");
+export async function renderMyReports({ main, history = false }) {
+  const all = await api("/incidents");
+  const items = all.filter((i) => (i.status === "RESOLVED") === history);
   clear(main,
-    pageHead({ title: "My reports", subtitle: "Everything you've reported and where it stands.",
-      right: [h("a", { class: "btn primary", href: "#/report" }, icon("plus", 17), "New report")] }),
+    pageHead({ title: history ? "Complaint history" : "My complaints",
+      subtitle: history ? "Complaints that have been resolved." : "Your open complaints and where each one stands.",
+      right: [h("a", { class: "btn primary", href: "#/report" }, icon("plus", 17), "Report an issue")] }),
     items.length ? h("div", { class: "items" }, items.map((i) => h("a", { class: "item", href: `#/incidents/${i.incident_id}` },
       categoryIcon(i.category_icon),
       h("div", { class: "grow" }, h("strong", {}, i.title), h("span", { class: "muted mono" }, i.incident_id), " ", i.is_demo ? demoTag() : null,
         h("div", { class: "muted" }, `${i.category_label} · ${fmtAgo(i.created_at)}`)),
       h("div", { class: "stack tight", style: { alignItems: "flex-end" } }, chip(i.status, i.status_text), dots(i.status)))))
-      : card({}, emptyState("No reports yet", "Report a problem and you can follow it here.", h("a", { class: "btn primary", href: "#/report" }, "Report an issue"))));
+      : card({}, history ? emptyState("Nothing resolved yet", "Resolved complaints move here.")
+        : emptyState("No open complaints", "Report a problem and you can follow it here.", h("a", { class: "btn primary", href: "#/report" }, "Report an issue"))));
 }
 
 export async function renderIncident(ctx) {
@@ -50,9 +54,10 @@ export async function renderIncident(ctx) {
     inc.instructions?.length && role !== "CITIZEN" ? h("details", {}, h("summary", {}, "Task steps"),
       h("ol", { style: { margin: "8px 0 0", paddingLeft: "20px" } }, inc.instructions.map((s) => h("li", {}, s)))) : null);
   // A citizen with a worker assigned already sees the spot on the tracking map; one map is enough.
+  const stages = role === "CITIZEN" ? card({}, h("h2", {}, "Progress"), complaintStages(inc)) : null;
   const overview = role === "CITIZEN" && task
-    ? [progressCard(inc, ctx), aboutCard]
-    : [progressCard(inc, ctx), h("div", { class: "grid two" }, locationCard, aboutCard)];
+    ? [stages, progressCard(inc, ctx), feedbackCard(inc), aboutCard]
+    : [stages, progressCard(inc, ctx), role === "CITIZEN" ? feedbackCard(inc) : null, h("div", { class: "grid two" }, locationCard, aboutCard)];
 
   if (role !== "SUPERVISOR") {
     clear(main, head, ...overview);

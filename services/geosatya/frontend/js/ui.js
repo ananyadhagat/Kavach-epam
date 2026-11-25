@@ -79,6 +79,20 @@ const PATHS = {
   menu: "M4 7h16M4 12h16M4 17h16",
   copy: "M8 8h12v12H8zM4 16V4h12",
   route: "M6 19a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM18 9a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM8 17h7a3 3 0 0 0 0-6H9a3 3 0 0 1 0-6h7",
+  toilet: "M8 3h8v6H8zM6 9h12v2.5a6 6 0 0 1-12 0zM9.5 20h5M12 17.5V20",
+  broom: "M19.5 3.5 12 11M9.2 9.8l5 5-5.2 6.2H3l1.6-5.8zM8 14.5l4 4",
+  recycle: "M3 12a9 9 0 0 1 15-6.7M21 3v6h-6M21 12a9 9 0 0 1-15 6.7M3 21v-6h6",
+  highway: "M3 18h18M5 18V9M19 18V9M3 9h18M8 9v9M16 9v9M12 9v9",
+  mic: "M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3zM5 11a7 7 0 0 0 14 0M12 18v3M8 21h8",
+  phone: "M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z",
+  bell: "M6 8a6 6 0 0 1 12 0c0 7 3 8 3 8H3s3-1 3-8M10 20a2 2 0 0 0 4 0",
+  heart: "M12 21s-8-5.2-8-11a4.5 4.5 0 0 1 8-2.8A4.5 4.5 0 0 1 20 10c0 5.8-8 11-8 11z",
+  lock: "M6 11h12v9H6zM8 11V8a4 4 0 0 1 8 0v3",
+  star: "M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z",
+  siren: "M7 19v-6a5 5 0 0 1 10 0v6M4 19h16M12 3v2M4.5 7l1.5 1.2M19.5 7 18 8.2",
+  share: "M4 12v7h16v-7M12 3v12M7.5 7.5 12 3l4.5 4.5",
+  plus2: "M12 5v14M5 12h14",
+  eye: "M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z",
 };
 
 export function icon(name, size = 18) {
@@ -119,6 +133,10 @@ export const button = (text, attrs = {}, iconName) => h("button", Object.assign(
 
 export function spinner(text = "Loading…") {
   return h("div", { class: "state", role: "status" }, h("span", { class: "spinner" }), h("span", {}, text));
+}
+export function loadingScreen(text = "Loading KAVACH") {
+  return h("div", { class: "loading-screen", role: "status", "aria-label": text },
+    h("img", { src: "icons/kavach-logo-light.webp", alt: "KAVACH", width: 280, height: 89 }), h("div", { class: "bar", "aria-hidden": "true" }));
 }
 export function emptyState(title, text, action) {
   return h("div", { class: "state" }, icon("image", 30), h("strong", {}, title), text ? h("p", {}, text) : null, action || null);

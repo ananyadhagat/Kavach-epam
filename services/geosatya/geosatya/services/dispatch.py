@@ -35,11 +35,21 @@ def open_task_counts(session) -> dict[str, int]:
                                 .group_by(TaskRow.worker_id)).all())
 
 
-def worker_pool(session, settings=None, workspace_id: str | None = None) -> list[dict]:
+def needs_registered_workers(settings) -> bool:
+    """With real sign-in (AUTH_MODE=jwt) work goes only to workers who have an
+    account they can sign in with. Seeded demo workers have no password: giving
+    them a job would leave it with nobody. Demo mode keeps them (development)."""
+    return settings is not None and getattr(settings, "auth_mode", "demo") == "jwt"
+
+
+def worker_pool(session, settings=None, workspace_id: str | None = None, *, registered_only: bool | None = None) -> list[dict]:
     """Workers in the shape the Dispatch Agent's ranking expects. A location
     less accurate than DISPATCH_MAX_LOCATION_ACCURACY_M is withheld from the
     ranking (it can't support a distance comparison) and labelled as such.
-    Only active workers of the given workspace (None = open civic) are included."""
+    Only active workers of the given workspace (None = open civic) are included,
+    and with real sign-in only registered ones (see needs_registered_workers)."""
+    if registered_only is None:
+        registered_only = needs_registered_workers(settings)
     load = open_task_counts(session)
     pool = []
     max_acc = settings.dispatch_max_location_accuracy_m if settings is not None else None
@@ -47,6 +57,8 @@ def worker_pool(session, settings=None, workspace_id: str | None = None) -> list
                                       .join(WorkerProfileRow, WorkerProfileRow.user_id == UserRow.user_id)
                                       .where(UserRow.role == "WORKER", user_in(workspace_id)).order_by(UserRow.user_id)):
         if not is_active(user):
+            continue
+        if registered_only and not user.password_hash:
             continue
         inaccurate = max_acc is not None and prof.last_accuracy_m is not None and prof.last_accuracy_m > max_acc
         pool.append({"worker_id": user.user_id, "name": user.display_name,
@@ -100,6 +112,47 @@ def released_workers(session, incident_id: str) -> set[str]:
     """Workers who declined, timed out on, or were cancelled from this incident: not offered it again automatically."""
     return set(session.scalars(select(DispatchRow.worker_id).where(
         DispatchRow.incident_id == incident_id, DispatchRow.status == "RELEASED", DispatchRow.worker_id.is_not(None))))
+
+
+def preview_candidates(session, settings, categories, incident: IncidentRow) -> dict:
+    """Read-only worker search for the supervisor screen: the same pool, requirements and ranking
+    rules dispatch_incident uses, evaluated now. Writes nothing and assigns nobody; assigning still
+    goes through dispatch_incident / assign_manually / reassign with their own checks."""
+    req = requirements(categories, incident)
+    excluded = released_workers(session, incident.incident_id)
+    pool = worker_pool(session, settings, incident.workspace_id)
+    eligible_pool = [w for w in pool if w["worker_id"] not in excluded]
+    job = {"latitude": incident.latitude, "longitude": incident.longitude, "max_radius_km": settings.dispatch_max_radius_km, **req}
+    result = dispatch_task(job, eligible_pool, max_location_age_s=settings.dispatch_location_max_age_s)
+    ranked = {c["worker_id"]: (rank, c) for rank, c in enumerate(result["candidates"], start=1)}
+    why = {r["worker_id"]: r["reasons"] for r in result["rejected_workers"]}
+    now = utcnow()
+    current = session.scalar(select(TaskRow).where(TaskRow.incident_id == incident.incident_id))
+    workers = []
+    for w in pool:
+        rank, cand = ranked.get(w["worker_id"], (None, None))
+        reasons = ["Already released this job"] if w["worker_id"] in excluded else list(why.get(w["worker_id"], []))
+        if w.get("location_note"):
+            reasons = [w["location_note"] if x == LOCATION_UNAVAILABLE else x for x in reasons]
+        age = None if w["location_updated_at"] is None else max(0, int((now - w["location_updated_at"]).total_seconds()))
+        workers.append({
+            "worker_id": w["worker_id"], "name": w["name"], "skills": w["skills"], "available": w["available"],
+            "active_tasks": w["active_tasks"], "max_active_tasks": w["max_active_tasks"],
+            "skills_match": set(req["required_skills"]).issubset(w["skills"]),
+            "location_age_s": age, "location_fresh": age is not None and age <= settings.dispatch_location_max_age_s,
+            "latitude": w["latitude"], "longitude": w["longitude"],
+            "eligible": cand is not None, "rank": rank, "distance_km": cand["distance_km"] if cand else None,
+            "score": cand["score"] if cand else None, "reasons": reasons,
+            "is_current": current is not None and current.worker_id == w["worker_id"],
+        })
+    workers.sort(key=lambda x: (x["rank"] is None, x["rank"] or 0, x["name"]))
+    return {"incident_id": incident.incident_id, "latitude": incident.latitude, "longitude": incident.longitude,
+            "required_skills": req["required_skills"], "required_equipment": req["required_equipment"],
+            "priority": priority_of(session.get(IntelligenceRow, incident.incident_id)),
+            "max_radius_km": settings.dispatch_max_radius_km, "location_max_age_s": settings.dispatch_location_max_age_s,
+            "eligible": len(ranked), "total": len(pool), "current_worker_id": current.worker_id if current else None,
+            "workers": workers, "rules": "Skills, availability, capacity, a location under the age limit and within the radius; "
+                                         "then ranked 70% by distance and 30% by workload (Dispatch agent)."}
 
 
 def dispatch_incident(session, settings, categories, incident: IncidentRow, *, actor: Actor = SYSTEM,
@@ -156,7 +209,7 @@ def dispatch_incident(session, settings, categories, incident: IncidentRow, *, a
 
 
 def _check_worker(session, worker_id: str, *, override: bool = False, reason: str = "",
-                  incident: IncidentRow | None = None) -> UserRow:
+                  incident: IncidentRow | None = None, settings=None) -> UserRow:
     """A supervisor may not give work to an unavailable or full worker by
     accident; doing it deliberately needs override=true and a reason."""
     worker = session.get(UserRow, worker_id)
@@ -167,6 +220,9 @@ def _check_worker(session, worker_id: str, *, override: bool = False, reason: st
         raise ServiceError("Choose a field worker.", 422, "NOT_A_WORKER")
     if not is_active(worker):
         raise ServiceError(f"{worker.display_name}'s account is deactivated.", 409, "WORKER_INACTIVE")
+    if needs_registered_workers(settings) and not worker.password_hash:
+        raise ServiceError(f"{worker.display_name} has no sign-in account, so they could never see the task. Choose a registered worker.",
+                           409, "WORKER_NOT_REGISTERED")
     prof = session.get(WorkerProfileRow, worker_id)
     busy = []
     if prof is not None and not prof.available:
@@ -186,7 +242,7 @@ def assign_manually(session, settings, categories, incident: IncidentRow, worker
     """Supervisor assignment of an escalated (unassigned) incident."""
     if session.scalar(select(TaskRow).where(TaskRow.incident_id == incident.incident_id)) is not None:
         raise ServiceError("This incident already has a field task. Use reassign instead.", 409, "ALREADY_ASSIGNED")
-    _check_worker(session, worker_id, override=override, reason=reason, incident=incident)
+    _check_worker(session, worker_id, override=override, reason=reason, incident=incident, settings=settings)
     reason = (reason or "").strip() or "Assigned by supervisor"
     if override:
         audit(session, actor, "ASSIGNMENT_OVERRIDE", incident.incident_id, worker_id=worker_id, reason=reason[:300])
@@ -299,7 +355,7 @@ def reassign(session, settings, categories, incident: IncidentRow, task: TaskRow
         raise ServiceError(f"A task that is {task.status} cannot be reassigned.", 409, "TASK_LOCKED")
     if worker_id == task.worker_id:
         raise ServiceError("The task is already assigned to this worker.", 409, "SAME_WORKER")
-    _check_worker(session, worker_id, override=override, reason=reason, incident=incident)
+    _check_worker(session, worker_id, override=override, reason=reason, incident=incident, settings=settings)
     if override:
         audit(session, actor, "ASSIGNMENT_OVERRIDE", incident.incident_id, worker_id=worker_id, reason=reason[:300])
     previous = task.worker_id

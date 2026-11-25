@@ -16,6 +16,7 @@ from geosatya.api.deps import get_actor, get_session, optional_actor, task_of
 from geosatya.api.schemas import DeviceError, DeviceLocation, PhotoMeta, UserLocation
 from geosatya.api.views import incident_detail, incident_summary
 from geosatya.kavach import catalog
+from geosatya.kavach.reportcheck import check_report
 from geosatya.kavach.agents import OWNERS, agents_view, run_team_agents, run_verification
 from geosatya.kavach import service as svc
 from geosatya.location.coordinates import haversine_m
@@ -155,7 +156,8 @@ class InviteRedeem(BaseModel):
 
 
 class ReportCreate(BaseModel):
-    """A report without photographs: category, words and location."""
+    """Category, words and location. Citizen complaints (public portal) also
+    need a camera photo and the phone's GPS; workspace reports by staff do not."""
     model_config = Strict
     category: str = Field(min_length=1, max_length=50)
     title: str = Field(min_length=3, max_length=120)
@@ -166,6 +168,7 @@ class ReportCreate(BaseModel):
     device_location: DeviceLocation | None = None
     device_location_error: DeviceError | None = None
     user_location: UserLocation | None = None
+    photos_meta: list[PhotoMeta] = Field(default_factory=list, max_length=3)
 
 
 class VerificationDecision(BaseModel):
@@ -230,7 +233,8 @@ def suggest(latitude: float, longitude: float, category: str, request: Request, 
 
 
 def _submit(request: Request, session: Session, actor: Actor, body: ReportCreate, *, workspace_id: str | None, channel: str,
-            idempotency_key: str | None, extra_flags: list[str] | None = None, authority: dict | None = None):
+            idempotency_key: str | None, extra_flags: list[str] | None = None, authority: dict | None = None,
+            photos: list[tuple[bytes, dict]] | None = None):
     """Store the report, then run Incident Intelligence and Dispatch exactly as
     GeoSatya's own report endpoint does."""
     app = _app(request)
@@ -241,8 +245,8 @@ def _submit(request: Request, session: Session, actor: Actor, body: ReportCreate
         inc = session.get(IncidentRow, seen.incident_id)
         return inc
     data = body.model_dump(mode="python")
-    incident = incident_service.create_incident(session, app.storage, app.settings, app.categories, actor, data, [],
-                                                require_photo=False, workspace_id=workspace_id, channel=channel)
+    incident = incident_service.create_incident(session, app.storage, app.settings, app.categories, actor, data, photos or [],
+                                                require_photo=photos is not None, workspace_id=workspace_id, channel=channel)
     if extra_flags:
         incident.location_flags = list(dict.fromkeys([*incident.location_flags, *extra_flags]))
     if authority is not None:
@@ -269,27 +273,64 @@ def _submit(request: Request, session: Session, actor: Actor, body: ReportCreate
 
 
 @router.post("/public/reports", status_code=201)
-def public_report(body: ReportCreate, request: Request, actor: Actor = Depends(get_actor), session: Session = Depends(get_session),
+def public_report(request: Request, payload: str = Form(...), photos: list[UploadFile] = File(default=[]),
+                  actor: Actor = Depends(get_actor), session: Session = Depends(get_session),
                   idempotency_key: str | None = Header(default=None, max_length=80)):
-    """Citizen report through the public portal. No photographs are collected.
-    The suggested authority is stored; if it runs a Kavach workspace the report
-    is routed there, otherwise it stays with the open civic team."""
+    """Citizen complaint: category, description, a photo taken with the camera
+    and the phone's GPS at the photo moment (multipart: "payload" JSON + "photos").
+    The server stores the photo privately, records the GPS and EXIF as separate
+    evidence, runs the GeoSatya check and then routes the complaint: to the
+    suggested authority's Kavach workspace if it has one, else the open civic team."""
     if actor.role != "CITIZEN":
-        raise ServiceError("Public reports are submitted as a citizen.", 403, "FORBIDDEN")
+        raise ServiceError("Complaints are submitted as a citizen.", 403, "FORBIDDEN")
+    from geosatya.api.routes import dump, parse_payload, read_upload
     app = _app(request)
+    body = parse_payload(ReportCreate, payload)
     if app.categories.get(body.category) is None or (app.categories.get(body.category) or {}).get("scope") == "event":
         raise ServiceError("Choose a civic issue category.", 422, "UNKNOWN_CATEGORY")
-    loc = body.device_location or body.user_location
-    if loc is None:
-        raise ServiceError("The report needs a location: allow device location, or choose the spot on the map.", 422,
+    uploads = [p for p in photos if p.filename]
+    if not uploads:
+        raise ServiceError("Photograph required: capture a photo of the problem.", 422, "PHOTO_REQUIRED")
+    if body.device_location is None:
+        raise ServiceError("Location required: allow location so KAVACH can record where the photo was taken.", 422,
                            "LOCATION_REQUIRED")
+    if body.user_location is not None:
+        raise ServiceError("Complaints use the phone's GPS, not a chosen map point.", 422, "GPS_REQUIRED")
+    files = []
+    for i, upload in enumerate(uploads):
+        meta = dump(body.photos_meta[i]) if i < len(body.photos_meta) else {"capture_source": "GALLERY"}
+        if meta.get("capture_source") == "GALLERY":
+            raise ServiceError("Take the photo with the camera; gallery files are not accepted for complaints.", 422,
+                               "CAMERA_PHOTO_REQUIRED")
+        files.append((read_upload(upload, app.settings.max_image_size_bytes), meta))
+    loc = body.device_location
     suggestion = svc.suggest_authority(session, loc.latitude, loc.longitude, body.category, body.road_type)
     a = suggestion["authority"]
     routed = a["workspace_id"] if a and a["on_kavach"] else None
+    if routed and a.get("is_demo") and dispatch_service.needs_registered_workers(app.settings):
+        # With real sign-in, a real complaint never goes into a sample (demo) workspace, whose workers
+        # cannot sign in: it stays with the open civic team and its registered workers.
+        routed = None
+        suggestion = {**suggestion, "authority": {**a, "on_kavach": False},
+                      "reason": suggestion["reason"] + " This is sample data, so the complaint stays with the KAVACH civic team."}
     incident = _submit(request, session, actor, body, workspace_id=routed, channel="PUBLIC_PORTAL",
-                       idempotency_key=idempotency_key, authority=suggestion)
+                       idempotency_key=idempotency_key, authority=suggestion, photos=files)
+    check = check_report(session, app.settings, incident)
+    flags = [r["code"] for r in check["reasons"] if r["code"] in ("STALE_LOCATION", "LOCATION_NOT_AT_PHOTO_TIME", "FUTURE_TIMESTAMP")]
+    if flags:
+        incident.location_flags = list(dict.fromkeys([*(incident.location_flags or []), *flags]))
+    audit(session, actor, "REPORT_CHECKED", incident.incident_id, status=check["status"], reasons=[r["code"] for r in check["reasons"]])
+    session.commit()
     detail = incident_detail(session, app.categories, incident, task_of(session, incident.incident_id), actor)
-    return {**detail, "authority": suggestion}
+    return {**detail, "authority": suggestion, "geosatya_check": check}
+
+
+@router.get("/incidents/{incident_id}/check")
+def report_check(incident_id: str, request: Request, actor: Actor = Depends(get_actor), session: Session = Depends(get_session)):
+    """The GeoSatya check of a complaint, for its reporter and the supervisors of its workspace."""
+    from geosatya.api.deps import load_incident
+    incident = load_incident(session, incident_id, actor)
+    return check_report(session, _app(request).settings, incident)
 
 
 # ------------------------------------------------------- registration

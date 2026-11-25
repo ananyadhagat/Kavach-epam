@@ -4,6 +4,7 @@ import { api } from "../api.js";
 import { teamAgentsCard } from "../kavach/agents-ui.js";
 import { workCheckReview } from "../kavach/workcheck-ui.js";
 import { distanceFacts, outcomeBanner, photo, reasonChips } from "../components.js";
+import { audioNote } from "../kavach/voice.js";
 import { createMap, legend, mapProviderName } from "../maps.js";
 import { banner, button, card, chip, clear, demoTag, emptyState, fmtAgo, fmtCoord, fmtM, fmtTime, h, kv, label, pageHead, reasonDialog, toast } from "../ui.js";
 
@@ -61,7 +62,9 @@ export async function renderReview(ctx) {
       card({}, h("h2", {}, "Reported"), inc.photos[0] ? photo(inc.photos[0].url, "Photo from the report") : h("p", { class: "muted" }, "No photo"),
         h("p", {}, inc.description)),
       card({}, h("h2", {}, "Completed"), c.photo ? photo(c.photo.url, "Completion photo") : h("p", { class: "muted" }, "No photo"),
-        h("p", {}, `“${c.description}”`))),
+        h("p", {}, `“${c.description}”`),
+        (c.audio_notes || []).length ? h("div", { class: "stack tight" }, h("span", { class: "lbl" }, "Worker's voice notes"),
+          c.audio_notes.map((n, i) => audioNote(n, { label: `Voice note ${i + 1}` }))) : null)),
     inc.task ? workCheckReview(inc.task.task_id) : null,
     teamAgentsCard(inc, { only: ["VERIFICATION", "SANITATION"], title: "Second opinion from the team's agents" }),
     h("div", { class: "grid two" },

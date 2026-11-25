@@ -32,7 +32,7 @@ def iso(seconds_ago=0):
 
 
 def make_settings(tmp_path, **overrides):
-    values = dict(app_env="test", database_url=f"sqlite:///{(tmp_path / 'test.db').as_posix()}",
+    values = dict(app_env="test", auth_mode="demo", database_url=f"sqlite:///{(tmp_path / 'test.db').as_posix()}",
                   storage_dir=tmp_path / "uploads", _env_file=None)
     values.update(overrides)
     return Settings(**values)
@@ -59,6 +59,17 @@ def report(client, *, device=None, error=None, pin=None, photos=1, source="CAMER
     r = client.post("/api/v1/incidents", data={"payload": json.dumps(payload)}, files=files or None, headers=headers)
     assert r.status_code == expect, r.text
     return r.json()
+
+
+def complaint_post(client, body, headers=CITIZEN, *, photo=True, source="CAMERA_LIVE", captured_ago=2, scene=None, key=None):
+    """POST a citizen complaint to the KAVACH public portal (multipart: payload JSON + a camera photo)."""
+    payload = dict(body)
+    if photo:
+        payload.setdefault("photos_meta", [{"capture_source": source, "captured_at": iso(captured_ago) if source != "GALLERY" else None,
+                                            "uploaded_at": iso(0)}])
+    files = [("photos", ("complaint.jpg", scene or pothole_scene(7), "image/jpeg"))] if photo else None
+    extra = {"Idempotency-Key": key} if key else {}
+    return client.post("/api/v1/kavach/public/reports", data={"payload": json.dumps(payload)}, files=files, headers={**headers, **extra})
 
 
 def reported_task(client, point=SPOT, worker_headers=None):
@@ -95,5 +106,5 @@ def status_of(client, incident_id):
     return client.get(f"/api/v1/incidents/{incident_id}", headers=SUPERVISOR).json()["status"]
 
 
-__all__ = ["CITIZEN", "CITIZEN2", "WORKER12", "WORKER15", "SUPERVISOR", "SPOT", "DEMO_POINT", "offset", "iso", "make_settings",
+__all__ = ["complaint_post", "CITIZEN", "CITIZEN2", "WORKER12", "WORKER15", "SUPERVISOR", "SPOT", "DEMO_POINT", "offset", "iso", "make_settings",
            "fix", "report", "reported_task", "start", "complete", "review", "status_of"]

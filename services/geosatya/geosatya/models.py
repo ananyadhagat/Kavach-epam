@@ -46,6 +46,13 @@ class UserRow(Base):
     department_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
     is_active: Mapped[bool | None] = mapped_column(Boolean, nullable=True)  # None = active
     phone: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    # Sign-in (all nullable, so existing users and databases keep working).
+    # login_id: lower-case email or phone number, unique (index made in init_schema).
+    login_id: Mapped[str | None] = mapped_column(String(160), nullable=True)
+    password_hash: Mapped[str | None] = mapped_column(String(200), nullable=True)  # scrypt; never the password
+    auth_epoch: Mapped[int | None] = mapped_column(Integer, nullable=True)  # raised on sign-out: older tokens stop working
+    registered_at: Mapped[datetime | None] = mapped_column(Timestamp, nullable=True)
+    last_login_at: Mapped[datetime | None] = mapped_column(Timestamp, nullable=True)
 
     __table_args__ = (CheckConstraint(_in("role", ROLES), name="ck_user_role"),)
 

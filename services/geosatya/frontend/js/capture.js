@@ -79,14 +79,15 @@ export function previewCheck(fix, target, limits) {
 }
 
 const cameraError = (e) => ({
-  NotAllowedError: "Camera permission was denied. Allow the camera for this site, or use the buttons below.",
-  NotFoundError: "No camera was found on this device. Use the buttons below.",
-}[e?.name] || "The camera couldn't be opened here. Use the buttons below.");
+  NotAllowedError: "Camera permission was denied. Allow the camera for this site (lock icon beside the address), or use the phone camera button below.",
+  NotFoundError: "No camera was found on this device. Use the phone camera button below.",
+}[e?.name] || "The camera couldn't be opened here. Use the phone camera button below.");
 
 /* mode "camera": live preview with shutter (falls back to file buttons).
    mode "gallery": straight to the file chooser.
    Resolves {blob, source, capturedAt, fix} or null if cancelled. */
-export function capturePhoto({ mode = "camera", simulated = null, freshnessMs = (session.config?.location_freshness_s || 30) * 1000, onStatus } = {}) {
+export function capturePhoto({ mode = "camera", simulated = null, freshnessMs = (session.config?.location_freshness_s || 30) * 1000, onStatus,
+  allowGallery = true, title = "Take a photo" } = {}) {
   return new Promise((resolve) => {
     let fixPromise = null, stream = null, dialog = null, done = false, statusEl = null, loose = null;
     const stop = () => stream?.getTracks().forEach((t) => t.stop());
@@ -150,15 +151,15 @@ export function capturePhoto({ mode = "camera", simulated = null, freshnessMs = 
       finish({ blob, source: "CAMERA_LIVE", capturedAt: capturedAt.toISOString(), fix: await freshFix() });
     } });
     const cameraInput = fileInput("CAMERA_INPUT", "environment"), galleryInput = fileInput("GALLERY");
-    dialog = h("dialog", { class: "camera", "aria-label": "Take a photo" },
+    dialog = h("dialog", { class: "camera", "aria-label": title },
       h("div", { class: "stage" }, video, message, statusEl),
       h("div", { class: "bar" },
         h("div", { class: "row center" }, shutter),
         h("div", { class: "row wrap center" },
           button("Phone camera app", { class: "btn small light", onclick: () => cameraInput.click() }, "camera"),
-          button("Choose a photo", { class: "btn small light", onclick: () => galleryInput.click() }, "image"),
+          allowGallery ? button("Choose a photo", { class: "btn small light", onclick: () => galleryInput.click() }, "image") : null,
           button("Cancel", { class: "btn small light", onclick: () => finish(null) })),
-        cameraInput, galleryInput));
+        cameraInput, allowGallery ? galleryInput : null));
     document.body.append(dialog);
     dialog.addEventListener("cancel", (e) => { e.preventDefault(); finish(null); });
     dialog.showModal();

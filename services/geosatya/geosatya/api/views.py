@@ -72,6 +72,10 @@ def completion_view(session, c: CompletionRow, *, detail: bool) -> dict:
             "available": dev.available, "latitude": dev.latitude, "longitude": dev.longitude,
             "accuracy_m": dev.accuracy_m, "mode": dev.mode, "observed_at": iso(dev.observed_at),
             "unavailable_reason": dev.unavailable_reason}
+        # Optional spoken notes the worker added to this attempt (never part of the GeoSatya decision).
+        from geosatya.kavach.audio import task_notes
+        data["audio_notes"] = [n for n in task_notes(session, c.task_id)
+                               if n["completion_id"] == c.completion_id or (n["completion_id"] is None and n["attempt"] == c.attempt)]
     return data
 
 

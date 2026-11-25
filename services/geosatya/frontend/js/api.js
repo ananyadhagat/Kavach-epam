@@ -1,5 +1,7 @@
-/* API client and demo identity. In demo mode there is no sign-in: the chosen
-   demo identity is sent in a header and the server still enforces roles. */
+/* API client and sign-in. A signed-in user's JWT access token is sent as
+   "Authorization: Bearer". The server checks the token, the role and the
+   workspace on every request; hiding a button here is only a convenience.
+   In AUTH_MODE=demo (development only) a seeded demo identity can be used instead. */
 
 import { enqueue, flush, loadSnapshot, saveSnapshot } from "./outbox.js";
 
@@ -17,13 +19,27 @@ export class ApiError extends Error {
   constructor(message, status, code) { super(message); this.status = status; this.code = code; }
 }
 
-const authHeaders = () => (session.me ? { "X-GeoSatya-Demo-User": session.me.user_id } : {});
+const TOKEN_KEY = "kavach.token";
+const authHeaders = () => {
+  const token = store.get(TOKEN_KEY);
+  if (token) return { Authorization: `Bearer ${token}` };
+  return session.me && session.config?.auth_mode === "demo" ? { "X-GeoSatya-Demo-User": session.me.user_id } : {};
+};
+export const hasToken = () => !!store.get(TOKEN_KEY);
+/* Development access (AUTH_MODE=demo, refused by the server in production): no login, a role switcher instead.
+   The real JWT sign-in stays in place and is used again with AUTH_MODE=jwt. */
+export const devAccess = () => session.config?.auth_mode === "demo" && !hasToken();
+export const teamDemo = () => !!session.config?.team_demo && devAccess();
+export const defaultDevUser = () => session.users.find((u) => u.role === "SUPERVISOR" && !u.platform_role && !u.workspace_id)
+  || session.users.find((u) => u.role === "SUPERVISOR") || session.users[0] || null;
 
 async function parse(response) {
   const text = await response.text();
   let data = null;
   try { data = text ? JSON.parse(text) : null; } catch { data = { detail: text }; }
   if (!response.ok) {
+    // The token expired or was signed out elsewhere: forget it and ask to sign in again.
+    if (response.status === 401 && store.get(TOKEN_KEY)) { store.set(TOKEN_KEY, null); window.dispatchEvent(new Event("kavach-signed-out")); }
     const detail = Array.isArray(data?.detail) ? data.detail.map((d) => d.msg).join("; ") : data?.detail;
     throw new ApiError(detail || `Request failed (${response.status})`, response.status, data?.code);
   }
@@ -145,7 +161,19 @@ export async function bootstrap() {
   }
   session.config = config;
   session.categories = cats.categories;
-  if (config.auth_mode === "demo") {
+  session.authOptions = await api("/auth/options").catch(() => ({ citizen_signup: true }));
+  session.users = [];
+  session.me = null;
+  if (store.get(TOKEN_KEY)) {
+    try {
+      session.me = await api("/auth/me");
+      store.set("kavach.me", JSON.stringify(session.me));
+    } catch (err) {
+      // Offline: keep the last known user so the worker app still opens; the server decides when back online.
+      if (isNetworkError(err)) session.me = JSON.parse(store.get("kavach.me") || "null");
+    }
+  }
+  if (!session.me && config.auth_mode === "demo") {
     try {
       session.users = await api("/demo/users");
       store.set("geosatya.users", JSON.stringify(session.users));
@@ -153,13 +181,23 @@ export async function bootstrap() {
       if (!isNetworkError(err)) throw err;
       session.users = JSON.parse(store.get("geosatya.users") || "[]");
     }
-    // KAVACH: nobody is "signed in" until they choose an identity on the access page.
     const saved = store.get("geosatya.demoUser");
-    session.me = session.users.find((u) => u.user_id === saved) || null;
-  } else {
-    session.me = await api("/me");
+    // Development access: no login screen. Reopen the last identity, else start as the civic supervisor.
+    // Team live demo: everyone signs in as themselves, so nobody is picked automatically.
+    session.me = session.users.find((u) => u.user_id === saved) || (config.team_demo ? null : defaultDevUser());
+    if (session.me) store.set("geosatya.demoUser", session.me.user_id);
   }
   await loadContext();
+}
+
+/* After a successful sign-in or registration (the server's answer carries the token). */
+export async function signedIn(result) {
+  store.set("geosatya.demoUser", null);
+  store.set(TOKEN_KEY, result.access_token);
+  store.set("kavach.me", JSON.stringify(result.user));
+  session.me = result.user;
+  await loadContext();
+  session.listeners.forEach((fn) => fn(session.me));
 }
 
 /* The signed-in user's workspace (organization or open event), or null. */
@@ -193,9 +231,11 @@ export async function switchUser(userId) {
 }
 
 export function signOut(notify = true) {
+  if (store.get(TOKEN_KEY)) api("/auth/logout", { method: "POST" }).catch(() => {}).finally(() => store.set(TOKEN_KEY, null));
   session.me = null;
   session.ctx = null;
   store.set("geosatya.demoUser", null);
+  store.set("kavach.me", null);
   if (notify) session.listeners.forEach((fn) => fn(null));
 }
 export const firstUser = (role) => session.users.find((u) => u.role === role);

@@ -6,6 +6,7 @@
 import { api, sendOrQueue, session } from "./api.js";
 import { DEMO_CENTER, LOCATION_BLOCKED_HELP, locate, simulatedFix, simulationOn } from "./capture.js";
 import { createMap, esc, legend } from "./maps.js";
+import { findWorkerButton } from "./kavach/allocate.js";
 import { banner, button, card, chip, clear, fmtAgo, fmtM, fmtTime, h, icon, kv, label, reasonDialog, toast } from "./ui.js";
 
 const POLL_MS = 15000;
@@ -404,23 +405,10 @@ export function intelligenceCard(inc, ctx) {
 }
 
 /* ----------------------------------------------- supervisor: dispatch */
+/* "Find another worker": the radar search opens on demand (it runs the ranking each time). */
+const reassignToggle = (inc, ctx) => h("div", { class: "row wrap" }, findWorkerButton(inc, ctx, "reassign"));
 export function dispatchCard(inc, ctx) {
   const d = inc.dispatch, task = inc.task;
-  const workerSelect = h("select", { id: "assign-worker", "aria-label": "Field worker" }, h("option", { value: "" }, "Loading workers…"));
-  api("/workers").then((ws) => clear(workerSelect, h("option", { value: "" }, "Choose a worker"), ws.map((w) => h("option", { value: w.worker_id, disabled: task?.worker_id === w.worker_id },
-    `${w.name} · ${w.active_tasks}/${w.max_active_tasks} tasks · ${w.available ? "available" : "unavailable"} · ${w.location_fresh ? "location fresh" : "no recent location"}`))))
-    .catch(() => clear(workerSelect, h("option", { value: "" }, "Couldn't load workers")));
-  const act = async (path, needReason) => {
-    if (!workerSelect.value) { toast("Choose a worker first.", "fail"); return; }
-    const reason = await reasonDialog({ title: needReason ? "Reassign this task" : "Assign this incident", confirmText: needReason ? "Reassign" : "Assign",
-      description: needReason ? "Tracking of the current worker stops and their shared locations for this task are deleted." : null, required: needReason });
-    if (reason == null) return;
-    try { await api(path, { method: "POST", json: { worker_id: workerSelect.value, reason } }); toast("Assigned", "pass"); ctx.rerender(); }
-    catch (err) { toast(err.message, "fail"); }
-  };
-  const retry = button("Run dispatch again", { class: "btn small", onclick: async () => {
-    try { const r = await api(`/incidents/${inc.incident_id}/dispatch/retry`, { method: "POST" }); toast(r.task ? "Assigned" : "Still no eligible worker", r.task ? "pass" : "info"); ctx.rerender(); }
-    catch (err) { toast(err.message, "fail"); } } }, "refresh");
   const canReassign = task && ["ASSIGNED", "IN_PROGRESS"].includes(task.status);
   const hasEvidence = (inc.completions || []).length > 0;
   const timeoutMin = session.config.tracking?.acceptance_timeout_min || 15;
@@ -449,11 +437,9 @@ export function dispatchCard(inc, ctx) {
         d.rejected.map((r) => h("li", {}, h("strong", {}, r.worker_name || r.worker_id), `: ${r.reasons.join(", ")}`)))) : null,
       h("p", { class: "hint" }, "Ranking rules from the KAVACH Dispatch Agent: skills, availability, capacity, location under 15 min old and within the dispatch radius; then 70% distance, 30% workload.")]
       : h("p", { class: "muted" }, "No dispatch decision recorded (task created before the dispatch integration)."),
-    !task ? h("div", { class: "stack" }, banner("review", "No eligible worker was found automatically."), h("label", { class: "field", for: "assign-worker" }, "Assign to", workerSelect),
-      h("div", { class: "row wrap" }, button("Assign", { class: "btn primary", onclick: () => act(`/incidents/${inc.incident_id}/assign`, false) }, "user"), retry)) : null,
+    !task ? h("div", { class: "stack" }, banner("review", "No eligible worker was found automatically. Search the area, pick a worker, or run dispatch again."),
+      h("div", { class: "row wrap" }, findWorkerButton(inc, ctx, "assign"))) : null,
     task ? kv([["Acceptance", accepted ? `Accepted ${fmtTime(inc.progress.accepted_at || inc.progress.tracking_started_at || inc.progress.work_started_at)}` : overdue ? "Overdue: not accepted" : "Waiting for the worker"]]) : null,
     releaseActions,
-    canReassign ? h("details", {}, h("summary", {}, "Reassign to another worker"), h("div", { class: "stack", style: { marginTop: "10px" } },
-      h("label", { class: "field", for: "assign-worker" }, "New worker", workerSelect),
-      h("div", {}, button("Reassign", { class: "btn", onclick: () => act(`/tasks/${task.task_id}/reassign`, true) }, "user")))) : null);
+    canReassign ? reassignToggle(inc, ctx) : null);
 }

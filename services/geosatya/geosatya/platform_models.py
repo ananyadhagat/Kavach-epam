@@ -186,3 +186,128 @@ class TaskChecklistRow(Base):
     completed: Mapped[list] = mapped_column(JSON, default=list)
     updated_by: Mapped[str] = mapped_column(String(64))
     updated_at: Mapped[datetime] = mapped_column(Timestamp)
+
+
+# ------------------------------------------------------------------ women's safety
+# Private to the signed-in user. Kept apart from the shared audit log (which supervisors
+# can read) so allies, SOS history and locations can never leak through it.
+class TrustedAllyRow(Base):
+    __tablename__ = "kavach_trusted_allies"
+
+    ally_id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    user_id: Mapped[str] = mapped_column(String(64), ForeignKey("users.user_id"))
+    name: Mapped[str] = mapped_column(String(80))
+    phone: Mapped[str] = mapped_column(String(20))
+    relationship: Mapped[str] = mapped_column(String(20))
+    consent_at: Mapped[datetime] = mapped_column(Timestamp)  # when the user agreed to share with this person
+    active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(Timestamp)
+    updated_at: Mapped[datetime] = mapped_column(Timestamp)
+
+    __table_args__ = (Index("ix_ally_user", "user_id"),)
+
+
+class SosRow(Base):
+    __tablename__ = "kavach_sos"
+
+    sos_id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    user_id: Mapped[str] = mapped_column(String(64), ForeignKey("users.user_id"))
+    status: Mapped[str] = mapped_column(String(12))  # ACTIVE | CANCELLED | RESOLVED | EXPIRED
+    method: Mapped[str] = mapped_column(String(14))  # BUTTON | LONG_PRESS
+    triggered_at: Mapped[datetime] = mapped_column(Timestamp)  # server time of the trigger
+    # SHARING (live phone GPS received) | MANUAL (a hand-placed point, not GPS) | WAITING_FOR_GPS (nothing usable yet)
+    location_status: Mapped[str] = mapped_column(String(16), default="WAITING_FOR_GPS")
+    location_error: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    last_latitude: Mapped[float | None] = mapped_column(Float, nullable=True)
+    last_longitude: Mapped[float | None] = mapped_column(Float, nullable=True)
+    last_accuracy_m: Mapped[float | None] = mapped_column(Float, nullable=True)
+    last_observed_at: Mapped[datetime | None] = mapped_column(Timestamp, nullable=True)
+    last_received_at: Mapped[datetime | None] = mapped_column(Timestamp, nullable=True)
+    last_mode: Mapped[str | None] = mapped_column(String(8), nullable=True)  # LIVE | MANUAL
+    updates: Mapped[int] = mapped_column(Integer, default=0)
+    ended_at: Mapped[datetime | None] = mapped_column(Timestamp, nullable=True)
+    ended_reason: Mapped[str | None] = mapped_column(String(30), nullable=True)
+
+    __table_args__ = (
+        CheckConstraint(_in("status", ("ACTIVE", "CANCELLED", "RESOLVED", "EXPIRED")), name="ck_sos_status"),
+        CheckConstraint(LAT.format(c="last_latitude"), name="ck_sos_lat"),
+        CheckConstraint(LON.format(c="last_longitude"), name="ck_sos_lon"),
+        Index("ix_sos_user", "user_id"),
+    )
+
+
+class SosEventRow(Base):
+    __tablename__ = "kavach_sos_events"
+
+    event_id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    sos_id: Mapped[str] = mapped_column(String(32), ForeignKey("kavach_sos.sos_id"))
+    event: Mapped[str] = mapped_column(String(24))
+    at: Mapped[datetime] = mapped_column(Timestamp)
+    details: Mapped[dict] = mapped_column(JSON, default=dict)
+
+
+class SosNotificationRow(Base):
+    """What was (or was not) sent to each trusted ally. status is never SENT unless a
+    delivery provider really confirmed it; today none is connected, so it stays
+    PENDING_INTEGRATION and the user sends the link from their own phone."""
+
+    __tablename__ = "kavach_sos_notifications"
+
+    notification_id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    sos_id: Mapped[str] = mapped_column(String(32), ForeignKey("kavach_sos.sos_id"))
+    ally_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    ally_name: Mapped[str] = mapped_column(String(80))      # snapshot, so history survives a removed ally
+    ally_phone: Mapped[str] = mapped_column(String(20))
+    relationship: Mapped[str] = mapped_column(String(20))
+    kind: Mapped[str] = mapped_column(String(12))            # ALERT | CANCELLED | RESOLVED
+    channel: Mapped[str] = mapped_column(String(12))         # SMS_WHATSAPP | PUSH
+    status: Mapped[str] = mapped_column(String(22))          # PENDING_INTEGRATION | SENT | FAILED
+    token: Mapped[str | None] = mapped_column(String(48), nullable=True, unique=True)  # the ally's private link
+    created_at: Mapped[datetime] = mapped_column(Timestamp)
+    last_opened_at: Mapped[datetime | None] = mapped_column(Timestamp, nullable=True)
+
+    __table_args__ = (Index("ix_sosnote_sos", "sos_id"),)
+
+
+class FeedbackRow(Base):
+    """A citizen's rating of how their resolved complaint was handled."""
+
+    __tablename__ = "kavach_feedback"
+
+    incident_id: Mapped[str] = mapped_column(String(32), ForeignKey("incidents.incident_id"), primary_key=True)
+    user_id: Mapped[str] = mapped_column(String(64), ForeignKey("users.user_id"))
+    rating: Mapped[int] = mapped_column(Integer)
+    comment: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(Timestamp)
+
+    __table_args__ = (CheckConstraint("rating >= 1 AND rating <= 5", name="ck_feedback_rating"),)
+
+
+class AudioNoteRow(Base):
+    """An optional voice note: a citizen explaining an SOS, or a field worker
+    adding information when completing a task. The audio file lives in private
+    storage (never a public folder) and is served only through authorized routes.
+    Recording is never required; the note does not change any GeoSatya decision."""
+
+    __tablename__ = "kavach_audio_notes"
+
+    note_id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    kind: Mapped[str] = mapped_column(String(12))                     # SOS | COMPLETION
+    sos_id: Mapped[str | None] = mapped_column(String(32), ForeignKey("kavach_sos.sos_id"), nullable=True)
+    task_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    incident_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    completion_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    attempt: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    uploaded_by: Mapped[str] = mapped_column(String(64), ForeignKey("users.user_id"))
+    storage_key: Mapped[str] = mapped_column(String(100), unique=True)
+    mime_type: Mapped[str] = mapped_column(String(30))
+    size_bytes: Mapped[int] = mapped_column(Integer)
+    duration_s: Mapped[float | None] = mapped_column(Float, nullable=True)   # as reported by the recorder
+    sha256: Mapped[str] = mapped_column(String(64))
+    received_at: Mapped[datetime] = mapped_column(Timestamp)
+
+    __table_args__ = (
+        CheckConstraint(_in("kind", ("SOS", "COMPLETION")), name="ck_audio_kind"),
+        Index("ix_audio_sos", "sos_id"),
+        Index("ix_audio_task", "task_id"),
+    )

@@ -1,7 +1,8 @@
 /* Worker: task list, and the task page where location + completion photo are verified. */
 
 import { workCheckCard } from "../kavach/workcheck-ui.js";
-import { api, cachedGet, sendOrQueue, session } from "../api.js";
+import { api, cachedGet, sendOrQueue, session, upload } from "../api.js";
+import { voiceRecorder } from "../kavach/voice.js";
 import { newKey, pending, saveSnapshot } from "../outbox.js";
 
 const isWorker0 = () => session.me?.role === "WORKER";
@@ -16,7 +17,7 @@ const offlineBanner = (data) => (data?.offlineSince
   ? banner("review", h("strong", {}, "You're offline. "), `Showing this as it was ${fmtAgo(data.offlineSince)}. What you do now is saved on this phone and sent when you're back online.`)
   : null);
 
-export async function renderTasks({ main, rerender }) {
+export async function renderTasks({ main, rerender, history = false }) {
   const tasks = await cachedGet("/tasks");
   const open = tasks.filter((t) => ["ASSIGNED", "IN_PROGRESS"].includes(t.status));
   const rest = tasks.filter((t) => !open.includes(t));
@@ -25,7 +26,12 @@ export async function renderTasks({ main, rerender }) {
       h("div", { class: "muted" }, t.incident.category_label + (session.me.role === "SUPERVISOR" ? ` · ${t.worker_name}` : "")),
       t.rework_reason && ["ASSIGNED", "IN_PROGRESS"].includes(t.status) ? h("div", { class: "chip review", style: { marginTop: "6px" } }, `Rework: ${t.rework_reason}`) : null),
     chip(t.status));
-  clear(main, pageHead({ title: session.me.role === "WORKER" ? "My tasks" : "All field tasks", subtitle: "Each task opens at the location the citizen reported." }),
+  if (history) {
+    clear(main, pageHead({ title: "Task history", subtitle: "Work you have submitted, and how it was reviewed." }), offlineBanner(tasks),
+      rest.length ? h("div", { class: "items" }, rest.map(item)) : card({}, emptyState("No finished tasks yet", "Tasks you complete appear here.")));
+    return;
+  }
+  clear(main, pageHead({ title: session.me.role === "WORKER" ? "My tasks" : "Assigned tasks", subtitle: "Each task opens at the location the citizen reported." }),
     offlineBanner(tasks),
     h("div", { class: "stack" }, h("h2", {}, "To do"), open.length ? h("div", { class: "items" }, open.map(item))
       : card({}, emptyState("Nothing to do right now", "New reports are assigned automatically."))),
@@ -137,6 +143,20 @@ export async function renderTask(ctx) {
   };
 
   const submit = button("Submit evidence", { class: "btn primary big block" }, "check");
+  // Optional spoken note for the supervisor; sent with the completion once it is accepted.
+  const voice = voiceRecorder({ title: "Voice note · optional", autoSubmit: false, maxSeconds: 180,
+    hint: "Tell your supervisor about extra work, problems, missing resources or instructions." });
+  ctx.onCleanup?.(voice.destroy);
+  const sendVoice = async (completionId) => {
+    const v = voice.take();
+    if (!v) return;
+    const fd = new FormData();
+    fd.append("audio", v.blob, v.blob.type.includes("mp4") ? "note.m4a" : "note.webm");
+    fd.append("duration_s", String(v.seconds));
+    if (completionId) fd.append("completion_id", completionId);
+    try { await upload(`/tasks/${t.task_id}/audio-notes`, fd); voice.markSent(); toast("Voice note sent to your supervisor", "pass"); }
+    catch (err) { toast(`Evidence submitted, but the voice note was not sent: ${err.message}`, "fail"); }
+  };
   const desc = h("textarea", { id: "desc", maxlength: 2000, value: draft.description, placeholder: "What did you do? e.g. Filled and levelled the pothole.",
     oninput: (e) => { draft.description = e.target.value; } });
 
@@ -179,12 +199,12 @@ export async function renderTask(ctx) {
         form: { payload: JSON.stringify(payload), blob: c.blob, filename: "completion.jpg" } });
       if (res.queued) {
         delete renderTask.drafts[`${t.task_id}:${t.attempt}`];
-        toast("Saved on this phone. It will be sent and checked when you're back online.", "info");
+        toast(voice.hasRecording() ? "Saved on this phone. It will be sent when you're back online (the voice note is not kept offline)." : "Saved on this phone. It will be sent and checked when you're back online.", "info");
         rerender();
         return;
       }
       const comp = res.completion;
-      if (comp.accepted) { delete renderTask.drafts[`${t.task_id}:${t.attempt}`]; toast("Evidence submitted", comp.outcome === "PASS" ? "pass" : "info"); rerender(); return; }
+      if (comp.accepted) { delete renderTask.drafts[`${t.task_id}:${t.attempt}`]; await sendVoice(comp.completion_id); toast("Evidence submitted", comp.outcome === "PASS" ? "pass" : "info"); rerender(); return; }
       // Not accepted: keep the form so the worker can move and try again.
       submit.disabled = false;
       draft.result = comp;
@@ -243,7 +263,7 @@ export async function renderTask(ctx) {
   } else if (editable) {
     nextStep = card({ class: "card next-step" }, h("span", { class: "lbl" }, "Step 4 · Finish"), workCheckCard(t.task_id, { target }),
       h("h2", {}, "Completion photo"), capBox,
-      h("label", { class: "field", for: "desc" }, "What did you do?", desc), resultBox, submit,
+      h("label", { class: "field", for: "desc" }, "What did you do?", desc), voice.el, resultBox, submit,
       h("p", { class: "hint" }, `Take it at the spot: you must be within ${limits.geofence_radius_m} m. The server checks the distance itself.`),
       workProgressCard(t, rerender));
   }
