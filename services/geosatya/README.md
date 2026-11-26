@@ -275,11 +275,13 @@ Field workers can install GeoSatya on their phone's home screen. On Android in C
   - Background tracking still stops when the app is closed or the phone sleeps (a browser limit).
   - Saved actions live in the browser's storage: clearing site data deletes them.
   - Declining a job and starting the journey's live sharing need a connection.
-  - The service worker can't be tested in the Claude app's built-in browser, which blocks service workers. The outbox and offline pages were tested there by stopping the server.
+  - The service worker can't be tested in embedded preview browsers that block service workers. The outbox and offline pages were tested there by stopping the server.
 
 To regenerate the app icons, run `python scripts/make_app_icons.py`.
 
 ## 15. API endpoints
+
+> This table covers the GeoSatya core. The KAVACH layer adds sign-in (`/auth/*`), workspaces and the public portal (`/kavach/*`), women's safety (`/women/*`), voice notes (`/tasks/{id}/audio-notes`, `/women/sos/{id}/audio-notes`) and the read-only worker search (`GET /incidents/{id}/dispatch/candidates`). See the API section of the root README and the running server's `/docs`. Every route is listed in `geosatya/authz.py`.
 
 All under `/api/v1` except `/health`. Access is role-based: citizens see their own reports, field workers their assigned tasks, supervisors everything. Identify the caller with `X-GeoSatya-Demo-User: <id>` (demo mode) or `Authorization: Bearer <token>` (token mode).
 
