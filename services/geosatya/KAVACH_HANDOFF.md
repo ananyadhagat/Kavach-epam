@@ -3,7 +3,7 @@
 Branch: `kavach-unified` (local). **Nothing from the work below is committed or pushed.** Teammate branches were only read.
 Database backups: `data/backups/geosatya_v3-before-*.db` (taken before each stage; never delete).
 
-## How to run (say "RUN KAVACH" to Claude, or do it yourself)
+## How to run
 ```
 powershell -ExecutionPolicy Bypass -File D:\Desktop\Kavach-epam-team\run-kavach.ps1          # agents + server + Cloudflare link
 powershell -ExecutionPolicy Bypass -File D:\Desktop\Kavach-epam-team\run-kavach.ps1 -NoTunnel # laptop only
@@ -112,4 +112,4 @@ Tests: `tests/test_team_demo.py` (only the 10, full report → assign → comple
    Not tested on a real phone camera / GPS yet.
 5. Field Worker agent (needs PostgreSQL), merge of dispatch-work's 31 Oct update, zone-aware dispatch.
 6. The footer contact (`hello@kavach.example`) is a placeholder.
-7. `.claude/launch.json` is a local dev file; do not commit it.
+7. Local editor and preview settings folders are git-ignored (see the root `.gitignore`); keep them out of commits.

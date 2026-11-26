@@ -1,3 +1,5 @@
 
-# local files (never commit)
+# local editor and preview settings (never commit)
 .claude/
+.vscode/
+.idea/
